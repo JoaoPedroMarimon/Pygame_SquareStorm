@@ -124,7 +124,6 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         
         # Desenhar controles
         desenhar_texto(tela, "Use as teclas WASD para mover", 24, BRANCO, LARGURA // 2, ALTURA // 2 - 50)
-        desenhar_texto(tela, "Tecla ESPAÇO para atirar", 24, BRANCO, LARGURA // 2, ALTURA // 2)
         desenhar_texto(tela, "Teclas SETAS para atirar em diagonais", 24, BRANCO, LARGURA // 2, ALTURA // 2 + 50)
         
         # Desenhar informações do modo de jogo
@@ -276,6 +275,124 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
             
             if rect_sair.collidepoint(mouse_pos):
                 return False
+        
+        pygame.display.flip()
+        relogio.tick(FPS)
+
+# Modificação na função tela_vitoria_fase para adicionar atalhos de teclado:
+
+def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual, pontuacao):
+    """
+    Exibe uma tela de vitória após completar uma fase, com opções para continuar ou voltar ao menu.
+    
+    Args:
+        tela: Superfície principal do jogo
+        relogio: Objeto Clock para controle de FPS
+        gradiente_vitoria: Superfície com o gradiente de fundo da vitória
+        fase_atual: Número da fase que acabou de ser completada
+        pontuacao: Pontuação atual do jogador
+        
+    Returns:
+        "proximo" para avançar à próxima fase
+        "menu" para voltar ao menu principal
+        "sair" para sair do jogo
+    """
+    # Criar efeitos visuais
+    estrelas = criar_estrelas(100)
+    particulas = []
+    
+    # Gerar explosões de celebração
+    for _ in range(8):
+        x = random.randint(50, LARGURA - 50)
+        y = random.randint(50, ALTURA - 50)
+        criar_explosao(x, y, VERDE, particulas, 10)
+    
+    # Som de vitória
+    pygame.mixer.Channel(0).play(pygame.mixer.Sound(gerar_som_explosao()))
+    
+    # Animação de texto
+    escala_texto = 0
+    escala_alvo = 1.2
+    
+    while True:
+        tempo_atual = pygame.time.get_ticks()
+        clique_ocorreu = False
+        
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                return "sair"
+            if evento.type == pygame.KEYDOWN:
+                # Tecla Enter ou Espaço para próxima fase
+                if evento.key == pygame.K_RETURN or evento.key == pygame.K_SPACE:
+                    return "proximo"  # Avançar para próxima fase
+                
+                # Tecla Backspace ou M para menu
+                if evento.key == pygame.K_BACKSPACE or evento.key == pygame.K_m:
+                    return "menu"  # Voltar ao menu
+                
+                # Tecla ESC para sair
+                if evento.key == pygame.K_ESCAPE:
+                    return "sair"  # Sair do jogo
+                
+            # Verificação de clique do mouse
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                clique_ocorreu = True
+        
+        # Atualizar partículas
+        for particula in particulas[:]:
+            particula.atualizar()
+            if particula.acabou():
+                particulas.remove(particula)
+        
+        # Adicionar novas partículas ocasionalmente
+        if random.random() < 0.05:
+            x = random.randint(0, LARGURA)
+            y = random.randint(0, ALTURA)
+            criar_explosao(x, y, VERDE, particulas, 5)
+        
+        # Animar texto
+        escala_texto += (escala_alvo - escala_texto) * 0.05
+        if escala_texto > escala_alvo - 0.05:
+            escala_alvo = 1.0 if escala_alvo > 1.1 else 1.2
+        
+        # Desenhar fundo
+        tela.blit(gradiente_vitoria, (0, 0))
+        
+        # Desenhar estrelas
+        desenhar_estrelas(tela, estrelas)
+        
+        # Desenhar partículas
+        for particula in particulas:
+            particula.desenhar(tela)
+        
+        # Desenhar texto com efeito pulsante
+        tamanho_texto = int(70 * escala_texto)
+        desenhar_texto(tela, f"FASE {fase_atual} COMPLETA!", tamanho_texto, VERDE, LARGURA // 2, ALTURA // 3)
+        
+        # Mostrar número de inimigos derrotados e pontuação
+        desenhar_texto(tela, f"Inimigos derrotados: {fase_atual if fase_atual < 3 else 1}", 30, 
+                      BRANCO, LARGURA // 2, ALTURA // 3 + 80)
+        desenhar_texto(tela, f"Pontuação: {pontuacao}", 30, AMARELO, LARGURA // 2, ALTURA // 3 + 130)
+        
+        # Desenhar botão para próxima fase (com indicação de tecla)
+        rect_proximo = pygame.Rect(LARGURA // 2 - 150, ALTURA // 2 + 50, 300, 60)
+        hover_proximo = criar_botao(tela, "PRÓXIMA FASE (ENTER)", LARGURA // 2, ALTURA // 2 + 50, 300, 60, 
+                                  (60, 120, 60), (80, 180, 80), BRANCO)
+        
+        # Desenhar botão para voltar ao menu (com indicação de tecla)
+        rect_menu = pygame.Rect(LARGURA // 2 - 150, ALTURA // 2 + 130, 300, 60)
+        hover_menu = criar_botao(tela, "VOLTAR AO MENU (M)", LARGURA // 2, ALTURA // 2 + 130, 300, 60, 
+                              (60, 60, 150), (80, 80, 200), BRANCO)
+        
+        # Verificar cliques nos botões
+        if clique_ocorreu:
+            mouse_pos = pygame.mouse.get_pos()
+            
+            if rect_proximo.collidepoint(mouse_pos):
+                return "proximo"
+            
+            if rect_menu.collidepoint(mouse_pos):
+                return "menu"
         
         pygame.display.flip()
         relogio.tick(FPS)

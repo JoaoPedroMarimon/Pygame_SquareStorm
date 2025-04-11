@@ -1,4 +1,4 @@
-# QUADRADO VERSUS QUADRADO
+# SQUARE VERSUS SQUARE
 
 Um jogo de batalha espacial entre formas geométricas com sistema de fases progressivas.
 

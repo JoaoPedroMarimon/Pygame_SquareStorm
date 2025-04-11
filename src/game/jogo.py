@@ -8,7 +8,7 @@ Módulo principal do jogo, gerencia o loop de jogo e a progressão das fases.
 import pygame
 import sys
 from src.config import *
-from src.ui.menu import tela_inicio, tela_game_over
+from src.ui.menu import tela_inicio, tela_game_over, tela_vitoria_fase
 from src.game.fase import jogar_fase
 from src.utils.visual import criar_gradiente
 
@@ -45,24 +45,46 @@ def main_game():
     gradiente_derrota = criar_gradiente((50, 0, 0), (20, 0, 40))
 
     # Loop principal
-    jogar_novamente = True
-    while jogar_novamente:
+    while True:
         # Mostrar tela de início
         if not tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             return
         
         # Variáveis de fase
         fase_atual = 1
+        pontuacao_total = 0
         
         # Loop de fases
         while fase_atual <= MAX_FASES:
-            if not jogar_fase(tela, relogio, fase_atual, gradiente_jogo, fonte_titulo, fonte_normal):
-                # Se retornar False, o jogador perdeu
-                jogar_novamente = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, False, fase_atual)
-                break
+            # Jogar a fase atual
+            resultado, pontuacao = jogar_fase(tela, relogio, fase_atual, gradiente_jogo, fonte_titulo, fonte_normal)
+            pontuacao_total += pontuacao
             
-            fase_atual += 1
+            if not resultado:
+                # Se o jogador perdeu
+                opcao = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, False, fase_atual)
+                if opcao:  # True = jogar de novo
+                    break  # Sai do loop de fases para reiniciar do menu
+                else:
+                    return  # False = sair do jogo
             
-            # Se completou todas as fases, mostrar tela de vitória final
-            if fase_atual > MAX_FASES:
-                jogar_novamente = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, True, MAX_FASES)
+            # Jogador completou a fase
+            if fase_atual < MAX_FASES:
+                # Se não for a última fase, mostra tela de vitória intermediária
+                opcao = tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual, pontuacao_total)
+                
+                if opcao == "proximo":
+                    # Avançar para próxima fase
+                    fase_atual += 1
+                elif opcao == "menu":
+                    # Voltar ao menu principal
+                    break
+                else:  # "sair"
+                    # Sair do jogo
+                    return
+            else:
+                # Jogador completou a última fase
+                opcao = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, True, MAX_FASES)
+                if not opcao:  # False = sair do jogo
+                    return
+                break  # Sai do loop de fases para reiniciar do menu

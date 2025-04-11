@@ -25,8 +25,8 @@ class Quadrado:
         self.cor_escura = self._gerar_cor_escura(cor)
         self.cor_brilhante = self._gerar_cor_brilhante(cor)
         self.velocidade = velocidade
-        self.vidas = 3
-        self.vidas_max = 3
+        self.vidas = 1
+        self.vidas_max = 1
         self.rect = pygame.Rect(x, y, tamanho, tamanho)
         self.tempo_ultimo_tiro = 0
         

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-QUADRADO VERSUS QUADRADO
+SQUARE VERSUS SQUARE
 Um jogo de batalha entre formas geométricas com sistema de fases.
 
 Este é o arquivo principal que inicia o jogo.
