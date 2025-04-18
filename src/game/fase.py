@@ -17,6 +17,7 @@ from src.utils.sound import gerar_som_explosao, gerar_som_dano
 from src.ui.hud import desenhar_tela_jogo, desenhar_transicao_fase
 from src.game.nivel_factory import NivelFactory
 from src.game.moeda_manager import MoedaManager  # Importar o MoedaManager
+from src.config import LARGURA_JOGO, ALTURA_JOGO
 
 
 
@@ -35,6 +36,14 @@ def criar_inimigos(numero_fase):
     
     
     return inimigos
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Versão atualizada da função para remover o comportamento de tremor dos inimigos.
+Essa função deve substituir a função correspondente no arquivo src/game/fase.py
+"""
+
 def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_atual, tempo_movimento_inimigos, 
                         intervalo_movimento, numero_fase, tiros_inimigo, movimento_x, movimento_y):
     """
@@ -85,8 +94,6 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
         soma = sum(pesos)
         pesos = [p/soma for p in pesos]
         
-        comportamento = random.choices(comportamentos, weights=pesos)[0]
-        
         # Chance de atirar baseada na distância e fase
         chance_tiro = min(0.9, 0.4 + (800 - dist) / 1000 + (numero_fase * 0.05))
         
@@ -113,12 +120,29 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
             
             inimigo.atirar(tiros_inimigo, (dir_tiro_x, dir_tiro_y))
     
-    # Verificar se o inimigo está perto das bordas
-    margem_borda = 80
+    # Definir zona de segurança das bordas (mais ampla que antes)
+    margem_borda = 100
+    
+    # Definir zona crítica das bordas (muito perto da borda)
+    zona_critica = 40
+    
+    # Verificar se o inimigo está na zona de segurança das bordas
     perto_da_borda = (inimigo.x < margem_borda or 
-                     inimigo.x > LARGURA - inimigo.tamanho - margem_borda or
-                     inimigo.y < margem_borda or 
-                     inimigo.y > ALTURA - inimigo.tamanho - margem_borda)
+                      inimigo.x > LARGURA - inimigo.tamanho - margem_borda or
+                      inimigo.y < margem_borda or 
+                      inimigo.y > ALTURA - inimigo.tamanho - margem_borda)
+    
+    # Verificar se o inimigo está na zona crítica das bordas
+    muito_perto_da_borda = (inimigo.x < zona_critica or 
+                           inimigo.x > LARGURA - inimigo.tamanho - zona_critica or
+                           inimigo.y < zona_critica or 
+                           inimigo.y > ALTURA - inimigo.tamanho - zona_critica)
+    
+    # Verificar se o jogador está perigosamente perto da borda
+    jogador_perto_borda = (jogador.x < margem_borda or 
+                          jogador.x > LARGURA - jogador.tamanho - margem_borda or
+                          jogador.y < margem_borda or 
+                          jogador.y > ALTURA - jogador.tamanho - margem_borda)
     
     # Verificar proximidade com outros inimigos (evitar empilhamento)
     evitar_x, evitar_y = 0, 0
@@ -140,82 +164,145 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
         evitar_x /= mag_evitar
         evitar_y /= mag_evitar
     
-    # Lógica de movimento baseada no comportamento, tiros e bordas
-    if perto_da_borda:
-        # Movimento para o centro quando está perto da borda
-        mover_x = (LARGURA / 2 - inimigo.x) / dist if dist > 0 else 0
-        mover_y = (ALTURA / 2 - inimigo.y) / dist if dist > 0 else 0
+    # Detectar tiros próximos e tentar desviar
+    tiro_mais_proximo = None
+    dist_min = float('inf')
+    
+    for tiro in tiros_jogador:
+        dx = tiro.x - inimigo.x
+        dy = tiro.y - inimigo.y
         
-        # Mais forte se estiver muito perto da borda
-        if inimigo.x < 30 or inimigo.x > LARGURA - inimigo.tamanho - 30 or \
-           inimigo.y < 30 or inimigo.y > ALTURA - inimigo.tamanho - 30:
-            mover_x *= 2
-            mover_y *= 2
-    else:
-        # Verificar se há tiros próximos e tentar desviar
-        tiro_mais_proximo = None
-        dist_min = float('inf')
+        # Se o tiro está se aproximando
+        if (tiro.dx > 0 and dx > 0) or (tiro.dx < 0 and dx < 0) or \
+           (tiro.dy > 0 and dy > 0) or (tiro.dy < 0 and dy < 0):
+            
+            dist_tiro = math.sqrt(dx**2 + dy**2)
+            
+            if dist_tiro < dist_min and dist_tiro < 200:
+                dist_min = dist_tiro
+                tiro_mais_proximo = tiro
+    
+    # Determinar movimento principal
+    mover_x, mover_y = 0, 0
+    
+    # PRIORIDADE 1: Zona Crítica - Se muito perto da borda, movimento forte em direção ao centro
+    if muito_perto_da_borda:
+        centro_x, centro_y = LARGURA / 2, ALTURA / 2
         
-        for tiro in tiros_jogador:
-            dx = tiro.x - inimigo.x
-            dy = tiro.y - inimigo.y
-            
-            # Se o tiro está se aproximando
-            if (tiro.dx > 0 and dx > 0) or (tiro.dx < 0 and dx < 0) or \
-               (tiro.dy > 0 and dy > 0) or (tiro.dy < 0 and dy < 0):
-                
-                dist_tiro = math.sqrt(dx**2 + dy**2)
-                
-                if dist_tiro < dist_min and dist_tiro < 200:
-                    dist_min = dist_tiro
-                    tiro_mais_proximo = tiro
+        # Calcular vetor para o centro
+        para_centro_x = centro_x - inimigo.x
+        para_centro_y = centro_y - inimigo.y
         
-        if tiro_mais_proximo is not None:
-            # Movimento evasivo - perpendicular à direção do tiro
-            vetor_perp_x = -tiro_mais_proximo.dy
-            vetor_perp_y = tiro_mais_proximo.dx
+        # Normalizar
+        dist_centro = math.sqrt(para_centro_x**2 + para_centro_y**2)
+        if dist_centro > 0:
+            mover_x = para_centro_x / dist_centro * 1.5  # Força forte para o centro
+            mover_y = para_centro_y / dist_centro * 1.5
+    
+    # PRIORIDADE 2: Evite tiros próximos
+    elif tiro_mais_proximo is not None:
+        # Movimento evasivo - perpendicular à direção do tiro
+        vetor_perp_x = -tiro_mais_proximo.dy
+        vetor_perp_y = tiro_mais_proximo.dx
+        
+        # Garantir que estamos indo para longe do tiro
+        dot_product = vetor_perp_x * (tiro_mais_proximo.x - inimigo.x) + \
+                      vetor_perp_y * (tiro_mais_proximo.y - inimigo.y)
+        
+        if dot_product > 0:
+            vetor_perp_x = -vetor_perp_x
+            vetor_perp_y = -vetor_perp_y
+        
+        # Se estiver perto da borda, considere isso ao desviar
+        if perto_da_borda and not muito_perto_da_borda:
+            # Aplicar um viés para o centro
+            centro_x, centro_y = LARGURA / 2, ALTURA / 2
+            para_centro_x = centro_x - inimigo.x
+            para_centro_y = centro_y - inimigo.y
             
-            # Garantir que estamos indo para longe do tiro
-            dot_product = vetor_perp_x * (tiro_mais_proximo.x - inimigo.x) + \
-                          vetor_perp_y * (tiro_mais_proximo.y - inimigo.y)
+            # Normalizar
+            dist_centro = math.sqrt(para_centro_x**2 + para_centro_y**2)
+            if dist_centro > 0:
+                para_centro_x /= dist_centro
+                para_centro_y /= dist_centro
             
-            if dot_product > 0:
-                vetor_perp_x = -vetor_perp_x
-                vetor_perp_y = -vetor_perp_y
-            
-            # Adicionar componente para se afastar do tiro
+            # Combinar os vetores (70% evasão, 30% para o centro)
+            mover_x = vetor_perp_x * 0.7 + para_centro_x * 0.3
+            mover_y = vetor_perp_y * 0.7 + para_centro_y * 0.3
+        else:
             mover_x = vetor_perp_x
             mover_y = vetor_perp_y
-        else:
-            # Comportamento normal quando não há tiros para desviar
-            if dist < 300:  # Muito perto
-                if random.random() < 0.7:  # Às vezes recuar
-                    mover_x = -dir_x * 0.8
-                    mover_y = -dir_y * 0.8
-                else:  # Movimento lateral para flanquear
-                    mover_x = dir_y
-                    mover_y = -dir_x
-            elif dist > 500:  # Muito longe
-                # Aproximar do jogador
-                mover_x = dir_x
-                mover_y = dir_y
-            else:  # Distância média
-                # Movimento estratégico: circular ao redor do jogador
-                mover_x = dir_y * 0.8
-                mover_y = -dir_x * 0.8
-                
-                # Com chance de se aproximar ou afastar
-                if random.random() < 0.3:
-                    mover_x += dir_x * 0.3
-                    mover_y += dir_y * 0.3
+    
+    # PRIORIDADE 3: Comportamento normal baseado na situação
+    elif not perto_da_borda or (jogador_perto_borda and inimigo.x > margem_borda and 
+                               inimigo.x < LARGURA - inimigo.tamanho - margem_borda and
+                               inimigo.y > margem_borda and 
+                               inimigo.y < ALTURA - inimigo.tamanho - margem_borda):
+        # Comportamento tático adaptado à distância do jogador
+        if dist < 300:  # Muito perto
+            if random.random() < 0.7:  # Às vezes recuar
+                mover_x = -dir_x * 0.8
+                mover_y = -dir_y * 0.8
+            else:  # Movimento lateral para flanquear
+                mover_x = dir_y
+                mover_y = -dir_x
+        elif dist > 500:  # Muito longe
+            # Aproximar do jogador
+            mover_x = dir_x
+            mover_y = dir_y
+        else:  # Distância média
+            # Movimento estratégico: circular ao redor do jogador
+            mover_x = dir_y * 0.8
+            mover_y = -dir_x * 0.8
+            
+            # Com chance de se aproximar ou afastar
+            if random.random() < 0.3:
+                mover_x += dir_x * 0.3
+                mover_y += dir_y * 0.3
+    
+    # PRIORIDADE 4: Perto da borda mas não na zona crítica
+    else:
+        # Calcular vetor para o centro da tela
+        centro_x, centro_y = LARGURA / 2, ALTURA / 2
+        
+        # Se o jogador está longe da borda, podemos ter como alvo o jogador ao invés do centro
+        if not jogador_perto_borda:
+            centro_x = jogador.x
+            centro_y = jogador.y
+            
+        para_centro_x = centro_x - inimigo.x
+        para_centro_y = centro_y - inimigo.y
+        
+        # Normalizar
+        dist_centro = math.sqrt(para_centro_x**2 + para_centro_y**2)
+        if dist_centro > 0:
+            para_centro_x /= dist_centro
+            para_centro_y /= dist_centro
+            
+        # Aplicar um fator multiplicador baseado na proximidade da borda
+        fator_borda = 0.6
+        mover_x = para_centro_x * fator_borda
+        mover_y = para_centro_y * fator_borda
     
     # Adicionar componente para evitar outros inimigos
     mover_x += evitar_x * 0.5
     mover_y += evitar_y * 0.5
     
-    # Adicionar um pouco de aleatoriedade ao movimento
-    mover_x += random.uniform(-0.2, 0.2)
-    mover_y += random.uniform(-0.2, 0.2)
+    # Adicionar um pouco de aleatoriedade ao movimento (menos quando perto da borda)
+    aleatoriedade = 0.05 if muito_perto_da_borda else (0.1 if perto_da_borda else 0.2)
+    mover_x += random.uniform(-aleatoriedade, aleatoriedade)
+    mover_y += random.uniform(-aleatoriedade, aleatoriedade)
+    
+    # Verificar se o movimento nos levaria para dentro da borda
+    nova_x = inimigo.x + mover_x * inimigo.velocidade
+    nova_y = inimigo.y + mover_y * inimigo.velocidade
+    
+    # Se o movimento nos levaria para fora, inverta a direção
+    if nova_x < zona_critica or nova_x > LARGURA - inimigo.tamanho - zona_critica:
+        mover_x = -mover_x
+    
+    if nova_y < zona_critica or nova_y > ALTURA - inimigo.tamanho - zona_critica:
+        mover_y = -mover_y
     
     # Normalizar o vetor de movimento
     magnitude = math.sqrt(mover_x**2 + mover_y**2)
@@ -223,6 +310,11 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
         mover_x /= magnitude
         mover_y /= magnitude
     
+    # IMPORTANTE: movimento suavizado - isso evita tremores bruscos
+    # Não alterar a velocidade quando estiver na zona crítica para permitir escape rápido
+    velocidade_atual = inimigo.velocidade if muito_perto_da_borda else inimigo.velocidade * 0.8
+    
+    # Executar o movimento
     inimigo.mover(mover_x, mover_y)
     inimigo.atualizar()
     
@@ -246,7 +338,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             - pontuacao: Pontuação obtida nessa fase
     """
     # Criar jogador
-    jogador = Quadrado(100, ALTURA // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
+    jogador = Quadrado(100, ALTURA_JOGO // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
     
     # Criar inimigos (quantidade = número da fase)
     inimigos = NivelFactory.criar_fase(numero_fase)    
@@ -269,7 +361,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     movimento_y = 0
     
     # Tempos para a IA dos inimigos
-    tempo_movimento_inimigos = [0] * numero_fase
+    tempo_movimento_inimigos = [0] * len(inimigos)  # Ajustado para usar len(inimigos) em vez de numero_fase
     intervalo_movimento = max(300, 600 - numero_fase * 30)  # Reduz com a fase
     
     # Criar estrelas para o fundo
@@ -359,11 +451,11 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             
             # Texto de introdução com efeito
             tamanho = 70 + int(math.sin(tempo_atual / 200) * 5)
-            desenhar_texto(tela, f"FASE {numero_fase}", tamanho, BRANCO, LARGURA // 2, ALTURA // 3)
-            desenhar_texto(tela, f"{numero_fase} inimigo{'s' if numero_fase > 1 else ''} para derrotar", 36, 
-                           AMARELO, LARGURA // 2, ALTURA // 2)
-            desenhar_texto(tela, "Preparado?", 30, BRANCO, LARGURA // 2, ALTURA * 2 // 3)
-            desenhar_texto(tela, "Pressione qualquer tecla para começar", 24, BRANCO, LARGURA // 2, ALTURA * 3 // 4)
+            desenhar_texto(tela, f"FASE {numero_fase}", tamanho, BRANCO, LARGURA // 2, ALTURA_JOGO // 3)
+            desenhar_texto(tela, f"{len(inimigos)} inimigo{'s' if len(inimigos) > 1 else ''} para derrotar", 36, 
+                           AMARELO, LARGURA // 2, ALTURA_JOGO // 2)
+            desenhar_texto(tela, "Preparado?", 30, BRANCO, LARGURA // 2, ALTURA_JOGO * 2 // 3)
+            desenhar_texto(tela, "Pressione qualquer tecla para começar", 24, BRANCO, LARGURA // 2, ALTURA_JOGO * 3 // 4)
             
             pygame.display.flip()
             relogio.tick(FPS)
@@ -377,8 +469,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         if pausado:
             # Desenhar mensagem de pausa
             tela.fill((0, 0, 20))
-            desenhar_texto(tela, "PAUSADO", 60, BRANCO, LARGURA // 2, ALTURA // 2)
-            desenhar_texto(tela, "Pressione P para continuar", 30, BRANCO, LARGURA // 2, ALTURA // 2 + 80)
+            desenhar_texto(tela, "PAUSADO", 60, BRANCO, LARGURA // 2, ALTURA_JOGO // 2)
+            desenhar_texto(tela, "Pressione P para continuar", 30, BRANCO, LARGURA // 2, ALTURA_JOGO // 2 + 80)
             pygame.display.flip()
             relogio.tick(FPS)
             continue
@@ -386,184 +478,30 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         # Atualizar posição do jogador
         jogador.mover(movimento_x, movimento_y)
         jogador.atualizar()
-        jogador.mover(movimento_x, movimento_y)
-        jogador.atualizar()
+        
+        # Garantir que o jogador não ultrapasse a área de jogo
+        if jogador.y + jogador.tamanho > ALTURA_JOGO:
+            jogador.y = ALTURA_JOGO - jogador.tamanho
+            jogador.rect.y = jogador.y
         
         # Atualizar moedas e verificar colisões
         moeda_coletada = moeda_manager.atualizar(jogador)
         if moeda_coletada:
             # Adicionar pontos bônus ao coletar moedas
             pontuacao += 5
+            
         # Atualizar IA para cada inimigo
         for idx, inimigo in enumerate(inimigos):
-            if inimigo.vidas <= 0:
-                continue  # Pular inimigos derrotados
-                
-            # Calcular vetor direção para o jogador
-            dir_x = jogador.x - inimigo.x
-            dir_y = jogador.y - inimigo.y
-            dist = math.sqrt(dir_x**2 + dir_y**2)
+            tempo_movimento_inimigos[idx] = atualizar_IA_inimigo(
+                inimigo, idx, jogador, tiros_jogador, inimigos, tempo_atual, 
+                tempo_movimento_inimigos, intervalo_movimento, numero_fase, 
+                tiros_inimigo, movimento_x, movimento_y
+            )
             
-            # Normalizar a direção se a distância não for zero
-            if dist > 0:
-                dir_x /= dist
-                dir_y /= dist
-            
-            # Atualizar comportamento a cada intervalo
-            if tempo_atual - tempo_movimento_inimigos[idx] > intervalo_movimento + (idx * 100):
-                tempo_movimento_inimigos[idx] = tempo_atual
-                
-                # Escolher comportamento baseado na situação e fase
-                comportamentos = ["perseguir", "flanquear", "recuar", "evasivo"]
-                pesos = [0.4, 0.3, 0.15, 0.15]
-                
-                # Aumentar agressividade com o nível da fase
-                pesos[0] += min(0.3, numero_fase * 0.03)  # Mais perseguição nas fases avançadas
-                
-                # Normalizar pesos
-                soma = sum(pesos)
-                pesos = [p/soma for p in pesos]
-                
-                comportamento = random.choices(comportamentos, weights=pesos)[0]
-                
-                # Chance de atirar baseada na distância e fase
-                chance_tiro = min(0.9, 0.4 + (800 - dist) / 1000 + (numero_fase * 0.05))
-                
-                if random.random() < chance_tiro:
-                    # Calcular direção para o jogador com previsão de movimento
-                    dir_tiro_x = dir_x
-                    dir_tiro_y = dir_y
-                    
-                    # Adicionar previsão simples (mirar um pouco à frente)
-                    if abs(movimento_x) > 0 or abs(movimento_y) > 0:
-                        dir_tiro_x += movimento_x * 0.3
-                        dir_tiro_y += movimento_y * 0.3
-                    
-                    # Normalizar novamente
-                    norm = math.sqrt(dir_tiro_x**2 + dir_tiro_y**2)
-                    if norm > 0:
-                        dir_tiro_x /= norm
-                        dir_tiro_y /= norm
-                    
-                    # Reduzir imprecisão em fases avançadas
-                    imprecisao = max(0.05, min(0.4, dist / 1000 - (numero_fase * 0.02)))
-                    dir_tiro_x += random.uniform(-imprecisao, imprecisao)
-                    dir_tiro_y += random.uniform(-imprecisao, imprecisao)
-                    
-                    inimigo.atirar(tiros_inimigo, (dir_tiro_x, dir_tiro_y))
-            
-            # Verificar se o inimigo está perto das bordas
-            margem_borda = 80
-            perto_da_borda = (inimigo.x < margem_borda or 
-                             inimigo.x > LARGURA - inimigo.tamanho - margem_borda or
-                             inimigo.y < margem_borda or 
-                             inimigo.y > ALTURA - inimigo.tamanho - margem_borda)
-            
-            # Verificar proximidade com outros inimigos (evitar empilhamento)
-            evitar_x, evitar_y = 0, 0
-            for outro_idx, outro in enumerate(inimigos):
-                if idx != outro_idx and outro.vidas > 0:
-                    dx = inimigo.x - outro.x
-                    dy = inimigo.y - outro.y
-                    dist_outro = math.sqrt(dx**2 + dy**2)
-                    
-                    if dist_outro < 80:  # Distância mínima entre inimigos
-                        forca = 1.0 - (dist_outro / 80)
-                        if dist_outro > 0:
-                            evitar_x += dx / dist_outro * forca
-                            evitar_y += dy / dist_outro * forca
-            
-            # Normalizar vetor de evasão
-            mag_evitar = math.sqrt(evitar_x**2 + evitar_y**2)
-            if mag_evitar > 0:
-                evitar_x /= mag_evitar
-                evitar_y /= mag_evitar
-            
-            # Lógica de movimento baseada no comportamento, tiros e bordas
-            if perto_da_borda:
-                # Movimento para o centro quando está perto da borda
-                mover_x = (LARGURA / 2 - inimigo.x) / dist if dist > 0 else 0
-                mover_y = (ALTURA / 2 - inimigo.y) / dist if dist > 0 else 0
-                
-                # Mais forte se estiver muito perto da borda
-                if inimigo.x < 30 or inimigo.x > LARGURA - inimigo.tamanho - 30 or \
-                   inimigo.y < 30 or inimigo.y > ALTURA - inimigo.tamanho - 30:
-                    mover_x *= 2
-                    mover_y *= 2
-            else:
-                # Verificar se há tiros próximos e tentar desviar
-                tiro_mais_proximo = None
-                dist_min = float('inf')
-                
-                for tiro in tiros_jogador:
-                    dx = tiro.x - inimigo.x
-                    dy = tiro.y - inimigo.y
-                    
-                    # Se o tiro está se aproximando
-                    if (tiro.dx > 0 and dx > 0) or (tiro.dx < 0 and dx < 0) or \
-                       (tiro.dy > 0 and dy > 0) or (tiro.dy < 0 and dy < 0):
-                        
-                        dist_tiro = math.sqrt(dx**2 + dy**2)
-                        
-                        if dist_tiro < dist_min and dist_tiro < 200:
-                            dist_min = dist_tiro
-                            tiro_mais_proximo = tiro
-                
-                if tiro_mais_proximo is not None:
-                    # Movimento evasivo - perpendicular à direção do tiro
-                    vetor_perp_x = -tiro_mais_proximo.dy
-                    vetor_perp_y = tiro_mais_proximo.dx
-                    
-                    # Garantir que estamos indo para longe do tiro
-                    dot_product = vetor_perp_x * (tiro_mais_proximo.x - inimigo.x) + \
-                                  vetor_perp_y * (tiro_mais_proximo.y - inimigo.y)
-                    
-                    if dot_product > 0:
-                        vetor_perp_x = -vetor_perp_x
-                        vetor_perp_y = -vetor_perp_y
-                    
-                    # Adicionar componente para se afastar do tiro
-                    mover_x = vetor_perp_x
-                    mover_y = vetor_perp_y
-                else:
-                    # Comportamento normal quando não há tiros para desviar
-                    if dist < 300:  # Muito perto
-                        if random.random() < 0.7:  # Às vezes recuar
-                            mover_x = -dir_x * 0.8
-                            mover_y = -dir_y * 0.8
-                        else:  # Movimento lateral para flanquear
-                            mover_x = dir_y
-                            mover_y = -dir_x
-                    elif dist > 500:  # Muito longe
-                        # Aproximar do jogador
-                        mover_x = dir_x
-                        mover_y = dir_y
-                    else:  # Distância média
-                        # Movimento estratégico: circular ao redor do jogador
-                        mover_x = dir_y * 0.8
-                        mover_y = -dir_x * 0.8
-                        
-                        # Com chance de se aproximar ou afastar
-                        if random.random() < 0.3:
-                            mover_x += dir_x * 0.3
-                            mover_y += dir_y * 0.3
-            
-            # Adicionar componente para evitar outros inimigos
-            mover_x += evitar_x * 0.5
-            mover_y += evitar_y * 0.5
-            
-            # Adicionar um pouco de aleatoriedade ao movimento
-            mover_x += random.uniform(-0.2, 0.2)
-            mover_y += random.uniform(-0.2, 0.2)
-            
-            # Normalizar o vetor de movimento
-            magnitude = math.sqrt(mover_x**2 + mover_y**2)
-            if magnitude > 0:
-                mover_x /= magnitude
-                mover_y /= magnitude
-            
-            inimigo.mover(mover_x, mover_y)
-            inimigo.atualizar()
+            # Garantir que os inimigos não ultrapassem a área de jogo
+            if inimigo.y + inimigo.tamanho > ALTURA_JOGO:
+                inimigo.y = ALTURA_JOGO - inimigo.tamanho
+                inimigo.rect.y = inimigo.y
         
         # Atualizar tiros do jogador
         for tiro in tiros_jogador[:]:
@@ -623,7 +561,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             estrela[0] -= estrela[4]  # Mover com base na velocidade
             if estrela[0] < 0:
                 estrela[0] = LARGURA
-                estrela[1] = random.randint(0, ALTURA)
+                estrela[1] = random.randint(0, ALTURA_JOGO)  # Ajustado para usar ALTURA_JOGO
         
         # Verificar condições de fim de fase
         if jogador.vidas <= 0:
@@ -636,14 +574,12 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         
         # Desenhar tela do jogo
         desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo, 
-                        particulas, flashes, estrelas, gradiente_jogo, pontuacao, numero_fase, fade_in, tempo_atual)
+                        particulas, flashes, estrelas, gradiente_jogo, pontuacao, numero_fase, fade_in, tempo_atual, moeda_manager)
         
-
+        # Desenhar moedas diretamente na área de jogo (não no HUD)
         moeda_manager.desenhar(tela)
-        cor_moeda = AMARELO
-        pygame.draw.circle(tela, cor_moeda, (30, 30), 10)  # Ícone de moeda
-        desenhar_texto(tela, f"{moeda_manager.obter_quantidade()}", 20, cor_moeda, 60, 30)
+        
         pygame.display.flip()
         relogio.tick(FPS)
     
-    return False, pontuacao  # Padrão: jogador saiu do jogo
+    return False, pontuacao

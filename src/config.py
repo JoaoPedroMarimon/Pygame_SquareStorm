@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-Arquivo de configurações do jogo.
-Contém constantes, cores e outras configurações.
+Versão atualizada do arquivo src/config.py para incluir uma área de HUD separada.
 """
 
 # Configurações da janela
-LARGURA, ALTURA = 1024, 768
+LARGURA, ALTURA = 1024, 768 + 80  # Aumentamos a altura em 80 pixels para a barra de HUD
+LARGURA_JOGO, ALTURA_JOGO = 1024, 768  # Dimensões da área jogável
+ALTURA_HUD = 80  # Altura da barra de HUD
 TITULO = "QUADRADO VERSUS QUADRADO"
 FPS = 60
 MAX_FASES = 5  # Alterado de 2 para 3 - agora com fase especial
@@ -24,9 +25,10 @@ VERDE = (50, 255, 50)
 ROXO = (180, 50, 230)  # Cor do inimigo especial
 CIANO = (0, 255, 255)
 LARANJA = (255, 165, 0)
+CINZA_ESCURO = (40, 40, 60)  # Cor para o fundo do HUD
 
 # Configurações de jogabilidade
-VELOCIDADE_JOGADOR = 3.0
+VELOCIDADE_JOGADOR = 4.5
 VELOCIDADE_INIMIGO_BASE = 4.5
 VELOCIDADE_INIMIGO_ESPECIAL = 3.8  # Velocidade do inimigo roxo (um pouco mais lento)
 TAMANHO_QUADRADO = 40
@@ -53,4 +55,3 @@ MOEDA_DURACAO_MAX = 10000   # Tempo máximo que uma moeda fica na tela (ms)
 # Cores para a loja
 ROXO_CLARO = (100, 50, 150)
 ROXO_ESCURO = (40, 0, 80)
-

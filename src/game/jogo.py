@@ -18,9 +18,10 @@ def main_game():
     """
     Função principal de controle do jogo.
     Gerencia o loop de jogo, menus e progressão de fases.
+    Ajustada para a nova configuração de tela.
     """
     # Configuração da tela
-    tela = pygame.display.set_mode((LARGURA, ALTURA))
+    tela = pygame.display.set_mode((LARGURA, ALTURA))  # Usar as novas dimensões
     pygame.display.set_caption(TITULO)
     relogio = pygame.time.Clock()
 
@@ -45,8 +46,11 @@ def main_game():
     gradiente_menu = criar_gradiente((30, 0, 60), (10, 0, 30))
     gradiente_vitoria = criar_gradiente((0, 50, 0), (0, 20, 40))
     gradiente_derrota = criar_gradiente((50, 0, 0), (20, 0, 40))
-    gradiente_loja = criar_gradiente(ROXO_CLARO, ROXO_ESCURO)  # Novo gradiente para a loja
+    gradiente_loja = criar_gradiente(ROXO_CLARO, ROXO_ESCURO)
 
+    # O resto da função permanece igual
+    # ...
+    
     # Loop principal
     while True:
         # Mostrar tela de início

@@ -163,63 +163,94 @@ class Quadrado:
             pygame.draw.rect(tela, self.cor, 
                             (self.x, self.y - 15, vida_atual, altura_barra), 0, 2)
 
+
     def mover(self, dx, dy):
-        """Move o quadrado na direção especificada."""
+        """Move o quadrado na direção especificada, com lógica melhorada para evitar tremores."""
         # Salvar posição atual para a trilha (apenas inimigos)
         if self.cor != AZUL:
             self.posicoes_anteriores.insert(0, (self.x, self.y))
             if len(self.posicoes_anteriores) > self.max_posicoes:
                 self.posicoes_anteriores.pop()
         
+        # Calcular nova posição
         novo_x = self.x + dx * self.velocidade
         novo_y = self.y + dy * self.velocidade
         
-        # Verificar se está próximo das bordas (para inimigos)
-        borda_detectada = False
+        # Flag para indicar comportamento de fuga da borda
+        em_fuga_da_borda = False
         
-        if self.cor != AZUL:  # Para qualquer inimigo
-            margem = 50  # Detecta a borda quando está a essa distância
+        # Verificar comportamento de inimigos perto das bordas
+        if self.cor != AZUL:  # Somente para inimigos
+            # Margens para detecção de proximidade com bordas
+            margem_seguranca = 50
+            margem_critica = 20
             
-            # Verificar se está próximo das bordas e ajustar movimento
-            if novo_x < margem or novo_x > LARGURA - self.tamanho - margem or \
-               novo_y < margem or novo_y > ALTURA - self.tamanho - margem:
-                borda_detectada = True
+            # Verificar se está em zona crítica (muito perto da borda)
+            em_zona_critica = (novo_x < margem_critica or 
+                            novo_x > LARGURA - self.tamanho - margem_critica or
+                            novo_y < margem_critica or 
+                            novo_y > ALTURA - self.tamanho - margem_critica)
+            
+            # Verificar se está em zona de segurança (perto da borda, mas não crítico)
+            em_zona_seguranca = (novo_x < margem_seguranca or 
+                            novo_x > LARGURA - self.tamanho - margem_seguranca or
+                            novo_y < margem_seguranca or 
+                            novo_y > ALTURA - self.tamanho - margem_seguranca)
+            
+            if em_zona_critica:
+                # Se está muito perto da borda, aplicar um impulso forte para o centro
+                em_fuga_da_borda = True
                 
-                # Se o inimigo está se movendo em direção a uma borda, inverta sua direção
-                if (novo_x < margem and dx < 0) or (novo_x > LARGURA - self.tamanho - margem and dx > 0):
-                    dx = -dx * 1.5  # Adiciona fator para "escapar" mais rapidamente
+                # Determinar direção para o centro
+                centro_x = LARGURA / 2
+                centro_y = ALTURA / 2
                 
-                if (novo_y < margem and dy < 0) or (novo_y > ALTURA - self.tamanho - margem and dy > 0):
-                    dy = -dy * 1.5
-                    
-                # Recalcular posição com a nova direção
-                novo_x = self.x + dx * self.velocidade
-                novo_y = self.y + dy * self.velocidade
+                # Calcular vetor para o centro
+                vetor_x = centro_x - self.x
+                vetor_y = centro_y - self.y
                 
-                # Se está preso em uma quina, mova-se em direção ao centro
-                if novo_x < margem and novo_y < margem:  # Quina superior esquerda
-                    novo_x = self.x + self.velocidade
-                    novo_y = self.y + self.velocidade
-                elif novo_x < margem and novo_y > ALTURA - self.tamanho - margem:  # Quina inferior esquerda
-                    novo_x = self.x + self.velocidade
-                    novo_y = self.y - self.velocidade
-                elif novo_x > LARGURA - self.tamanho - margem and novo_y < margem:  # Quina superior direita
-                    novo_x = self.x - self.velocidade
-                    novo_y = self.y + self.velocidade
-                elif novo_x > LARGURA - self.tamanho - margem and novo_y > ALTURA - self.tamanho - margem:  # Quina inferior direita
-                    novo_x = self.x - self.velocidade
-                    novo_y = self.y - self.velocidade
+                # Normalizar vetor
+                distancia = math.sqrt(vetor_x**2 + vetor_y**2)
+                if distancia > 0:
+                    vetor_x /= distancia
+                    vetor_y /= distancia
+                
+                # Aplicar movimento em direção ao centro com impulso forte
+                impulso = 1.5  # Mais forte para escapar rapidamente
+                novo_x = self.x + vetor_x * self.velocidade * impulso
+                novo_y = self.y + vetor_y * self.velocidade * impulso
+                
+            elif em_zona_seguranca:
+                # Se está na zona de segurança mas não crítica, suavizar movimento
+                # Combinamos o movimento original com um vetor para o centro
+                centro_x = LARGURA / 2
+                centro_y = ALTURA / 2
+                
+                # Calcular vetor para o centro
+                vetor_x = centro_x - self.x
+                vetor_y = centro_y - self.y
+                
+                # Normalizar vetor
+                distancia = math.sqrt(vetor_x**2 + vetor_y**2)
+                if distancia > 0:
+                    vetor_x /= distancia
+                    vetor_y /= distancia
+                
+                # Misturar o movimento original com movimento para o centro
+                fator_mistura = 0.6  # 60% direção centro, 40% movimento original
+                novo_x = self.x + ((vetor_x * fator_mistura) + (dx * (1 - fator_mistura))) * self.velocidade
+                novo_y = self.y + ((vetor_y * fator_mistura) + (dy * (1 - fator_mistura))) * self.velocidade
         
-        # Manter dentro dos limites da tela
+        # Verificar limites da tela e ajustar posição
         if 0 <= novo_x <= LARGURA - self.tamanho:
             self.x = novo_x
         else:
-            # Se for o inimigo e estiver na borda, aplique um impulso para dentro da tela
+            # Se for inimigo em fuga da borda, aplicar um impulso forte para dentro
             if self.cor != AZUL:
                 if novo_x < 0:
-                    self.x = 5  # Um pequeno "impulso" para dentro
+                    self.x = 10  # Impulso forte para dentro
                 else:
-                    self.x = LARGURA - self.tamanho - 5
+                    self.x = LARGURA - self.tamanho - 10
             else:
                 # O jogador simplesmente fica na borda
                 self.x = max(0, min(novo_x, LARGURA - self.tamanho))
@@ -227,16 +258,17 @@ class Quadrado:
         if 0 <= novo_y <= ALTURA - self.tamanho:
             self.y = novo_y
         else:
-            # Se for o inimigo e estiver na borda, aplique um impulso para dentro da tela
+            # Se for inimigo em fuga da borda, aplicar um impulso forte para dentro
             if self.cor != AZUL:
                 if novo_y < 0:
-                    self.y = 5
+                    self.y = 10
                 else:
-                    self.y = ALTURA - self.tamanho - 5
+                    self.y = ALTURA - self.tamanho - 10
             else:
                 # O jogador simplesmente fica na borda
                 self.y = max(0, min(novo_y, ALTURA - self.tamanho))
-            
+        
+        # Atualizar o retângulo de colisão
         self.rect.x = self.x
         self.rect.y = self.y
         

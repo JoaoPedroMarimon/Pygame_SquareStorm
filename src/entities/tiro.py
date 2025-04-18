@@ -9,6 +9,7 @@ import pygame
 import math
 import random
 from src.config import LARGURA, ALTURA
+from src.config import LARGURA_JOGO, ALTURA_JOGO
 
 class Tiro:
     """
@@ -84,6 +85,6 @@ class Tiro:
         pygame.draw.circle(tela, self.cor_interna, (int(self.x), int(self.y)), self.raio)
 
     def fora_da_tela(self):
-        """Verifica se o tiro saiu dos limites da tela."""
+        """Verifica se o tiro saiu dos limites da tela de jogo."""
         return (self.x < 0 or self.x > LARGURA or 
-                self.y < 0 or self.y > ALTURA)
+                self.y < 0 or self.y > ALTURA_JOGO)

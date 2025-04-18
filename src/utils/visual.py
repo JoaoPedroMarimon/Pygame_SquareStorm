@@ -8,6 +8,7 @@ Utilitários para efeitos visuais como gradientes, estrelas e renderização de 
 import pygame
 import random
 from src.config import LARGURA, ALTURA, BRANCO
+from src.config import LARGURA_JOGO, ALTURA_JOGO
 
 def criar_gradiente(cor1, cor2):
     """
@@ -31,6 +32,7 @@ def criar_gradiente(cor1, cor2):
 def criar_estrelas(quantidade):
     """
     Cria uma lista de estrelas para o fundo.
+    Agora limitada à área de jogo (não a área de HUD).
     
     Args:
         quantidade: Número de estrelas a criar
@@ -41,7 +43,7 @@ def criar_estrelas(quantidade):
     estrelas = []
     for _ in range(quantidade):
         x = random.randint(0, LARGURA)
-        y = random.randint(0, ALTURA)
+        y = random.randint(0, ALTURA_JOGO)  # Limitar à área de jogo
         tamanho = random.uniform(0.5, 2.5)
         brilho = random.randint(100, 255)
         vel = random.uniform(0.1, 0.5)
@@ -58,8 +60,9 @@ def desenhar_estrelas(tela, estrelas):
     """
     for estrela in estrelas:
         x, y, tamanho, brilho, vel = estrela
-        # Desenhar a estrela
-        pygame.draw.circle(tela, (brilho, brilho, brilho), (int(x), int(y)), int(tamanho))
+        # Desenhar a estrela apenas se estiver na área de jogo
+        if y < ALTURA_JOGO:
+            pygame.draw.circle(tela, (brilho, brilho, brilho), (int(x), int(y)), int(tamanho))
         
         # Mover a estrela (paralaxe)
         estrela[0] -= vel
@@ -67,8 +70,7 @@ def desenhar_estrelas(tela, estrelas):
         # Se a estrela sair da tela, reposicioná-la
         if estrela[0] < 0:
             estrela[0] = LARGURA
-            estrela[1] = random.randint(0, ALTURA)
-
+            estrela[1] = random.randint(0, ALTURA_JOGO)
 def desenhar_texto(tela, texto, tamanho, cor, x, y, fonte=None, sombra=True):
     """
     Desenha texto na tela, opcionalmente com uma sombra.
