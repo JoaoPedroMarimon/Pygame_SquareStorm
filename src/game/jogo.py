@@ -11,6 +11,8 @@ from src.config import *
 from src.ui.menu import tela_inicio, tela_game_over, tela_vitoria_fase
 from src.game.fase import jogar_fase
 from src.utils.visual import criar_gradiente
+from src.ui.loja import tela_loja
+
 
 def main_game():
     """
@@ -43,13 +45,22 @@ def main_game():
     gradiente_menu = criar_gradiente((30, 0, 60), (10, 0, 30))
     gradiente_vitoria = criar_gradiente((0, 50, 0), (0, 20, 40))
     gradiente_derrota = criar_gradiente((50, 0, 0), (20, 0, 40))
+    gradiente_loja = criar_gradiente(ROXO_CLARO, ROXO_ESCURO)  # Novo gradiente para a loja
 
     # Loop principal
     while True:
         # Mostrar tela de início
-        if not tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
+        opcao_menu = tela_inicio(tela, relogio, gradiente_menu, fonte_titulo)
+        
+        if opcao_menu == "loja":
+            # O jogador escolheu ir para a loja
+            tela_loja(tela, relogio, gradiente_loja)
+            continue  # Volta para o menu principal
+        
+        if opcao_menu == False:  # Sair do jogo
             return
         
+        # Se não foi para a loja nem saiu, então o jogador quer jogar
         # Variáveis de fase
         fase_atual = 1
         pontuacao_total = 0

@@ -11,6 +11,8 @@ import random
 from src.config import *
 from src.entities.tiro import Tiro
 from src.utils.sound import gerar_som_tiro
+import os
+import json
 
 class Quadrado:
     """
@@ -25,8 +27,16 @@ class Quadrado:
         self.cor_escura = self._gerar_cor_escura(cor)
         self.cor_brilhante = self._gerar_cor_brilhante(cor)
         self.velocidade = velocidade
-        self.vidas = 1
-        self.vidas_max = 1
+        
+        # Verificar se é o jogador e carregar upgrade de vida
+        if cor == AZUL:  # Se for o jogador
+            vidas_upgrade = self._carregar_upgrade_vida()
+            self.vidas = vidas_upgrade
+            self.vidas_max = vidas_upgrade
+        else:  # Se for inimigo
+            self.vidas = 1  # Padrão: 1 vida para inimigos normais
+            self.vidas_max = 1
+        
         self.rect = pygame.Rect(x, y, tamanho, tamanho)
         self.tempo_ultimo_tiro = 0
         
@@ -56,6 +66,22 @@ class Quadrado:
         
         # Identificador (útil para fases)
         self.id = id(self)
+    def _carregar_upgrade_vida(self):
+        """
+        Carrega o upgrade de vida do arquivo de upgrades.
+        Retorna 1 se não houver upgrade.
+        """
+        try:
+            # Verificar se o arquivo existe
+            if os.path.exists("data/upgrades.json"):
+                with open("data/upgrades.json", "r") as f:
+                    upgrades = json.load(f)
+                    return upgrades.get("vida", 1)
+            return 1
+        except Exception as e:
+            print(f"Erro ao carregar upgrade de vida: {e}")
+            return 1
+        
     
     def _gerar_cor_escura(self, cor):
         """Gera uma versão mais escura da cor."""

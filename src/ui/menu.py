@@ -4,8 +4,7 @@
 """
 Funções para gerenciar as telas de menu, início de jogo e fim de jogo.
 """
-
-import pygame
+from src.game.moeda_manager import MoedaManager
 import random
 import math
 import sys
@@ -13,6 +12,9 @@ from src.config import *
 from src.utils.visual import criar_estrelas, desenhar_estrelas, desenhar_texto, criar_botao
 from src.utils.sound import gerar_som_explosao
 from src.entities.particula import criar_explosao, Particula
+import pygame
+
+# Modificar a função tela_inicio para incluir o botão da loja:
 
 def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     """
@@ -25,7 +27,9 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         fonte_titulo: Fonte para o título
         
     Returns:
-        True se o jogador escolher iniciar, False para sair
+        "jogar" para iniciar o jogo
+        "loja" para ir para a loja
+        False para sair
     """
     # Criar efeitos visuais
     estrelas = criar_estrelas(NUM_ESTRELAS_MENU)
@@ -37,7 +41,10 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     titulo_escala = 0
     titulo_alvo = 1.0
     
-    # Loop da tela de início
+    # Inicializar moeda_manager para mostrar quantidade de moedas
+    moeda_manager = MoedaManager()
+    
+    # Loop principal
     while True:
         tempo_atual = pygame.time.get_ticks()
         
@@ -49,12 +56,13 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                 sys.exit()
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_RETURN:
-                    return True  # Iniciar o jogo
+                    return "jogar"  # Iniciar o jogo
+                if evento.key == pygame.K_l:
+                    return "loja"  # Ir para a loja
                 if evento.key == pygame.K_ESCAPE:
-                    pygame.quit()
-                    sys.exit()
+                    return False  # Sair do jogo
             # Verificação explícita de clique do mouse
-            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:  
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:  # Botão esquerdo do mouse
                 clique_ocorreu = True
         
         # Adicionar efeitos visuais aleatórios
@@ -69,7 +77,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             # Som aleatório
             pygame.mixer.Channel(0).play(pygame.mixer.Sound(gerar_som_explosao()))
         
-        # Atualizar partículas
+        # Atualizar partículas - Parte importante corrigida
         for particula in particulas[:]:
             particula.atualizar()
             if particula.acabou():
@@ -81,6 +89,13 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             flash['raio'] += 3
             if flash['vida'] <= 0:
                 flashes.remove(flash)
+        
+        # Atualizar estrelas
+        for estrela in estrelas:
+            estrela[0] -= estrela[4]  # Mover com base na velocidade
+            if estrela[0] < 0:
+                estrela[0] = LARGURA
+                estrela[1] = random.randint(0, ALTURA)
         
         # Animar título
         titulo_escala += (titulo_alvo - titulo_escala) * 0.05
@@ -116,25 +131,31 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             cor_pulse = tuple(int(c * (0.7 + 0.3 * pulse)) for c in AZUL)
             desenhar_texto(tela, "Uma batalha épica de formas geométricas", 28, 
                            cor_pulse, LARGURA // 2, ALTURA // 4 + 70)
-            
-            # Adicionar subtítulo para o sistema de fases
-            cor_pulse2 = tuple(int(c * (0.7 + 0.3 * pulse)) for c in VERDE)
-            desenhar_texto(tela, "MODO SOBREVIVÊNCIA: Múltiplas Fases!", 26, 
-                          cor_pulse2, LARGURA // 2, ALTURA // 4 + 110)
+        
+        # Mostrar quantidade de moedas
+        cor_moeda = AMARELO
+        pygame.draw.circle(tela, cor_moeda, (30, 30), 10)  # Ícone de moeda
+        desenhar_texto(tela, f"{moeda_manager.obter_quantidade()}", 20, cor_moeda, 60, 30)
         
         # Desenhar controles
         desenhar_texto(tela, "Use as teclas WASD para mover", 24, BRANCO, LARGURA // 2, ALTURA // 2 - 50)
-        desenhar_texto(tela, "Teclas SETAS para atirar em diagonais", 24, BRANCO, LARGURA // 2, ALTURA // 2 + 50)
+        desenhar_texto(tela, "Teclas SETAS para atirar em todas direções", 24, BRANCO, LARGURA // 2, ALTURA // 2)
         
-        # Desenhar informações do modo de jogo
-        desenhar_texto(tela, "A cada fase, um novo inimigo aparece!", 20, AMARELO, LARGURA // 2, ALTURA // 2 + 90)
-        desenhar_texto(tela, "Derrote todos os inimigos para avançar", 20, AMARELO, LARGURA // 2, ALTURA // 2 + 120)
+        # Desenhar botões e verificar interação - AGORA COM TRÊS BOTÕES
         
-        # Desenhar botões e verificar interação
-        botao_jogar = criar_botao(tela, "INICIAR JOGO", LARGURA // 2, ALTURA * 3 // 4, 250, 60, 
+        # 1. Botão de Jogar (aumentado para acomodar o texto)
+        rect_jogar = pygame.Rect(LARGURA // 2 - 150, ALTURA * 3 // 4 - 60, 300, 60)
+        botao_jogar = criar_botao(tela, "INICIAR JOGO (ENTER)", LARGURA // 2, ALTURA * 3 // 4 - 60, 300, 60, 
                                  (60, 60, 180), (80, 80, 220), BRANCO)
         
-        botao_sair = criar_botao(tela, "SAIR", LARGURA // 2, ALTURA * 3 // 4 + 80, 200, 50, 
+        # 2. Botão da Loja (aumentado para acomodar o texto)
+        rect_loja = pygame.Rect(LARGURA // 2 - 150, ALTURA * 3 // 4 + 20, 300, 60)
+        botao_loja = criar_botao(tela, "LOJA (L)", LARGURA // 2, ALTURA * 3 // 4 + 20, 300, 60, 
+                                (120, 60, 180), (150, 80, 220), BRANCO)
+        
+        # 3. Botão de Sair
+        rect_sair = pygame.Rect(LARGURA // 2 - 100, ALTURA * 3 // 4 + 100, 200, 50)
+        botao_sair = criar_botao(tela, "SAIR (ESC)", LARGURA // 2, ALTURA * 3 // 4 + 100, 200, 50, 
                                (180, 60, 60), (220, 80, 80), BRANCO)
         
         # Verificar cliques nos botões
@@ -142,20 +163,26 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             mouse_pos = pygame.mouse.get_pos()
             
             # Verificar botão iniciar jogo
-            rect_jogar = pygame.Rect(LARGURA // 2 - 125, ALTURA * 3 // 4 - 30, 250, 60)
             if rect_jogar.collidepoint(mouse_pos):
                 # Efeito de transição
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
                     pygame.display.flip()
                     pygame.time.delay(20)
-                return True
+                return "jogar"
+            
+            # Verificar botão da loja
+            if rect_loja.collidepoint(mouse_pos):
+                # Efeito de transição
+                for i in range(30):
+                    tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
+                    pygame.display.flip()
+                    pygame.time.delay(20)
+                return "loja"
             
             # Verificar botão sair
-            rect_sair = pygame.Rect(LARGURA // 2 - 100, ALTURA * 3 // 4 + 80 - 25, 200, 50)
             if rect_sair.collidepoint(mouse_pos):
-                pygame.quit()
-                sys.exit()
+                return False
         
         pygame.display.flip()
         relogio.tick(FPS)

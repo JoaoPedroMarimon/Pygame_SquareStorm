@@ -32,44 +32,7 @@ def criar_inimigos(numero_fase):
     """
     inimigos = []
     
-    if numero_fase == 1:
-        # Fase 1: Apenas um inimigo centralizado
-        pos_x = LARGURA - 150
-        pos_y = ALTURA // 2
-        cor_inimigo = VERMELHO
-        velocidade_inimigo = VELOCIDADE_INIMIGO_BASE
-        inimigos.append(Quadrado(pos_x, pos_y, TAMANHO_QUADRADO, cor_inimigo, velocidade_inimigo))
     
-    elif numero_fase == 2:
-        # Fase 2: Dois inimigos posicionados em locais estratégicos
-        # Inimigo 1 - Superior
-        pos_x1 = LARGURA - 150
-        pos_y1 = ALTURA // 3
-        cor_inimigo1 = VERMELHO
-        velocidade_inimigo1 = VELOCIDADE_INIMIGO_BASE
-        inimigos.append(Quadrado(pos_x1, pos_y1, TAMANHO_QUADRADO, cor_inimigo1, velocidade_inimigo1))
-        
-        # Inimigo 2 - Inferior (com cor ligeiramente diferente)
-        pos_x2 = LARGURA - 150
-        pos_y2 = 2 * ALTURA // 3
-        cor_inimigo2 = (255, 80, 80)  # Vermelho um pouco diferente
-        velocidade_inimigo2 = VELOCIDADE_INIMIGO_BASE * 1.1  # Um pouco mais rápido
-        inimigos.append(Quadrado(pos_x2, pos_y2, TAMANHO_QUADRADO, cor_inimigo2, velocidade_inimigo2))
-    
-    elif numero_fase == 3:
-        # Fase 3: Um inimigo especial roxo com 2 vidas
-        pos_x = LARGURA - 150
-        pos_y = ALTURA // 2
-        
-        # Criando o inimigo especial com características únicas
-        inimigo_especial = Quadrado(pos_x, pos_y, TAMANHO_QUADRADO, ROXO, VELOCIDADE_INIMIGO_ESPECIAL)
-        
-        # Configurações especiais para o inimigo roxo
-        inimigo_especial.vidas = 2
-        inimigo_especial.vidas_max = 2
-        inimigo_especial.tempo_cooldown = COOLDOWN_TIRO_ESPECIAL
-        
-        inimigos.append(inimigo_especial)
     
     return inimigos
 def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_atual, tempo_movimento_inimigos, 

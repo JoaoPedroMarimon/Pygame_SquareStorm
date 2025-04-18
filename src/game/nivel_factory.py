@@ -138,19 +138,6 @@ class NivelFactory:
         """
         inimigos = []
         
-        # Três inimigos normais em formação triangular
-        pos_x1 = LARGURA - 150
-        pos_y1 = ALTURA // 4
-        inimigos.append(Quadrado(pos_x1, pos_y1, TAMANHO_QUADRADO, VERMELHO, VELOCIDADE_INIMIGO_BASE))
-        
-        pos_x2 = LARGURA - 150
-        pos_y2 = 3 * ALTURA // 4
-        inimigos.append(Quadrado(pos_x2, pos_y2, TAMANHO_QUADRADO, VERMELHO, VELOCIDADE_INIMIGO_BASE))
-        
-        pos_x3 = LARGURA - 250
-        pos_y3 = ALTURA // 2
-        inimigos.append(Quadrado(pos_x3, pos_y3, TAMANHO_QUADRADO, VERMELHO, VELOCIDADE_INIMIGO_BASE))
-        
         # Inimigo Ciano Especial - mais rápido
         pos_x4 = LARGURA - 50
         pos_y4 = ALTURA // 2
@@ -159,69 +146,3 @@ class NivelFactory:
         
         return inimigos
         
-    @staticmethod
-    def criar_fase_generica(numero_fase):
-        """
-        Cria uma fase genérica com base no número da fase.
-        Útil para fases não implementadas especificamente.
-        
-        Args:
-            numero_fase: Número da fase, determina a quantidade e dificuldade dos inimigos
-            
-        Returns:
-            Lista de inimigos para a fase
-        """
-        inimigos = []
-        
-        # Número de inimigos base = número da fase
-        num_inimigos = numero_fase
-        
-        # A cada 3 fases, adiciona um inimigo roxo (2 vidas)
-        num_roxos = numero_fase // 3
-        
-        # Restante são inimigos normais
-        num_normais = num_inimigos - num_roxos
-        
-        # Criar inimigos normais
-        for i in range(num_normais):
-            # Distribuir os inimigos em um semicírculo do lado direito da tela
-            angulo = math.pi * (i / (num_normais - 1 if num_normais > 1 else 1) - 0.5)
-            raio = 200
-            
-            pos_x = LARGURA - 100 - raio * math.cos(angulo)
-            pos_y = ALTURA // 2 + raio * math.sin(angulo)
-            
-            # Variação na cor vermelha
-            r = 255
-            g = 50 + (i * 20) % 100
-            b = 50 + (i * 15) % 100
-            cor = (r, g, b)
-            
-            # Velocidade varia um pouco
-            velocidade = VELOCIDADE_INIMIGO_BASE * (0.9 + random.random() * 0.4)
-            
-            inimigos.append(Quadrado(pos_x, pos_y, TAMANHO_QUADRADO, cor, velocidade))
-        
-        # Criar inimigos roxos (com 2 vidas)
-        for i in range(num_roxos):
-            # Posicionamento dos roxos mais ao centro
-            angulo = math.pi * (i / (num_roxos - 1 if num_roxos > 1 else 1) - 0.5)
-            raio = 120
-            
-            pos_x = LARGURA - 150 - raio * math.cos(angulo)
-            pos_y = ALTURA // 2 + raio * math.sin(angulo)
-            
-            # Variação na cor roxa
-            r = 180 + (i * 10) % 40
-            g = 50 + (i * 5) % 30
-            b = 230 - (i * 10) % 40
-            cor = (r, g, b)
-            
-            inimigo_roxo = Quadrado(pos_x, pos_y, TAMANHO_QUADRADO, cor, VELOCIDADE_INIMIGO_ESPECIAL)
-            inimigo_roxo.vidas = 2
-            inimigo_roxo.vidas_max = 2
-            inimigo_roxo.tempo_cooldown = COOLDOWN_TIRO_ESPECIAL
-            
-            inimigos.append(inimigo_roxo)
-        
-        return inimigos

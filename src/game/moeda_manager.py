@@ -13,6 +13,7 @@ import math
 from src.config import LARGURA, ALTURA
 from src.entities.moeda import Moeda
 
+
 class MoedaManager:
     """
     Classe para gerenciar a geração, coleta e persistência de moedas.
