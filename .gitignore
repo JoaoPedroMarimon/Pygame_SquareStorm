@@ -33,4 +33,4 @@ env/
 .DS_Store
 Thumbs.db
 
-moedas.json
+/data/moedas.json
