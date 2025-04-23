@@ -21,7 +21,7 @@ def main_game():
     Ajustada para a nova configuração de tela.
     """
     # Configuração da tela
-    tela = pygame.display.set_mode((LARGURA, ALTURA))  # Usar as novas dimensões
+    tela = pygame.display.set_mode((LARGURA, ALTURA), pygame.FULLSCREEN)
     pygame.display.set_caption(TITULO)
     relogio = pygame.time.Clock()
 

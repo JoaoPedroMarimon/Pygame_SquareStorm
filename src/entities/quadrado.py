@@ -341,3 +341,51 @@ class Quadrado:
         # Verificar se o tempo de invulnerabilidade acabou
         if self.invulneravel and pygame.time.get_ticks() - self.tempo_invulneravel > self.duracao_invulneravel:
             self.invulneravel = False
+
+    def atirar_com_mouse(self, tiros, pos_mouse):
+        """
+        Faz o quadrado atirar na direção do cursor do mouse.
+        
+        Args:
+            tiros: Lista onde adicionar o novo tiro
+            pos_mouse: Tupla (x, y) com a posição do mouse na tela
+        """
+        # Verificar cooldown
+        tempo_atual = pygame.time.get_ticks()
+        if tempo_atual - self.tempo_ultimo_tiro < self.tempo_cooldown:
+            return
+        
+        self.tempo_ultimo_tiro = tempo_atual
+        
+        # Posição central do quadrado
+        centro_x = self.x + self.tamanho // 2
+        centro_y = self.y + self.tamanho // 2
+        
+        # Calcular vetor direção para o mouse
+        dx = pos_mouse[0] - centro_x
+        dy = pos_mouse[1] - centro_y
+        
+        # Normalizar o vetor direção
+        distancia = math.sqrt(dx * dx + dy * dy)
+        if distancia > 0:  # Evitar divisão por zero
+            dx /= distancia
+            dy /= distancia
+        
+        # Som de tiro
+        pygame.mixer.Channel(1).play(pygame.mixer.Sound(gerar_som_tiro()))
+        
+        # Criar tiro com a direção calculada
+        if self.cor == AZUL:  # Se for o jogador
+            tiros.append(Tiro(centro_x, centro_y, dx, dy, AMARELO, 8))
+        else:
+            # Cor do tiro varia com a cor do inimigo (manter lógica original)
+            cor_tiro = VERDE
+            # Misturar um pouco da cor do inimigo no tiro
+            if self.cor != VERMELHO:
+                verde_base = VERDE[1]
+                r = min(255, self.cor[0] // 3)  # Um pouco da componente vermelha
+                g = verde_base  # Manter o verde forte
+                b = min(255, self.cor[2] // 2)  # Um pouco da componente azul
+                cor_tiro = (r, g, b)
+                
+            tiros.append(Tiro(centro_x, centro_y, dx, dy, cor_tiro, 7))

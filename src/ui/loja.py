@@ -12,7 +12,8 @@ import json
 import os
 from src.config import *
 from src.utils.visual import criar_estrelas, desenhar_estrelas, desenhar_texto, criar_botao
-from src.game.moeda_manager import MoedaManager 
+from src.game.moeda_manager import MoedaManager
+import sys
 
 def tela_loja(tela, relogio, gradiente_loja):
     """
@@ -126,7 +127,7 @@ def tela_loja(tela, relogio, gradiente_loja):
         cor_botao = (60, 120, 60) if botao_ativo else (80, 80, 80)
         cor_hover = (80, 180, 80) if botao_ativo else (100, 100, 100)
         
-        hover_comprar = criar_botao(tela, f"COMPRAR: {custo} MOEDAS", LARGURA // 2, y_pos + 100, 240, 50, 
+        hover_comprar = criar_botao(tela, f"{custo} MOEDAS", LARGURA // 2, y_pos + 100, 240, 50, 
                                   cor_botao, cor_hover, BRANCO)
         
         # Verificar clique no botão de compra
@@ -151,7 +152,7 @@ def tela_loja(tela, relogio, gradiente_loja):
         # Desenhar botão de voltar
         y_voltar = ALTURA - 80
         rect_voltar = pygame.Rect(LARGURA // 2 - 120, y_voltar - 25, 240, 50)
-        hover_voltar = criar_botao(tela, "VOLTAR AO MENU (ESC)", LARGURA // 2, y_voltar, 240, 50, 
+        hover_voltar = criar_botao(tela, "MENU (ESC)", LARGURA // 2, y_voltar, 240, 50, 
                                  (60, 60, 150), (80, 80, 220), BRANCO)
         
         # Verificar clique no botão de voltar

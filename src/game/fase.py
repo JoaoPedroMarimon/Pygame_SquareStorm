@@ -18,7 +18,7 @@ from src.ui.hud import desenhar_tela_jogo, desenhar_transicao_fase
 from src.game.nivel_factory import NivelFactory
 from src.game.moeda_manager import MoedaManager  # Importar o MoedaManager
 from src.config import LARGURA_JOGO, ALTURA_JOGO
-
+from src.utils.visual import desenhar_mira, criar_mira
 
 
 def criar_inimigos(numero_fase):
@@ -320,6 +320,16 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
     
     return tempo_movimento_inimigos[idx]
 
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Atualização da lógica de controle no arquivo src/game/fase.py
+para implementar o sistema de mira com o mouse.
+"""
+
+# Modificação da função jogar_fase no arquivo src/game/fase.py
+
 def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):
     """
     Executa uma fase específica do jogo.
@@ -374,10 +384,19 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     mostrando_inicio = True
     contador_inicio = 120  # 2 segundos a 60 FPS
     
+    # Cursor do mouse visível durante o jogo
+    pygame.mouse.set_visible(False)  # Esconder o cursor padrão do sistema
+
+    # Criar mira personalizada
+    mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
+    
     # Loop principal da fase
     rodando = True
     while rodando:
         tempo_atual = pygame.time.get_ticks()
+        
+        # Obter a posição atual do mouse para o sistema de mira
+        pos_mouse = pygame.mouse.get_pos()
         
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
@@ -394,16 +413,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         movimento_x = -1
                     if evento.key == pygame.K_d:
                         movimento_x = 1
-                    
-                    # Atirar com as setas (nas diagonais e direções cardeais)
-                    if evento.key == pygame.K_UP:
-                        jogador.atirar(tiros_jogador, (0, -1))
-                    if evento.key == pygame.K_DOWN:
-                        jogador.atirar(tiros_jogador, (0, 1))
-                    if evento.key == pygame.K_LEFT:
-                        jogador.atirar(tiros_jogador, (-1, 0))
-                    if evento.key == pygame.K_RIGHT:
-                        jogador.atirar(tiros_jogador, (1, 0))
                     
                     # Tecla P para pausar
                     if evento.key == pygame.K_p:
@@ -427,6 +436,11 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         movimento_x = 0
                     if evento.key == pygame.K_d and movimento_x > 0:
                         movimento_x = 0
+                
+                # Tiro com o botão esquerdo do mouse
+                if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:  # Botão esquerdo
+                    # Atirar na direção do mouse
+                    jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
             else:
                 # Durante a introdução, apenas ESC funciona
                 if evento.type == pygame.KEYDOWN:
@@ -440,6 +454,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             contador_inicio -= 1
             if contador_inicio <= 0:
                 mostrando_inicio = False
+            
+            # Preencher toda a tela com preto antes de desenhar qualquer coisa
+            tela.fill((0, 0, 0))
             
             # Desenhar tela de introdução
             tela.blit(gradiente_jogo, (0, 0))
@@ -467,6 +484,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         
         # Se o jogo estiver pausado, pular a atualização
         if pausado:
+            # Preencher toda a tela com preto antes de desenhar qualquer coisa
+            tela.fill((0, 0, 0))
+            
             # Desenhar mensagem de pausa
             tela.fill((0, 0, 20))
             desenhar_texto(tela, "PAUSADO", 60, BRANCO, LARGURA // 2, ALTURA_JOGO // 2)
@@ -572,14 +592,31 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         if todos_derrotados:
             return True, pontuacao  # Fase concluída com sucesso
         
+        # AQUI É ONDE VOCÊ DEVE ADICIONAR O PREENCHIMENTO DA TELA COM PRETO
+        # Preencher toda a tela com preto antes de desenhar qualquer elemento do jogo
+        tela.fill((0, 0, 0))
+        
         # Desenhar tela do jogo
         desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo, 
                         particulas, flashes, estrelas, gradiente_jogo, pontuacao, numero_fase, fade_in, tempo_atual, moeda_manager)
         
-        # Desenhar moedas diretamente na área de jogo (não no HUD)
+        # Desenhar moedas
         moeda_manager.desenhar(tela)
+        pos_mouse = pygame.mouse.get_pos()
+
+# Limitar o cursor à área de jogo
+        if pos_mouse[0] < 0 or pos_mouse[0] > LARGURA or pos_mouse[1] < 0 or pos_mouse[1] > ALTURA_JOGO:
+            # Se o cursor estiver fora dos limites, forçar de volta para a área válida
+            pos_mouse_x = max(0, min(pos_mouse[0], LARGURA))
+            pos_mouse_y = max(0, min(pos_mouse[1], ALTURA_JOGO))
+            pygame.mouse.set_pos([pos_mouse_x, pos_mouse_y])
+            # Atualizar a posição do mouse após o reposicionamento
+            pos_mouse = pygame.mouse.get_pos()
+        
+        # Desenhar mira personalizada do mouse
+        desenhar_mira(tela, pos_mouse, (mira_surface, mira_rect))
         
         pygame.display.flip()
         relogio.tick(FPS)
     
-    return False, pontuacao
+    return False, pontuacao  # Padrão: jogador saiu do jogo

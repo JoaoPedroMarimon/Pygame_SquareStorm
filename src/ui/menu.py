@@ -145,7 +145,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         
         # 1. Botão de Jogar (aumentado para acomodar o texto)
         rect_jogar = pygame.Rect(LARGURA // 2 - 150, ALTURA * 3 // 4 - 60, 300, 60)
-        botao_jogar = criar_botao(tela, "INICIAR JOGO (ENTER)", LARGURA // 2, ALTURA * 3 // 4 - 60, 300, 60, 
+        botao_jogar = criar_botao(tela, "JOGAR (ENTER)", LARGURA // 2, ALTURA * 3 // 4 - 60, 300, 60, 
                                  (60, 60, 180), (80, 80, 220), BRANCO)
         
         # 2. Botão da Loja (aumentado para acomodar o texto)
