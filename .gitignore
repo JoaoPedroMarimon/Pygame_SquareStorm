@@ -32,3 +32,5 @@ env/
 # Arquivos do sistema
 .DS_Store
 Thumbs.db
+
+moedas.json
