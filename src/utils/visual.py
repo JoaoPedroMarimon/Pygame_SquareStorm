@@ -279,3 +279,52 @@ def mira_estilos():
     estilos.append((mira5, rect5))
     
     return estilos
+
+def criar_texto_flutuante(texto, x, y, cor, particulas, duracao=60, tamanho_fonte=20):
+    """
+    Cria um texto que flutua para cima e desaparece gradualmente.
+    
+    Args:
+        texto: O texto a ser exibido
+        x, y: Posição inicial
+        cor: Cor do texto
+        particulas: Lista onde adicionar o texto flutuante
+        duracao: Duração em frames do texto
+        tamanho_fonte: Tamanho da fonte do texto
+    """
+    # Criar uma classe anônima para o texto flutuante
+    class TextoFlutuante:
+        def __init__(self, texto, x, y, cor, duracao, tamanho_fonte):
+            self.texto = texto
+            self.x = x
+            self.y = y
+            self.cor = cor
+            self.vida = duracao
+            self.vida_maxima = duracao
+            self.tamanho_fonte = tamanho_fonte
+            self.velocidade_y = -0.7  # Velocidade para cima
+            
+        def atualizar(self):
+            self.y += self.velocidade_y
+            self.vida -= 1
+            return self.vida > 0
+            
+        def desenhar(self, tela):
+            # Calcular opacidade com base no tempo de vida restante
+            alpha = int(255 * (self.vida / self.vida_maxima))
+            
+            # Criar fonte e renderizar texto
+            fonte = pygame.font.SysFont("Arial", self.tamanho_fonte, True)
+            texto_surf = fonte.render(self.texto, True, self.cor)
+            texto_surf.set_alpha(alpha)
+            
+            # Posicionar texto centralizado
+            texto_rect = texto_surf.get_rect(center=(int(self.x), int(self.y)))
+            tela.blit(texto_surf, texto_rect)
+            
+        def acabou(self):
+            return self.vida <= 0
+            
+    # Criar e adicionar o texto à lista de partículas
+    texto_flutuante = TextoFlutuante(texto, x, y, cor, duracao, tamanho_fonte)
+    particulas.append(texto_flutuante)

@@ -19,7 +19,7 @@ from src.game.nivel_factory import NivelFactory
 from src.game.moeda_manager import MoedaManager  # Importar o MoedaManager
 from src.config import LARGURA_JOGO, ALTURA_JOGO
 from src.utils.visual import desenhar_mira, criar_mira
-
+from src.utils.visual import desenhar_texto, criar_texto_flutuante
 
 def criar_inimigos(numero_fase):
     """
@@ -371,7 +371,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     movimento_y = 0
     
     # Tempos para a IA dos inimigos
-    tempo_movimento_inimigos = [0] * len(inimigos)  # Ajustado para usar len(inimigos) em vez de numero_fase
+    tempo_movimento_inimigos = [0] * len(inimigos)
     intervalo_movimento = max(300, 600 - numero_fase * 30)  # Reduz com a fase
     
     # Criar estrelas para o fundo
@@ -383,6 +383,10 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     # Mostrar texto de início de fase
     mostrando_inicio = True
     contador_inicio = 120  # 2 segundos a 60 FPS
+    
+    # Atraso para tela de vitória
+    tempo_transicao_vitoria = None  # Será definido quando o último inimigo for derrotado
+    duracao_transicao_vitoria = 180  # 3 segundos a 60 FPS (ajuste conforme necessário)
     
     # Cursor do mouse visível durante o jogo
     pygame.mouse.set_visible(False)  # Esconder o cursor padrão do sistema
@@ -533,8 +537,39 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     continue  # Ignorar inimigos derrotados
                 
                 if tiro.rect.colliderect(inimigo.rect):
+                    dano_causou_morte = False
+                    
+                    # Verificar se este dano vai matar o inimigo
+                    if inimigo.vidas == 1:
+                        dano_causou_morte = True
+                    
+                    # Aplicar o dano
                     if inimigo.tomar_dano():
+                        # Adicionar pontos bônus ao acertar o inimigo
                         pontuacao += 10 * numero_fase  # Pontuação aumenta com a fase
+                        
+                        # Se o inimigo morreu, adicionar moedas
+                        if dano_causou_morte:
+                            # Determinar quantidade de moedas com base no tipo de inimigo
+                            moedas_bonus = 1  # Valor padrão para inimigos básicos
+                            
+                            # Inimigos com mais vida ou especiais dão mais moedas
+                            if inimigo.cor == ROXO:  # Inimigo roxo (especial)
+                                moedas_bonus = 3
+                            elif inimigo.cor == CIANO:  # Inimigo ciano
+                                moedas_bonus = 5
+                            elif inimigo.vidas_max > 1:  # Inimigos com múltiplas vidas
+                                moedas_bonus = 2
+                            
+                            # Adicionar moedas ao contador
+                            moeda_manager.quantidade_moedas += moedas_bonus
+                            moeda_manager.salvar_moedas()  # Salvar as moedas no arquivo
+                            
+                            # Criar animação de pontuação no local da morte
+                            criar_texto_flutuante(f"+{moedas_bonus}", inimigo.x + inimigo.tamanho//2, 
+                                                inimigo.y, AMARELO, particulas)
+                        
+                        # Efeitos visuais de explosão
                         flash = criar_explosao(tiro.x, tiro.y, VERMELHO, particulas, 25)
                         flashes.append(flash)
                         pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_explosao()))
@@ -587,12 +622,22 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         if jogador.vidas <= 0:
             return False, pontuacao  # Jogador perdeu
         
-        # Verificar se todos os inimigos foram derrotados
+        # Verificar se todos os inimigos foram derrotados e tratar transição de vitória
         todos_derrotados = all(inimigo.vidas <= 0 for inimigo in inimigos)
-        if todos_derrotados:
-            return True, pontuacao  # Fase concluída com sucesso
         
-        # AQUI É ONDE VOCÊ DEVE ADICIONAR O PREENCHIMENTO DA TELA COM PRETO
+        # Se todos os inimigos foram derrotados, iniciar contagem para transição
+        if todos_derrotados and tempo_transicao_vitoria is None:
+            tempo_transicao_vitoria = duracao_transicao_vitoria  # Iniciar contagem regressiva
+            # Pode adicionar um efeito sonoro ou visual aqui para indicar a vitória iminente
+        
+        # Se a contagem regressiva de vitória está ativa, decrementá-la
+        if tempo_transicao_vitoria is not None:
+            tempo_transicao_vitoria -= 1
+            
+            # Quando a contagem chegar a zero, concluir a fase
+            if tempo_transicao_vitoria <= 0:
+                return True, pontuacao  # Fase concluída com sucesso
+        
         # Preencher toda a tela com preto antes de desenhar qualquer elemento do jogo
         tela.fill((0, 0, 0))
         
@@ -602,16 +647,23 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         
         # Desenhar moedas
         moeda_manager.desenhar(tela)
-        pos_mouse = pygame.mouse.get_pos()
-
-# Limitar o cursor à área de jogo
-        if pos_mouse[0] < 0 or pos_mouse[0] > LARGURA or pos_mouse[1] < 0 or pos_mouse[1] > ALTURA_JOGO:
-            # Se o cursor estiver fora dos limites, forçar de volta para a área válida
-            pos_mouse_x = max(0, min(pos_mouse[0], LARGURA))
-            pos_mouse_y = max(0, min(pos_mouse[1], ALTURA_JOGO))
-            pygame.mouse.set_pos([pos_mouse_x, pos_mouse_y])
-            # Atualizar a posição do mouse após o reposicionamento
-            pos_mouse = pygame.mouse.get_pos()
+        
+        # Desenhar mensagem de vitória durante a transição
+        if tempo_transicao_vitoria is not None:
+            # Criar um efeito de fade ou texto pulsante
+            alpha = int(255 * (duracao_transicao_vitoria - tempo_transicao_vitoria) / duracao_transicao_vitoria)
+            texto_surf = fonte_titulo.render("FASE CONCLUÍDA!", True, VERDE)
+            texto_surf.set_alpha(alpha)
+            texto_rect = texto_surf.get_rect(center=(LARGURA // 2, ALTURA_JOGO // 2))
+            tela.blit(texto_surf, texto_rect)
+            
+            # Adicionar partículas de celebração aleatórias
+            if random.random() < 0.2:  # 20% de chance por frame
+                x = random.randint(0, LARGURA)
+                y = random.randint(0, ALTURA_JOGO)
+                cor = random.choice([VERDE, AMARELO, AZUL])
+                flash = criar_explosao(x, y, cor, particulas, 15)
+                flashes.append(flash)
         
         # Desenhar mira personalizada do mouse
         desenhar_mira(tela, pos_mouse, (mira_surface, mira_rect))

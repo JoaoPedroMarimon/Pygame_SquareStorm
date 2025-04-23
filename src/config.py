@@ -50,7 +50,7 @@ MOEDA_COR = AMARELO  # Usar a cor AMARELO já definida
 MOEDA_INTERVALO_MIN = 3000  # Tempo mínimo entre geração de moedas (ms)
 MOEDA_INTERVALO_MAX = 8000  # Tempo máximo entre geração de moedas (ms)
 MOEDA_DURACAO_MIN = 5000    # Tempo mínimo que uma moeda fica na tela (ms)
-MOEDA_DURACAO_MAX = 10000   # Tempo máximo que uma moeda fica na tela (ms)
+MOEDA_DURACAO_MAX = 30000   # Tempo máximo que uma moeda fica na tela (ms)
 
 # Cores para a loja
 ROXO_CLARO = (100, 50, 150)

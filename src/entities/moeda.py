@@ -8,7 +8,7 @@ Classe para representar as moedinhas que aparecem no jogo.
 import pygame
 import math
 import random
-from src.config import AMARELO
+from src.config import AMARELO, MOEDA_DURACAO_MAX, MOEDA_DURACAO_MIN
 
 class Moeda:
     """
@@ -22,7 +22,7 @@ class Moeda:
         self.cor = AMARELO
         self.rect = pygame.Rect(x - self.raio, y - self.raio, tamanho, tamanho)
         self.tempo_criacao = pygame.time.get_ticks()
-        self.tempo_vida = random.randint(5000, 10000)  # Duração aleatória entre 5-10 segundos
+        self.tempo_vida = random.randint(MOEDA_DURACAO_MIN, MOEDA_DURACAO_MAX)  # Duração aleatória entre 5-10 segundos
         self.angulo = 0
         self.brilho = 0
         self.direcao_brilho = 1

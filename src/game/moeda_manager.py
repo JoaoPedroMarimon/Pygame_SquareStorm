@@ -22,7 +22,7 @@ class MoedaManager:
         self.moedas_na_tela = []
         self.quantidade_moedas = self.carregar_moedas()  # Alterado para método sem underline
         self.ultimo_spawn = pygame.time.get_ticks()
-        self.intervalo_spawn = random.randint(3000, 8000)  # Entre 3 e 8 segundos
+        self.intervalo_spawn = random.randint(1000, 2000)  # Entre 3 e 8 segundos
         self.som_coleta = self.criar_som_coleta()  # Alterado para método sem underline
     
     def criar_som_coleta(self):  # Alterado para método sem underline
@@ -86,7 +86,7 @@ class MoedaManager:
         if tempo_atual - self.ultimo_spawn > self.intervalo_spawn:
             self.gerar_moeda()  # Alterado para método sem underline
             self.ultimo_spawn = tempo_atual
-            self.intervalo_spawn = random.randint(2000, 3000)  # Novo intervalo aleatório
+            self.intervalo_spawn = random.randint(1000, 3000)  # Novo intervalo aleatório
         
         # Atualizar moedas existentes
         for moeda in self.moedas_na_tela[:]:
