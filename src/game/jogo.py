@@ -12,7 +12,7 @@ from src.ui.menu import tela_inicio, tela_game_over, tela_vitoria_fase
 from src.game.fase import jogar_fase
 from src.utils.visual import criar_gradiente
 from src.ui.loja import tela_loja
-
+import os
 
 def main_game():
     """
@@ -20,8 +20,9 @@ def main_game():
     Gerencia o loop de jogo, menus e progressão de fases.
     Ajustada para a nova configuração de tela.
     """
-    # Configuração da tela
-    tela = pygame.display.set_mode((LARGURA, ALTURA), pygame.FULLSCREEN)
+    os.environ['SDL_VIDEO_CENTERED'] = '1'
+    tela = pygame.display.set_mode((LARGURA, ALTURA))
+
     pygame.display.set_caption(TITULO)
     relogio = pygame.time.Clock()
 

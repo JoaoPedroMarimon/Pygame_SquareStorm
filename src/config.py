@@ -6,8 +6,8 @@ Versão atualizada do arquivo src/config.py para incluir uma área de HUD separa
 """
 
 # Configurações da janela
-LARGURA, ALTURA = 1024, 768 + 80  # Aumentamos a altura em 80 pixels para a barra de HUD
-LARGURA_JOGO, ALTURA_JOGO = 1024, 768  # Dimensões da área jogável
+LARGURA, ALTURA = 1480, 820 # Aumentamos a altura em 80 pixels para a barra de HUD
+LARGURA_JOGO, ALTURA_JOGO = 1480, 820-80  # Dimensões da área jogável
 ALTURA_HUD = 80  # Altura da barra de HUD
 TITULO = "QUADRADO VERSUS QUADRADO"
 FPS = 60
