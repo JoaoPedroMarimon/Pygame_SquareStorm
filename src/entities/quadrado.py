@@ -309,7 +309,7 @@ class Quadrado:
                     b = min(255, self.cor[2] // 2)  # Um pouco da componente azul
                     cor_tiro = (r, g, b)
                     
-                tiros.append(Tiro(centro_x, centro_y, -1, 0, cor_tiro, 7))
+                tiros.append(Tiro(centro_x, centro_y, -1, 0, self.cor, 7))
         else:
             # Cor do tiro baseada no tipo de quadrado
             cor_tiro = AMARELO if self.cor == AZUL else VERDE
@@ -321,7 +321,7 @@ class Quadrado:
                 b = min(255, self.cor[2] // 2)
                 cor_tiro = (r, g, b)
                 
-            tiros.append(Tiro(centro_x, centro_y, direcao[0], direcao[1], cor_tiro, 7))
+            tiros.append(Tiro(centro_x, centro_y, direcao[0], direcao[1], self.cor, 7))
 
     def tomar_dano(self):
         """
@@ -376,11 +376,10 @@ class Quadrado:
         
         # Criar tiro com a direção calculada
         if self.cor == AZUL:  # Se for o jogador
-            tiros.append(Tiro(centro_x, centro_y, dx, dy, AMARELO, 8))
+            tiros.append(Tiro(centro_x, centro_y, dx, dy, AZUL, 8))
         else:
             # Cor do tiro varia com a cor do inimigo (manter lógica original)
             cor_tiro = VERDE
-            # Misturar um pouco da cor do inimigo no tiro
             if self.cor != VERMELHO:
                 verde_base = VERDE[1]
                 r = min(255, self.cor[0] // 3)  # Um pouco da componente vermelha
