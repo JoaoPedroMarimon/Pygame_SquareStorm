@@ -76,6 +76,11 @@ def main_game():
             resultado, pontuacao = jogar_fase(tela, relogio, fase_atual, gradiente_jogo, fonte_titulo, fonte_normal)
             pontuacao_total += pontuacao
             
+            # Adicionar esta verificação para retorno ao menu
+            if resultado == "menu":
+                # Voltar diretamente para o menu quando pausado
+                break  # Sai do loop de fases e volta para o menu principal
+            
             if not resultado:
                 # Se o jogador perdeu
                 opcao = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, False, fase_atual)

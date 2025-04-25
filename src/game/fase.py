@@ -19,7 +19,7 @@ from src.game.nivel_factory import NivelFactory
 from src.game.moeda_manager import MoedaManager  # Importar o MoedaManager
 from src.config import LARGURA_JOGO, ALTURA_JOGO
 from src.utils.visual import desenhar_mira, criar_mira
-from src.utils.visual import desenhar_texto, criar_texto_flutuante
+from src.utils.visual import desenhar_texto, criar_texto_flutuante,criar_botao
 
 def criar_inimigos(numero_fase):
     """
@@ -412,12 +412,14 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         # Obter a posição atual do mouse para o sistema de mira
         pos_mouse = pygame.mouse.get_pos()
         
+# Inside the event loop, modify the mouse button handling
+# Inside the event loop, modify the pause control logic:
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 return False, pontuacao
             
-            # Controles do teclado para o jogador (quando não estiver na introdução)
-            if not mostrando_inicio:
+            # Controles do teclado e mouse para o jogador (quando não estiver na introdução ou pausado)
+            if not mostrando_inicio and not pausado:
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_w:
                         movimento_y = -1
@@ -428,17 +430,11 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if evento.key == pygame.K_d:
                         movimento_x = 1
                     
-                    # Tecla P para pausar
-                    if evento.key == pygame.K_p:
-                        pausado = not pausado
-                        if pausado:
-                            pygame.mixer.pause()
-                        else:
-                            pygame.mixer.unpause()
-                    
-                    # Tecla ESC para sair
+                    # Tecla ESC para pausar
                     if evento.key == pygame.K_ESCAPE:
-                        return False, pontuacao
+                        pausado = True
+                        pygame.mixer.pause()
+                        pygame.mouse.set_visible(True)  # Show cursor when paused
                 
                 # Parar o movimento quando soltar as teclas
                 if evento.type == pygame.KEYUP:
@@ -451,16 +447,31 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if evento.key == pygame.K_d and movimento_x > 0:
                         movimento_x = 0
                 
-                # Tiro com o botão esquerdo do mouse
-                if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:  # Botão esquerdo
-                    # Atirar na direção do mouse
+                # Tiro com o botão esquerdo do mouse (only when not paused)
+                if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
+            
+            # Handle pause menu controls
+            elif pausado:
+                if evento.type == pygame.KEYDOWN:
+                    if evento.key == pygame.K_ESCAPE:
+                        pausado = False
+                        pygame.mixer.unpause()
+                        pygame.mouse.set_visible(False)
+                    if evento.key == pygame.K_m:
+                        return "menu", pontuacao  # Return "menu" instead of False
+                
+                # Handle mouse clicks while paused
+                if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                    mouse_pos = pygame.mouse.get_pos()
+                    if rect_menu_pausado and rect_menu_pausado.collidepoint(mouse_pos):
+                        return "menu", pontuacao
+                        
             else:
-                # Durante a introdução, apenas ESC funciona
+                # During introduction
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_ESCAPE:
                         return False, pontuacao
-                    # Qualquer tecla avança a introdução
                     contador_inicio = 0
         
         # Atualizar contador de introdução
@@ -497,18 +508,45 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             fade_in = max(0, fade_in - 10)
         
         # Se o jogo estiver pausado, pular a atualização
+# Modify the pause menu section:
         if pausado:
             # Preencher toda a tela com preto antes de desenhar qualquer coisa
             tela.fill((0, 0, 0))
             
-            # Desenhar mensagem de pausa
-            tela.fill((0, 0, 20))
-            desenhar_texto(tela, "PAUSADO", 60, BRANCO, LARGURA // 2, ALTURA_JOGO // 2)
-            desenhar_texto(tela, "Pressione P para continuar", 30, BRANCO, LARGURA // 2, ALTURA_JOGO // 2 + 80)
+            # Desenhar mensagem de pausa com efeito transparente
+            overlay = pygame.Surface((LARGURA, ALTURA))
+            overlay.fill((0, 0, 20))
+            overlay.set_alpha(180)
+            tela.blit(overlay, (0, 0))
+            
+            # Desenhar PAUSADO
+            desenhar_texto(tela, "PAUSADO", 60, BRANCO, LARGURA // 2, ALTURA_JOGO // 2 - 50)
+            desenhar_texto(tela, "Pressione P para continuar", 30, BRANCO, LARGURA // 2, ALTURA_JOGO // 2 + 20)
+            
+            # Create Menu button
+            largura_menu = 250
+            altura_menu = 50
+            x_menu = LARGURA // 2
+            y_menu = ALTURA_JOGO // 2 + 100
+            
+            # Scale adjustments
+            escala_y = ALTURA / 848
+            largura_ajustada_menu = int(largura_menu * escala_y)
+            altura_ajustada_menu = int(altura_menu * escala_y)
+            rect_menu_pausado = pygame.Rect(x_menu - largura_ajustada_menu // 2, 
+                                        y_menu - altura_ajustada_menu // 2, 
+                                        largura_ajustada_menu, 
+                                        altura_ajustada_menu)
+            
+            # Draw the menu button
+            hover_menu = criar_botao(tela, "VOLTAR AO MENU", x_menu, y_menu, 
+                                    largura_menu, altura_menu, 
+                                    (120, 60, 60), (180, 80, 80), BRANCO)
+            
             pygame.display.flip()
             relogio.tick(FPS)
             continue
-        
+                
         # Atualizar posição do jogador
         jogador.mover(movimento_x, movimento_y)
         jogador.atualizar()

@@ -1,35 +1,40 @@
-# SQUARE VERSUS SQUARE
+# SquareStorm
 
-Um jogo de batalha espacial entre formas geométricas com sistema de fases progressivas.
+A fast-paced 2D geometry-based shooter game where you battle waves of enemy squares in an epic arena. Built with Python and Pygame.
 
-## Descrição
+![Game Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Python Version](https://img.shields.io/badge/python-3.8+-green.svg)
+![License](https://img.shields.io/badge/license-MIT-red.svg)
 
-Neste jogo, você controla um quadrado azul que deve enfrentar quadrados inimigos vermelhos. A cada fase, um novo inimigo é adicionado, aumentando a dificuldade. Você precisa derrotar todos os inimigos para avançar para a próxima fase.
+## 🎮 About The Game
 
-## Controles
+SquareStorm is an action-packed arcade shooter where you control a blue square fighting against increasingly challenging waves of enemy squares. The game features:
 
-- **WASD**: Movimentação
-- **ESPAÇO**: Atirar para a direita
-- **Setas**: Atirar em direções específicas
-- **P**: Pausar o jogo
-- **ESC**: Sair
+- 5 challenging phases with unique enemy types
+- Dynamic difficulty scaling
+- A shop system with upgrades
+- Smooth particle effects and explosions  
+- Mouse-based aiming with custom crosshair
+- Coin collection system
+- Beautiful visual effects and animations
 
-## Requisitos
+## 🕹️ Controls
 
-- Python 3.x
-- Pygame
+- **WASD** - Move your character
+- **Mouse Left Click** - Shoot in the direction of the mouse cursor
+- **P** - Pause/Resume game
+- **ESC** - Exit to menu
 
-## Instalação
+## 🚀 Installation
 
-1. Clone este repositório
-2. Instale as dependências: `pip install pygame`
-3. Execute o jogo: `python main.py`
+### Prerequisites
 
-## Estrutura do Projeto
+- Python 3.8 or higher
+- pip (Python package installer)
 
-O jogo foi organizado em módulos para facilitar a manutenção e extensão:
+### Quick Setup
 
-- `entities/`: Classes de entidades (quadrados, tiros, partículas)
-- `game/`: Lógica do jogo e gerenciamento de fases
-- `ui/`: Interface com o usuário e menus
-- `utils/`: Ferramentas auxiliares (efeitos visuais, sons)
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/squarestorm.git
+cd squarestorm
