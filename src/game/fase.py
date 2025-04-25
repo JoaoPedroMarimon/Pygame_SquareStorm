@@ -20,6 +20,10 @@ from src.game.moeda_manager import MoedaManager  # Importar o MoedaManager
 from src.config import LARGURA_JOGO, ALTURA_JOGO
 from src.utils.visual import desenhar_mira, criar_mira
 from src.utils.visual import desenhar_texto, criar_texto_flutuante,criar_botao
+from ..utils.visual import desenhar_estrelas, criar_estrelas  # Adicione essas funções
+from ..ui import desenhar_hud, desenhar_tela_jogo
+
+
 
 def criar_inimigos(numero_fase):
     """
@@ -349,6 +353,10 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     """
     # Criar jogador
     jogador = Quadrado(100, ALTURA_JOGO // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
+# No início da função jogar_fase, logo após criar jogador e antes do loop principal, adicione:
+
+# Criar fontes
+    fonte_pequena = pygame.font.SysFont("Arial", 18)  # Fonte pequena para o HUD
     
     # Criar inimigos (quantidade = número da fase)
     inimigos = NivelFactory.criar_fase(numero_fase)    
@@ -395,6 +403,10 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     tempo_transicao_derrota = None  # Será definido quando o jogador perder
     duracao_transicao_derrota = 120  # 2 segundos a 60 FPS
     
+    # Tempo de congelamento no início da fase
+    tempo_congelamento = 240  # 3 segundos a 60 FPS
+    em_congelamento = False  # Será ativado após a introdução
+    
     # Cursor do mouse visível durante o jogo
     pygame.mouse.set_visible(False)  # Esconder o cursor padrão do sistema
 
@@ -422,8 +434,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             if evento.type == pygame.QUIT:
                 return False, pontuacao
             
-            # Controles do teclado para o jogador (quando não estiver na introdução ou pausado ou morto)
-            if not mostrando_inicio and not pausado and not jogador_morto:
+            # Controles do teclado para o jogador (quando não estiver na introdução, pausado, morto ou congelado)
+            if not mostrando_inicio and not pausado and not jogador_morto and not em_congelamento:
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_w:
                         movimento_y = -1
@@ -451,7 +463,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if evento.key == pygame.K_d and movimento_x > 0:
                         movimento_x = 0
                 
-                # Tiro com o botão esquerdo do mouse (apenas se não estiver morto)
+                # Tiro com o botão esquerdo do mouse (apenas se não estiver morto ou congelado)
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
             
@@ -484,6 +496,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             contador_inicio -= 1
             if contador_inicio <= 0:
                 mostrando_inicio = False
+                em_congelamento = True  # Inicia o congelamento após a introdução
             
             # Preencher toda a tela com preto antes de desenhar qualquer coisa
             tela.fill((0, 0, 0))
@@ -503,6 +516,47 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                            AMARELO, LARGURA // 2, ALTURA_JOGO // 2)
             desenhar_texto(tela, "Preparado?", 30, BRANCO, LARGURA // 2, ALTURA_JOGO * 2 // 3)
             desenhar_texto(tela, "Pressione qualquer tecla para começar", 24, BRANCO, LARGURA // 2, ALTURA_JOGO * 3 // 4)
+            
+            pygame.display.flip()
+            relogio.tick(FPS)
+            continue
+        
+        # Lógica de congelamento
+        if em_congelamento:
+            tempo_congelamento -= 1
+            
+            # Durante o congelamento, apenas desenha sem atualizar
+            tela.fill((0, 0, 0))
+            tela.blit(gradiente_jogo, (0, 0))
+            
+            # Desenhar estrelas (paradas)
+            desenhar_estrelas(tela, estrelas)
+            
+            # Desenhar grid de fundo
+            for i in range(0, LARGURA, 50):
+                pygame.draw.line(tela, (30, 30, 60), (i, 0), (i, ALTURA_JOGO), 1)
+            for i in range(0, ALTURA_JOGO, 50):
+                pygame.draw.line(tela, (30, 30, 60), (0, i), (LARGURA, i), 1)
+            
+            # Desenhar jogador e inimigos (sem movimento)
+            if jogador.vidas > 0:
+                jogador.desenhar(tela)
+            for inimigo in inimigos:
+                if inimigo.vidas > 0:
+                    inimigo.desenhar(tela)
+            
+            # Desenhar timer de congelamento
+            segundos_restantes = max(0, tempo_congelamento // FPS)
+            cor_timer = AMARELO if segundos_restantes > 0 else VERDE
+            desenhar_texto(tela, f"PREPARAR: {segundos_restantes}", 50, cor_timer, 
+                          LARGURA // 2, ALTURA_JOGO // 2)
+            
+            # Desenhar HUD
+# Desenhar HUD
+            desenhar_hud(tela, pontuacao, numero_fase, inimigos, tempo_atual, moeda_manager)
+            # Quando o congelamento terminar
+            if tempo_congelamento <= 0:
+                em_congelamento = False
             
             pygame.display.flip()
             relogio.tick(FPS)
@@ -551,125 +605,127 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             relogio.tick(FPS)
             continue
         
-        # Atualizar posição do jogador apenas se não estiver morto
-        if not jogador_morto:
-            jogador.mover(movimento_x, movimento_y)
-            jogador.atualizar()
-            
-            # Garantir que o jogador não ultrapasse a área de jogo
-            if jogador.y + jogador.tamanho > ALTURA_JOGO:
-                jogador.y = ALTURA_JOGO - jogador.tamanho
-                jogador.rect.y = jogador.y
-        
-        # Atualizar moedas e verificar colisões
-        moeda_coletada = moeda_manager.atualizar(jogador)
-        if moeda_coletada:
-            # Adicionar pontos bônus ao coletar moedas
-            pontuacao += 5
-            
-        # Atualizar IA para cada inimigo
-        for idx, inimigo in enumerate(inimigos):
-            tempo_movimento_inimigos[idx] = atualizar_IA_inimigo(
-                inimigo, idx, jogador, tiros_jogador, inimigos, tempo_atual, 
-                tempo_movimento_inimigos, intervalo_movimento, numero_fase, 
-                tiros_inimigo, movimento_x, movimento_y
-            )
-            
-            # Garantir que os inimigos não ultrapassem a área de jogo
-            if inimigo.y + inimigo.tamanho > ALTURA_JOGO:
-                inimigo.y = ALTURA_JOGO - inimigo.tamanho
-                inimigo.rect.y = inimigo.y
-        
-        # Atualizar tiros do jogador
-        for tiro in tiros_jogador[:]:
-            tiro.atualizar()
-            
-            # Verificar colisão com os inimigos
-            for inimigo in inimigos:
-                if inimigo.vidas <= 0:
-                    continue  # Ignorar inimigos derrotados
+        # Só atualiza se não estiver congelado
+        if not em_congelamento:
+            # Atualizar posição do jogador apenas se não estiver morto
+            if not jogador_morto:
+                jogador.mover(movimento_x, movimento_y)
+                jogador.atualizar()
                 
-                if tiro.rect.colliderect(inimigo.rect):
-                    dano_causou_morte = False
+                # Garantir que o jogador não ultrapasse a área de jogo
+                if jogador.y + jogador.tamanho > ALTURA_JOGO:
+                    jogador.y = ALTURA_JOGO - jogador.tamanho
+                    jogador.rect.y = jogador.y
+            
+            # Atualizar moedas e verificar colisões
+            moeda_coletada = moeda_manager.atualizar(jogador)
+            if moeda_coletada:
+                # Adicionar pontos bônus ao coletar moedas
+                pontuacao += 5
+                
+            # Atualizar IA para cada inimigo
+            for idx, inimigo in enumerate(inimigos):
+                tempo_movimento_inimigos[idx] = atualizar_IA_inimigo(
+                    inimigo, idx, jogador, tiros_jogador, inimigos, tempo_atual, 
+                    tempo_movimento_inimigos, intervalo_movimento, numero_fase, 
+                    tiros_inimigo, movimento_x, movimento_y
+                )
+                
+                # Garantir que os inimigos não ultrapassem a área de jogo
+                if inimigo.y + inimigo.tamanho > ALTURA_JOGO:
+                    inimigo.y = ALTURA_JOGO - inimigo.tamanho
+                    inimigo.rect.y = inimigo.y
+            
+            # Atualizar tiros do jogador
+            for tiro in tiros_jogador[:]:
+                tiro.atualizar()
+                
+                # Verificar colisão com os inimigos
+                for inimigo in inimigos:
+                    if inimigo.vidas <= 0:
+                        continue  # Ignorar inimigos derrotados
                     
-                    # Verificar se este dano vai matar o inimigo
-                    if inimigo.vidas == 1:
-                        dano_causou_morte = True
-                    
-                    # Aplicar o dano
-                    if inimigo.tomar_dano():
-                        # Adicionar pontos bônus ao acertar o inimigo
-                        pontuacao += 10 * numero_fase  # Pontuação aumenta com a fase
+                    if tiro.rect.colliderect(inimigo.rect):
+                        dano_causou_morte = False
                         
-                        # Se o inimigo morreu, adicionar moedas
-                        if dano_causou_morte:
-                            # Determinar quantidade de moedas com base no tipo de inimigo
-                            moedas_bonus = 1  # Valor padrão para inimigos básicos
-                            
-                            # Inimigos com mais vida ou especiais dão mais moedas
-                            if inimigo.cor == ROXO:  # Inimigo roxo (especial)
-                                moedas_bonus = 3
-                            elif inimigo.cor == CIANO:  # Inimigo ciano
-                                moedas_bonus = 5
-                            elif inimigo.vidas_max > 1:  # Inimigos com múltiplas vidas
-                                moedas_bonus = 2
-                            
-                            # Adicionar moedas ao contador
-                            moeda_manager.quantidade_moedas += moedas_bonus
-                            moeda_manager.salvar_moedas()  # Salvar as moedas no arquivo
-                            
-                            # Criar animação de pontuação no local da morte
-                            criar_texto_flutuante(f"+{moedas_bonus}", inimigo.x + inimigo.tamanho//2, 
-                                                inimigo.y, AMARELO, particulas)
+                        # Verificar se este dano vai matar o inimigo
+                        if inimigo.vidas == 1:
+                            dano_causou_morte = True
                         
-                        # Efeitos visuais de explosão
-                        flash = criar_explosao(tiro.x, tiro.y, VERMELHO, particulas, 25)
-                        flashes.append(flash)
-                        pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_explosao()))
-                    
+                        # Aplicar o dano
+                        if inimigo.tomar_dano():
+                            # Adicionar pontos bônus ao acertar o inimigo
+                            pontuacao += 10 * numero_fase  # Pontuação aumenta com a fase
+                            
+                            # Se o inimigo morreu, adicionar moedas
+                            if dano_causou_morte:
+                                # Determinar quantidade de moedas com base no tipo de inimigo
+                                moedas_bonus = 1  # Valor padrão para inimigos básicos
+                                
+                                # Inimigos com mais vida ou especiais dão mais moedas
+                                if inimigo.cor == ROXO:  # Inimigo roxo (especial)
+                                    moedas_bonus = 3
+                                elif inimigo.cor == CIANO:  # Inimigo ciano
+                                    moedas_bonus = 5
+                                elif inimigo.vidas_max > 1:  # Inimigos com múltiplas vidas
+                                    moedas_bonus = 2
+                                
+                                # Adicionar moedas ao contador
+                                moeda_manager.quantidade_moedas += moedas_bonus
+                                moeda_manager.salvar_moedas()  # Salvar as moedas no arquivo
+                                
+                                # Criar animação de pontuação no local da morte
+                                criar_texto_flutuante(f"+{moedas_bonus}", inimigo.x + inimigo.tamanho//2, 
+                                                    inimigo.y, AMARELO, particulas)
+                            
+                            # Efeitos visuais de explosão
+                            flash = criar_explosao(tiro.x, tiro.y, VERMELHO, particulas, 25)
+                            flashes.append(flash)
+                            pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_explosao()))
+                        
+                        tiros_jogador.remove(tiro)
+                        break  # Sair do loop de inimigos após uma colisão
+                
+                # Se o tiro ainda existe, verificar se saiu da tela
+                if tiro in tiros_jogador and tiro.fora_da_tela():
                     tiros_jogador.remove(tiro)
-                    break  # Sair do loop de inimigos após uma colisão
             
-            # Se o tiro ainda existe, verificar se saiu da tela
-            if tiro in tiros_jogador and tiro.fora_da_tela():
-                tiros_jogador.remove(tiro)
-        
-        # Atualizar tiros do inimigo
-        for tiro in tiros_inimigo[:]:
-            tiro.atualizar()
+            # Atualizar tiros do inimigo
+            for tiro in tiros_inimigo[:]:
+                tiro.atualizar()
+                
+                # Verificar colisão com o jogador apenas se ele não estiver morto
+                if not jogador_morto and tiro.rect.colliderect(jogador.rect):
+                    if jogador.tomar_dano():
+                        flash = criar_explosao(tiro.x, tiro.y, AZUL, particulas, 25)
+                        flashes.append(flash)
+                        pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_dano()))
+                    tiros_inimigo.remove(tiro)
+                    continue
+                
+                # Remover tiros que saíram da tela
+                if tiro.fora_da_tela():
+                    tiros_inimigo.remove(tiro)
             
-            # Verificar colisão com o jogador apenas se ele não estiver morto
-            if not jogador_morto and tiro.rect.colliderect(jogador.rect):
-                if jogador.tomar_dano():
-                    flash = criar_explosao(tiro.x, tiro.y, AZUL, particulas, 25)
-                    flashes.append(flash)
-                    pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_dano()))
-                tiros_inimigo.remove(tiro)
-                continue
+            # Atualizar partículas
+            for particula in particulas[:]:
+                particula.atualizar()
+                if particula.acabou():
+                    particulas.remove(particula)
             
-            # Remover tiros que saíram da tela
-            if tiro.fora_da_tela():
-                tiros_inimigo.remove(tiro)
-        
-        # Atualizar partículas
-        for particula in particulas[:]:
-            particula.atualizar()
-            if particula.acabou():
-                particulas.remove(particula)
-        
-        # Atualizar flashes
-        for flash in flashes[:]:
-            flash['vida'] -= 1
-            flash['raio'] += 2
-            if flash['vida'] <= 0:
-                flashes.remove(flash)
-        
-        # Atualizar estrelas
-        for estrela in estrelas:
-            estrela[0] -= estrela[4]  # Mover com base na velocidade
-            if estrela[0] < 0:
-                estrela[0] = LARGURA
-                estrela[1] = random.randint(0, ALTURA_JOGO)  # Ajustado para usar ALTURA_JOGO
+            # Atualizar flashes
+            for flash in flashes[:]:
+                flash['vida'] -= 1
+                flash['raio'] += 2
+                if flash['vida'] <= 0:
+                    flashes.remove(flash)
+            
+            # Atualizar estrelas
+            for estrela in estrelas:
+                estrela[0] -= estrela[4]  # Mover com base na velocidade
+                if estrela[0] < 0:
+                    estrela[0] = LARGURA
+                    estrela[1] = random.randint(0, ALTURA_JOGO)  # Ajustado para usar ALTURA_JOGO
         
         # Verificar se todos os inimigos foram derrotados e tratar transição de vitória
         todos_derrotados = all(inimigo.vidas <= 0 for inimigo in inimigos)
@@ -771,8 +827,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 y = jogador.y + random.randint(-50, 50)
                 criar_explosao(x, y, VERMELHO, particulas, 20)
         
-        # Desenhar mira personalizada do mouse
-        desenhar_mira(tela, pos_mouse, (mira_surface, mira_rect))
+        # Desenhar mira personalizada do mouse apenas se não estiver congelado
+        if not em_congelamento:
+            desenhar_mira(tela, pos_mouse, (mira_surface, mira_rect))
         
         pygame.display.flip()
         relogio.tick(FPS)

@@ -12,6 +12,8 @@ from src.ui.menu import tela_inicio, tela_game_over, tela_vitoria_fase
 from src.game.fase import jogar_fase
 from src.utils.visual import criar_gradiente
 from src.ui.loja import tela_loja
+from ..ui.selecao_fase import tela_selecao_fase
+from ..utils.progress import ProgressManager
 import os
 
 def main_game():
@@ -48,26 +50,40 @@ def main_game():
     gradiente_vitoria = criar_gradiente((0, 50, 0), (0, 20, 40))
     gradiente_derrota = criar_gradiente((50, 0, 0), (20, 0, 40))
     gradiente_loja = criar_gradiente(ROXO_CLARO, ROXO_ESCURO)
+    gradiente_selecao = criar_gradiente((20, 20, 50), (10, 10, 30))  # Novo gradiente para seleção
 
-    # O resto da função permanece igual
-    # ...
+    # Adicionar ProgressManager
+    progress_manager = ProgressManager()
     
     # Loop principal
     while True:
         # Mostrar tela de início
         opcao_menu = tela_inicio(tela, relogio, gradiente_menu, fonte_titulo)
         
+        # Variável para armazenar fase selecionada
+        fase_atual = None
+        
         if opcao_menu == "loja":
             # O jogador escolheu ir para a loja
             tela_loja(tela, relogio, gradiente_loja)
             continue  # Volta para o menu principal
+        elif opcao_menu == "selecao_fase":
+            # O jogador escolheu selecionar fase
+            fase_selecionada = tela_selecao_fase(tela, relogio, gradiente_selecao, fonte_titulo, fonte_normal)
+            if fase_selecionada is not None:
+                fase_atual = fase_selecionada
+                # Continuar para jogar a fase selecionada
+                opcao_menu = "jogar"
+            else:
+                continue  # Volta para o menu principal
         
         if opcao_menu == False:  # Sair do jogo
             return
         
         # Se não foi para a loja nem saiu, então o jogador quer jogar
         # Variáveis de fase
-        fase_atual = 1
+        if fase_atual is None:  # Se não selecionou uma fase específica
+            fase_atual = progress_manager.obter_fase_maxima()
         pontuacao_total = 0
         
         # Loop de fases
@@ -91,6 +107,9 @@ def main_game():
             
             # Jogador completou a fase
             if fase_atual < MAX_FASES:
+                # Atualizar progresso
+                progress_manager.atualizar_progresso(fase_atual + 1)
+                
                 # Se não for a última fase, mostra tela de vitória intermediária
                 opcao = tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual, pontuacao_total)
                 
@@ -104,6 +123,9 @@ def main_game():
                     # Sair do jogo
                     return
             else:
+                # Atualizar progresso para indicar que completou todas as fases
+                progress_manager.atualizar_progresso(MAX_FASES)
+                
                 # Jogador completou a última fase
                 opcao = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, True, MAX_FASES)
                 if not opcao:  # False = sair do jogo

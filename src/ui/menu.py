@@ -12,6 +12,8 @@ from src.config import *
 from src.utils.visual import criar_estrelas, desenhar_estrelas, desenhar_texto, criar_botao
 from src.utils.sound import gerar_som_explosao
 from src.entities.particula import criar_explosao, Particula
+from ..utils.progress import ProgressManager
+
 import pygame
 
 # Modificar a função tela_inicio para incluir o botão da loja:
@@ -247,6 +249,18 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                                largura_ajustada_sair, 
                                altura_ajustada_sair)
         
+        # Botão de Seleção de Fase
+        largura_selecao = 100  # Aumentado de 60 para 100
+        altura_selecao = 50   # Ajustado de 60 para 50 para ficar mais retangular
+        x_selecao = LARGURA - 80  # Canto direito da tela
+        y_selecao = 80  # Canto superior
+        largura_ajustada_selecao = int(largura_selecao * escala_y)
+        altura_ajustada_selecao = int(altura_selecao * escala_y)
+        rect_selecao = pygame.Rect(x_selecao - largura_ajustada_selecao // 2, 
+                                y_selecao - altura_ajustada_selecao // 2, 
+                                largura_ajustada_selecao, 
+                                altura_ajustada_selecao)
+                
         # Desenhar botões com novo estilo
         botao_jogar = criar_botao(tela, "INICIAR JOGO", x_jogar, y_jogar, largura_botao, altura_botao, 
                                  (0, 100, 200), (0, 150, 255), BRANCO)
@@ -257,10 +271,23 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         botao_sair = criar_botao(tela, "SAIR", x_sair, y_sair, largura_botao * 0.7, altura_botao * 0.8, 
                                (150, 50, 50), (200, 80, 80), BRANCO)
         
+        # Desenhar botão de seleção de fase com ícone de menu
+        mouse_pos = pygame.mouse.get_pos()
+        hover_selecao = rect_selecao.collidepoint(mouse_pos)
+        cor_botao_selecao = (70, 70, 200) if hover_selecao else (50, 50, 150)
+        pygame.draw.rect(tela, cor_botao_selecao, rect_selecao, 0, 10)
+        pygame.draw.rect(tela, BRANCO, rect_selecao, 2, 10)
+
+        # Desenhar texto "LEVELS" no botão
+        fonte_levels = pygame.font.SysFont("Arial", 18, True)
+        texto_levels = fonte_levels.render("LEVELS", True, BRANCO)
+        texto_rect = texto_levels.get_rect(center=rect_selecao.center)
+        tela.blit(texto_levels, texto_rect)
+        
+        # Desenhar ícone de menu (três linhas)
+        
         # Verificar cliques nos botões
         if clique_ocorreu:
-            mouse_pos = pygame.mouse.get_pos()
-            
             if rect_jogar.collidepoint(mouse_pos):
                 # Efeito de transição
                 for i in range(30):
@@ -279,6 +306,9 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             
             if rect_sair.collidepoint(mouse_pos):
                 return False
+            
+            if rect_selecao.collidepoint(mouse_pos):
+                return "selecao_fase"
         
         pygame.display.flip()
         relogio.tick(FPS)

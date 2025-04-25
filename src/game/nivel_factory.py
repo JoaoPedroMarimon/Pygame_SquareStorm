@@ -141,8 +141,37 @@ class NivelFactory:
         # Inimigo Ciano Especial - mais rápido
         pos_x4 = LARGURA - 50
         pos_y4 = ALTURA // 2
-        inimigo_ciano = Quadrado(pos_x4, pos_y4, TAMANHO_QUADRADO, CIANO, VELOCIDADE_INIMIGO_BASE * 1.5)
+        inimigo_ciano = Quadrado(pos_x4, pos_y4, TAMANHO_QUADRADO, CIANO, VELOCIDADE_INIMIGO_CIANO)
         inimigos.append(inimigo_ciano)
         
         return inimigos
+
+
+    @staticmethod
+    def criar_fase_6():
+        """
+        Fase 4: Dois inimigos normais e um inimigo roxo.
+        """
+        inimigos = []
         
+        # Inimigo 1 - Superior
+        pos_x1 = LARGURA - 200
+        pos_y1 = ALTURA // 4
+        inimigos.append(Quadrado(pos_x1, pos_y1, TAMANHO_QUADRADO, VERMELHO, VELOCIDADE_INIMIGO_BASE))
+        
+        # Inimigo 2 - Inferior
+        pos_x2 = LARGURA - 200
+        pos_y2 = 3 * ALTURA // 4
+        inimigo_roxo = Quadrado(pos_x2, pos_y2, TAMANHO_QUADRADO, ROXO, VELOCIDADE_INIMIGO_ESPECIAL)
+        inimigo_roxo.vidas = 2
+        inimigo_roxo.vidas_max = 2
+        inimigo_roxo.tempo_cooldown = COOLDOWN_TIRO_ESPECIAL
+        inimigos.append(inimigo_roxo)
+        
+        # Inimigo Roxo - Central
+        pos_x3 = LARGURA - 100
+        pos_y3 = ALTURA // 2
+        inimigo_ciano = Quadrado(pos_x3, pos_y3, TAMANHO_QUADRADO, CIANO, VELOCIDADE_INIMIGO_CIANO)
+        inimigos.append(inimigo_ciano)
+        
+        return inimigos
