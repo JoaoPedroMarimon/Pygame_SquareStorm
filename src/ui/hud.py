@@ -156,7 +156,8 @@ def desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo,
             pygame.draw.circle(tela, flash['cor'], (int(flash['x']), int(flash['y'])), int(flash['raio']))
     
     # Desenhar objetos do jogo
-    jogador.desenhar(tela)
+    if jogador.vidas > 0:
+        jogador.desenhar(tela)
     
     # Desenhar inimigos ativos
     for inimigo in inimigos:

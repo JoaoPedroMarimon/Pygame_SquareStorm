@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Versão atualizada do arquivo src/config.py para incluir uma área de HUD separada.
-"""
+
 
 # Configurações da janela
 LARGURA, ALTURA = 1480, 820 # Aumentamos a altura em 80 pixels para a barra de HUD
 LARGURA_JOGO, ALTURA_JOGO = 1480, 820-80  # Dimensões da área jogável
 ALTURA_HUD = 80  # Altura da barra de HUD
-TITULO = "QUADRADO VERSUS QUADRADO"
+TITULO = "SquareStorm"
 FPS = 60
 MAX_FASES = 5  # Alterado de 2 para 3 - agora com fase especial
 
@@ -47,8 +45,8 @@ DURACAO_TRANSICAO_FASE = 180  # Frames para a transição entre fases
 # Constantes para moedas
 MOEDA_TAMANHO = 15
 MOEDA_COR = AMARELO  # Usar a cor AMARELO já definida
-MOEDA_INTERVALO_MIN = 3000  # Tempo mínimo entre geração de moedas (ms)
-MOEDA_INTERVALO_MAX = 8000  # Tempo máximo entre geração de moedas (ms)
+MOEDA_INTERVALO_MIN = 1000  # Tempo mínimo entre geração de moedas (ms)
+MOEDA_INTERVALO_MAX = 3000  # Tempo máximo entre geração de moedas (ms)
 MOEDA_DURACAO_MIN = 5000    # Tempo mínimo que uma moeda fica na tela (ms)
 MOEDA_DURACAO_MAX = 30000   # Tempo máximo que uma moeda fica na tela (ms)
 

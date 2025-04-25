@@ -18,18 +18,7 @@ import pygame
 
 def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     """
-    Exibe a tela de início do jogo.
-    
-    Args:
-        tela: Superfície principal do jogo
-        relogio: Objeto Clock para controle de FPS
-        gradiente_menu: Superfície com o gradiente de fundo do menu
-        fonte_titulo: Fonte para o título
-        
-    Returns:
-        "jogar" para iniciar o jogo
-        "loja" para ir para a loja
-        False para sair
+    Exibe a tela de início do jogo SquareStorm.
     """
     # Mostrar cursor
     pygame.mouse.set_visible(True)
@@ -43,6 +32,11 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     # Animação de título
     titulo_escala = 0
     titulo_alvo = 1.0
+    titulo_y = ALTURA // 5  # Posição Y inicial do título
+    subtitulo_alpha = 0
+    
+    # Efeito de névoa colorida
+    nevoa_offset = 0
     
     # Inicializar moeda_manager para mostrar quantidade de moedas
     moeda_manager = MoedaManager()
@@ -59,34 +53,34 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                 sys.exit()
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_RETURN:
-                    return "jogar"  # Iniciar o jogo
+                    return "jogar"
                 if evento.key == pygame.K_l:
-                    return "loja"  # Ir para a loja
+                    return "loja"
                 if evento.key == pygame.K_ESCAPE:
-                    return False  # Sair do jogo
-            # Verificação explícita de clique do mouse
-            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:  # Botão esquerdo do mouse
+                    return False
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 clique_ocorreu = True
         
         # Adicionar efeitos visuais aleatórios
-        if tempo_atual - tempo_ultimo_efeito > 2000:  # A cada 2 segundos
+        if tempo_atual - tempo_ultimo_efeito > 1500:
             tempo_ultimo_efeito = tempo_atual
             x = random.randint(100, LARGURA - 100)
             y = random.randint(100, ALTURA - 100)
-            cor = random.choice([VERMELHO, AZUL, VERDE, AMARELO, ROXO, CIANO])
-            flash = criar_explosao(x, y, cor, particulas, 15)
+            cor = random.choice([AZUL, CIANO, ROXO])
+            flash = criar_explosao(x, y, cor, particulas, 12)
             flashes.append(flash)
             
-            # Som aleatório
-            pygame.mixer.Channel(0).play(pygame.mixer.Sound(gerar_som_explosao()))
+            # Som suave
+            som = pygame.mixer.Sound(gerar_som_explosao())
+            som.set_volume(0.3)
+            pygame.mixer.Channel(0).play(som)
         
-        # Atualizar partículas
+        # Atualizar partículas e flashes
         for particula in particulas[:]:
             particula.atualizar()
             if particula.acabou():
                 particulas.remove(particula)
         
-        # Atualizar flashes
         for flash in flashes[:]:
             flash['vida'] -= 1
             flash['raio'] += 3
@@ -95,16 +89,26 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         
         # Atualizar estrelas
         for estrela in estrelas:
-            estrela[0] -= estrela[4]  # Mover com base na velocidade
+            estrela[0] -= estrela[4]
             if estrela[0] < 0:
                 estrela[0] = LARGURA
                 estrela[1] = random.randint(0, ALTURA)
         
         # Animar título
         titulo_escala += (titulo_alvo - titulo_escala) * 0.05
+        subtitulo_alpha = min(255, subtitulo_alpha + 3)
+        nevoa_offset = (nevoa_offset + 1) % 360
         
         # Desenhar fundo
         tela.blit(gradiente_menu, (0, 0))
+        
+        # Desenhar névoa colorida ondulante
+        for y in range(0, ALTURA, 20):
+            wave_offset = math.sin((y + nevoa_offset) / 30) * 10
+            alpha = int(20 + 15 * math.sin((y + nevoa_offset) / 50))
+            linha_surf = pygame.Surface((LARGURA, 2), pygame.SRCALPHA)
+            linha_surf.fill((100, 200, 255, alpha))
+            tela.blit(linha_surf, (wave_offset, y))
         
         # Desenhar estrelas
         desenhar_estrelas(tela, estrelas)
@@ -117,88 +121,146 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         for particula in particulas:
             particula.desenhar(tela)
         
-        # Desenhar grid de fundo
-        for i in range(0, LARGURA, 50):
-            pygame.draw.line(tela, (30, 30, 60), (i, 0), (i, ALTURA), 1)
-        for i in range(0, ALTURA, 50):
-            pygame.draw.line(tela, (30, 30, 60), (0, i), (LARGURA, i), 1)
+        # Desenhar grid sutil
+        for i in range(0, LARGURA, 60):
+            pygame.draw.line(tela, (30, 30, 60, 100), (i, 0), (i, ALTURA), 1)
+        for i in range(0, ALTURA, 60):
+            pygame.draw.line(tela, (30, 30, 60, 100), (0, i), (LARGURA, i), 1)
         
-        # Desenhar título com animação
-        tamanho_titulo = int(60 * titulo_escala)
+        # Desenhar título SquareStorm com efeito metálico
+        tamanho_titulo = int(90 * titulo_escala)
         if tamanho_titulo > 10:
-            desenhar_texto(tela, "SQUARE VS SQUARE", tamanho_titulo, 
-                           BRANCO, LARGURA // 2, ALTURA // 4, fonte_titulo)
+            # Sombra profunda
+            desenhar_texto(tela, "SQUARESTORM", tamanho_titulo, (0, 0, 50), 
+                         LARGURA // 2 + 4, titulo_y + 4, fonte_titulo)
             
-            # Desenhar subtítulo com efeito pulsante
-            pulse = (math.sin(tempo_atual / 200) + 1) * 0.5  # Valor entre 0 e 1
-            cor_pulse = tuple(int(c * (0.7 + 0.3 * pulse)) for c in AZUL)
-            desenhar_texto(tela, "Uma batalha épica de formas geométricas", 28, 
-                           cor_pulse, LARGURA // 2, ALTURA // 4 + 70)
+            # Contorno
+            desenhar_texto(tela, "SQUARESTORM", tamanho_titulo, (100, 150, 255), 
+                         LARGURA // 2 + 2, titulo_y + 2, fonte_titulo)
+            
+            # Texto principal com brilho pulsante
+            pulse = (math.sin(tempo_atual / 500) + 1) * 0.5
+            cor_principal = tuple(int(c * (0.8 + 0.2 * pulse)) for c in BRANCO)
+            desenhar_texto(tela, "SQUARESTORM", tamanho_titulo, cor_principal, 
+                         LARGURA // 2, titulo_y, fonte_titulo)
+            
+            # Subtítulo estilizado
+            subtitulo_surf = fonte_titulo.render("THE GEOMETRY BATTLE ARENA", True, CIANO)
+            subtitulo_surf.set_alpha(subtitulo_alpha)
+            subtitulo_rect = subtitulo_surf.get_rect(center=(LARGURA // 2, titulo_y + 90))
+            tela.blit(subtitulo_surf, subtitulo_rect)
         
-        # Mostrar quantidade de moedas
-        cor_moeda = AMARELO
-        pygame.draw.circle(tela, cor_moeda, (30, 30), 10)  # Ícone de moeda
-        desenhar_texto(tela, f"{moeda_manager.obter_quantidade()}", 20, cor_moeda, 60, 30)
+        # Exibir quantidade de moedas com estilo
+        moeda_size = 12
+        pygame.draw.circle(tela, AMARELO, (30, 30), moeda_size)
+        pygame.draw.circle(tela, (255, 215, 0), (30, 30), moeda_size - 2)
+        desenhar_texto(tela, f"{moeda_manager.obter_quantidade()}", 24, AMARELO, 60, 30)
         
-        # Desenhar controles
-        desenhar_texto(tela, "Use as teclas WASD para mover", 24, BRANCO, LARGURA // 2, ALTURA // 2 - 50)
-        desenhar_texto(tela, "Use o Mouse para atirar nos inimigos", 24, BRANCO, LARGURA // 2, ALTURA // 2)
+        # Controles com design mais clean
+        controles_y = ALTURA // 2 + 20
+        fonte_controles = pygame.font.SysFont("Arial", 22, False)
+        
+        # Icones de teclas
+        # WASD
+        pygame.draw.rect(tela, (50, 50, 80), (LARGURA//2 - 80, controles_y - 40, 30, 30), 0, 3)
+        desenhar_texto(tela, "W", 18, BRANCO, LARGURA//2 - 65, controles_y - 25)
+        
+        pygame.draw.rect(tela, (50, 50, 80), (LARGURA//2 - 115, controles_y - 5, 30, 30), 0, 3)
+        desenhar_texto(tela, "A", 18, BRANCO, LARGURA//2 - 100, controles_y + 10)
+        
+        pygame.draw.rect(tela, (50, 50, 80), (LARGURA//2 - 80, controles_y - 5, 30, 30), 0, 3)
+        desenhar_texto(tela, "S", 18, BRANCO, LARGURA//2 - 65, controles_y + 10)
+        
+        pygame.draw.rect(tela, (50, 50, 80), (LARGURA//2 - 45, controles_y - 5, 30, 30), 0, 3)
+        desenhar_texto(tela, "D", 18, BRANCO, LARGURA//2 - 30, controles_y + 10)
+        
+        # Texto de movimento
+        desenhar_texto(tela, "Mover", 20, BRANCO, LARGURA//2 - 80, controles_y + 40)
+        
+        # Mouse (versão mais detalhada)
+        mouse_x = LARGURA//2 + 70
+        mouse_y = controles_y
+        
+        # Sombra do mouse
+        pygame.draw.ellipse(tela, (20, 20, 40), (mouse_x - 14, mouse_y + 10, 28, 8))
+        
+        # Corpo do mouse
+        pygame.draw.rect(tela, (80, 80, 120), (mouse_x - 12, mouse_y - 18, 24, 30), 0, 12)
+        
+        # Brilho no corpo
+        pygame.draw.rect(tela, (120, 120, 160), (mouse_x - 8, mouse_y - 16, 4, 20), 0, 4)
+        
+        # Divisão dos botões
+        pygame.draw.line(tela, (50, 50, 70), (mouse_x, mouse_y - 18), (mouse_x, mouse_y - 3), 2)
+        
+        # Botão esquerdo (destacado para indicar que é o botão de atirar)
+        pygame.draw.rect(tela, (200, 50, 50), (mouse_x - 12, mouse_y - 18, 12, 12), 0, 8)
+        pygame.draw.rect(tela, (255, 80, 80), (mouse_x - 10, mouse_y - 16, 8, 8), 0, 4)
+        
+        # Scroll wheel
+        pygame.draw.rect(tela, (200, 200, 220), (mouse_x - 3, mouse_y - 13, 6, 8), 0, 3)
+        pygame.draw.line(tela, (150, 150, 170), (mouse_x, mouse_y - 11), (mouse_x, mouse_y - 7), 1)
+        
+        # Indicador de clique (animado)
+        if tempo_atual % 1000 < 500:  # Pisca a cada 0.5 segundos
+            pygame.draw.circle(tela, (255, 50, 50), (mouse_x - 6, mouse_y - 12), 3)
+        
+        # Texto de atirar
+        desenhar_texto(tela, "Atirar", 20, BRANCO, LARGURA//2 + 70, controles_y + 40)
         
         # Ajustar dimensões para a resolução atual
         escala_y = ALTURA / 848
         
-        # Definir retângulos de colisão corretamente
-        # 1. Botão de Jogar
-        largura_jogar = 300
-        altura_jogar = 60
+        # Definir botões estilizados
+        largura_botao = 320
+        altura_botao = 65
+        espacamento = 85
+        y_inicial = ALTURA * 3 // 4 - 40
+        
+        # Botão Jogar
         x_jogar = LARGURA // 2
-        y_jogar = ALTURA * 3 // 4 - 60
-        largura_ajustada_jogar = int(largura_jogar * escala_y)
-        altura_ajustada_jogar = int(altura_jogar * escala_y)
+        y_jogar = y_inicial
+        largura_ajustada_jogar = int(largura_botao * escala_y)
+        altura_ajustada_jogar = int(altura_botao * escala_y)
         rect_jogar = pygame.Rect(x_jogar - largura_ajustada_jogar // 2, 
                                 y_jogar - altura_ajustada_jogar // 2, 
                                 largura_ajustada_jogar, 
                                 altura_ajustada_jogar)
         
-        # 2. Botão da Loja
-        largura_loja = 300
-        altura_loja = 60
+        # Botão Loja
         x_loja = LARGURA // 2
-        y_loja = ALTURA * 3 // 4 + 20
-        largura_ajustada_loja = int(largura_loja * escala_y)
-        altura_ajustada_loja = int(altura_loja * escala_y)
+        y_loja = y_inicial + espacamento
+        largura_ajustada_loja = int(largura_botao * escala_y)
+        altura_ajustada_loja = int(altura_botao * escala_y)
         rect_loja = pygame.Rect(x_loja - largura_ajustada_loja // 2, 
                                y_loja - altura_ajustada_loja // 2, 
                                largura_ajustada_loja, 
                                altura_ajustada_loja)
         
-        # 3. Botão de Sair
-        largura_sair = 200
-        altura_sair = 50
+        # Botão Sair
         x_sair = LARGURA // 2
-        y_sair = ALTURA * 3 // 4 + 100
-        largura_ajustada_sair = int(largura_sair * escala_y)
-        altura_ajustada_sair = int(altura_sair * escala_y)
+        y_sair = y_inicial + espacamento * 2
+        largura_ajustada_sair = int(largura_botao * 0.7 * escala_y)  # Botão menor
+        altura_ajustada_sair = int(altura_botao * 0.8 * escala_y)
         rect_sair = pygame.Rect(x_sair - largura_ajustada_sair // 2, 
                                y_sair - altura_ajustada_sair // 2, 
                                largura_ajustada_sair, 
                                altura_ajustada_sair)
         
-        # Desenhar botões
-        botao_jogar = criar_botao(tela, "JOGAR (ENTER)", x_jogar, y_jogar, largura_jogar, altura_jogar, 
-                                 (60, 60, 180), (80, 80, 220), BRANCO)
+        # Desenhar botões com novo estilo
+        botao_jogar = criar_botao(tela, "INICIAR JOGO", x_jogar, y_jogar, largura_botao, altura_botao, 
+                                 (0, 100, 200), (0, 150, 255), BRANCO)
         
-        botao_loja = criar_botao(tela, "LOJA (L)", x_loja, y_loja, largura_loja, altura_loja, 
-                                (120, 60, 180), (150, 80, 220), BRANCO)
+        botao_loja = criar_botao(tela, "LOJA DE UPGRADES", x_loja, y_loja, largura_botao, altura_botao, 
+                                (150, 100, 0), (255, 180, 0), BRANCO)
         
-        botao_sair = criar_botao(tela, "SAIR (ESC)", x_sair, y_sair, largura_sair, altura_sair, 
-                               (180, 60, 60), (220, 80, 80), BRANCO)
+        botao_sair = criar_botao(tela, "SAIR", x_sair, y_sair, largura_botao * 0.7, altura_botao * 0.8, 
+                               (150, 50, 50), (200, 80, 80), BRANCO)
         
         # Verificar cliques nos botões
         if clique_ocorreu:
             mouse_pos = pygame.mouse.get_pos()
             
-            # Verificar botão iniciar jogo
             if rect_jogar.collidepoint(mouse_pos):
                 # Efeito de transição
                 for i in range(30):
@@ -207,7 +269,6 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                     pygame.time.delay(20)
                 return "jogar"
             
-            # Verificar botão da loja
             if rect_loja.collidepoint(mouse_pos):
                 # Efeito de transição
                 for i in range(30):
@@ -216,7 +277,6 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                     pygame.time.delay(20)
                 return "loja"
             
-            # Verificar botão sair
             if rect_sair.collidepoint(mouse_pos):
                 return False
         
@@ -324,11 +384,11 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
         # Ajustar dimensões para a resolução atual
         escala_y = ALTURA / 848
         
-        # Definir posição e tamanho dos botões 
+        # Definir posição e tamanho do botão JOGAR NOVAMENTE (centralizado)
         largura_jogar_novamente = 300
         altura_jogar_novamente = 60
         x_jogar_novamente = LARGURA // 2
-        y_jogar_novamente = ALTURA // 2 + 100
+        y_jogar_novamente = ALTURA // 2 + 140  # Ajustado para ficar mais centralizado
         largura_ajustada_jogar = int(largura_jogar_novamente * escala_y)
         altura_ajustada_jogar = int(altura_jogar_novamente * escala_y)
         rect_jogar_novamente = pygame.Rect(x_jogar_novamente - largura_ajustada_jogar // 2, 
@@ -336,35 +396,17 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
                                          largura_ajustada_jogar, 
                                          altura_ajustada_jogar)
         
-        largura_sair = 200
-        altura_sair = 50
-        x_sair = LARGURA // 2
-        y_sair = ALTURA // 2 + 180
-        largura_ajustada_sair = int(largura_sair * escala_y)
-        altura_ajustada_sair = int(altura_sair * escala_y)
-        rect_sair = pygame.Rect(x_sair - largura_ajustada_sair // 2, 
-                               y_sair - altura_ajustada_sair // 2, 
-                               largura_ajustada_sair, 
-                               altura_ajustada_sair)
-        
-        # Desenhar botões
-        hover_jogar = criar_botao(tela, "JOGAR NOVAMENTE", x_jogar_novamente, y_jogar_novamente, 
+        # Desenhar apenas o botão JOGAR NOVAMENTE
+        hover_jogar = criar_botao(tela, "MENU", x_jogar_novamente, y_jogar_novamente, 
                                  largura_jogar_novamente, altura_jogar_novamente, 
                                  (60, 120, 60), (80, 180, 80), BRANCO)
         
-        hover_sair = criar_botao(tela, "SAIR", x_sair, y_sair, 
-                               largura_sair, altura_sair, 
-                               (120, 60, 60), (180, 80, 80), BRANCO)
-        
-        # Verificar cliques nos botões
+        # Verificar cliques no botão
         if clique_ocorreu:
             mouse_pos = pygame.mouse.get_pos()
             
             if rect_jogar_novamente.collidepoint(mouse_pos):
                 return True
-            
-            if rect_sair.collidepoint(mouse_pos):
-                return False
         
         pygame.display.flip()
         relogio.tick(FPS)

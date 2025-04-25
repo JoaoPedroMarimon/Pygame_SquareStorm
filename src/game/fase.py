@@ -386,7 +386,11 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     
     # Atraso para tela de vitória
     tempo_transicao_vitoria = None  # Será definido quando o último inimigo for derrotado
-    duracao_transicao_vitoria = 180  # 3 segundos a 60 FPS (ajuste conforme necessário)
+    duracao_transicao_vitoria = 180  # 3 segundos a 60 FPS
+    
+    # Atraso para tela de derrota
+    tempo_transicao_derrota = None  # Será definido quando o jogador perder
+    duracao_transicao_derrota = 120  # 2 segundos a 60 FPS
     
     # Cursor do mouse visível durante o jogo
     pygame.mouse.set_visible(False)  # Esconder o cursor padrão do sistema
@@ -647,7 +651,27 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         
         # Verificar condições de fim de fase
         if jogador.vidas <= 0:
-            return False, pontuacao  # Jogador perdeu
+            # Iniciar contagem para transição de derrota se ainda não iniciou
+            if tempo_transicao_derrota is None:
+                tempo_transicao_derrota = duracao_transicao_derrota
+                
+                # Criar explosões quando o jogador morrer
+                for _ in range(5):
+                    x = jogador.x + random.randint(-30, 30)
+                    y = jogador.y + random.randint(-30, 30)
+                    flash = criar_explosao(x, y, VERMELHO, particulas, 35)
+                    flashes.append(flash)
+                
+                # Som de derrota
+                pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_explosao()))
+        
+        # Se a contagem regressiva de derrota está ativa, decrementá-la
+        if tempo_transicao_derrota is not None:
+            tempo_transicao_derrota -= 1
+            
+            # Quando a contagem chegar a zero, ir para a tela de game over
+            if tempo_transicao_derrota <= 0:
+                return False, pontuacao  # Jogador perdeu
         
         # Preencher toda a tela com preto antes de desenhar qualquer elemento do jogo
         tela.fill((0, 0, 0))
@@ -675,6 +699,27 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 cor = random.choice([VERDE, AMARELO, AZUL])
                 flash = criar_explosao(x, y, cor, particulas, 15)
                 flashes.append(flash)
+        
+        # Desenhar mensagem de derrota durante a transição
+        if tempo_transicao_derrota is not None:
+            # Criar um efeito de fade ou texto pulsante
+            alpha = int(255 * (duracao_transicao_derrota - tempo_transicao_derrota) / duracao_transicao_derrota)
+            texto_surf = fonte_titulo.render("DERROTADO!", True, VERMELHO)
+            texto_surf.set_alpha(alpha)
+            texto_rect = texto_surf.get_rect(center=(LARGURA // 2, ALTURA_JOGO // 2))
+            tela.blit(texto_surf, texto_rect)
+            
+            # Adicionar efeito de tela vermelha
+            overlay = pygame.Surface((LARGURA, ALTURA_JOGO))
+            overlay.fill(VERMELHO)
+            overlay.set_alpha(int(50 * (duracao_transicao_derrota - tempo_transicao_derrota) / duracao_transicao_derrota))
+            tela.blit(overlay, (0, 0))
+            
+            # Adicionar mais partículas de derrota
+            if random.random() < 0.3:  # 30% de chance por frame
+                x = jogador.x + random.randint(-50, 50)
+                y = jogador.y + random.randint(-50, 50)
+                criar_explosao(x, y, VERMELHO, particulas, 20)
         
         # Desenhar mira personalizada do mouse
         desenhar_mira(tela, pos_mouse, (mira_surface, mira_rect))
