@@ -389,17 +389,21 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     duracao_transicao_vitoria = 180  # 3 segundos a 60 FPS (ajuste conforme necessário)
     
     # Cursor do mouse visível durante o jogo
-    #pygame.mouse.set_visible(False)  # Esconder o cursor padrão do sistema
+    pygame.mouse.set_visible(False)  # Esconder o cursor padrão do sistema
 
-    pygame.mouse.set_visible(False)  # Ocultar apenas durante o jogo ativo
-
-        # Criar mira personalizada
+    # Criar mira personalizada
     mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
     
     # Loop principal da fase
     rodando = True
     while rodando:
         tempo_atual = pygame.time.get_ticks()
+        
+        # Mostrar/ocultar cursor dependendo do estado
+        if not mostrando_inicio and not pausado:
+            pygame.mouse.set_visible(False)  # Ocultar apenas durante o jogo ativo
+        else:
+            pygame.mouse.set_visible(True)   # Mostrar nos menus/pausa/início
         
         # Obter a posição atual do mouse para o sistema de mira
         pos_mouse = pygame.mouse.get_pos()
@@ -620,17 +624,18 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 estrela[0] = LARGURA
                 estrela[1] = random.randint(0, ALTURA_JOGO)  # Ajustado para usar ALTURA_JOGO
         
-        # Verificar condições de fim de fase
-        if jogador.vidas <= 0:
-            return False, pontuacao  # Jogador perdeu
-        
         # Verificar se todos os inimigos foram derrotados e tratar transição de vitória
         todos_derrotados = all(inimigo.vidas <= 0 for inimigo in inimigos)
         
-        # Se todos os inimigos foram derrotados, iniciar contagem para transição
-        if todos_derrotados and tempo_transicao_vitoria is None:
-            tempo_transicao_vitoria = duracao_transicao_vitoria  # Iniciar contagem regressiva
-            # Pode adicionar um efeito sonoro ou visual aqui para indicar a vitória iminente
+        # Se todos os inimigos foram derrotados, tornar o jogador invulnerável
+        if todos_derrotados:
+            # Tornar o jogador invulnerável permanentemente
+            jogador.invulneravel = True
+            jogador.duracao_invulneravel = float('inf')  # Invulnerabilidade infinita
+            
+            # Iniciar contagem para transição se ainda não iniciou
+            if tempo_transicao_vitoria is None:
+                tempo_transicao_vitoria = duracao_transicao_vitoria
         
         # Se a contagem regressiva de vitória está ativa, decrementá-la
         if tempo_transicao_vitoria is not None:
@@ -639,6 +644,10 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             # Quando a contagem chegar a zero, concluir a fase
             if tempo_transicao_vitoria <= 0:
                 return True, pontuacao  # Fase concluída com sucesso
+        
+        # Verificar condições de fim de fase
+        if jogador.vidas <= 0:
+            return False, pontuacao  # Jogador perdeu
         
         # Preencher toda a tela com preto antes de desenhar qualquer elemento do jogo
         tela.fill((0, 0, 0))
