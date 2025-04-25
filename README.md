@@ -10,7 +10,7 @@ A fast-paced 2D geometry-based shooter game where you battle waves of enemy squa
 
 SquareStorm is an action-packed arcade shooter where you control a blue square fighting against increasingly challenging waves of enemy squares. The game features:
 
-- 5 challenging phases with unique enemy types
+- a lot of challenging phases with unique enemy types
 - Dynamic difficulty scaling
 - A shop system with upgrades
 - Smooth particle effects and explosions  

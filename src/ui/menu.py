@@ -397,7 +397,7 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
                                          altura_ajustada_jogar)
         
         # Desenhar apenas o botão JOGAR NOVAMENTE
-        hover_jogar = criar_botao(tela, "", x_jogar_novamente, y_jogar_novamente, 
+        hover_jogar = criar_botao(tela, "MENU", x_jogar_novamente, y_jogar_novamente, 
                                  largura_jogar_novamente, altura_jogar_novamente, 
                                  (60, 120, 60), (80, 180, 80), BRANCO)
         

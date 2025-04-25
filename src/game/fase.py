@@ -366,6 +366,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     # Flag para pausa
     pausado = False
     
+    # Flag para controle de morte
+    jogador_morto = False
+    
     # Controles de movimento
     movimento_x = 0
     movimento_y = 0
@@ -398,6 +401,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     # Criar mira personalizada
     mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
     
+    # Rectangle for pause menu button
+    rect_menu_pausado = None
+    
     # Loop principal da fase
     rodando = True
     while rodando:
@@ -412,14 +418,12 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         # Obter a posição atual do mouse para o sistema de mira
         pos_mouse = pygame.mouse.get_pos()
         
-# Inside the event loop, modify the mouse button handling
-# Inside the event loop, modify the pause control logic:
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 return False, pontuacao
             
-            # Controles do teclado e mouse para o jogador (quando não estiver na introdução ou pausado)
-            if not mostrando_inicio and not pausado:
+            # Controles do teclado para o jogador (quando não estiver na introdução ou pausado ou morto)
+            if not mostrando_inicio and not pausado and not jogador_morto:
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_w:
                         movimento_y = -1
@@ -434,7 +438,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if evento.key == pygame.K_ESCAPE:
                         pausado = True
                         pygame.mixer.pause()
-                        pygame.mouse.set_visible(True)  # Show cursor when paused
+                        pygame.mouse.set_visible(True)
                 
                 # Parar o movimento quando soltar as teclas
                 if evento.type == pygame.KEYUP:
@@ -447,7 +451,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if evento.key == pygame.K_d and movimento_x > 0:
                         movimento_x = 0
                 
-                # Tiro com o botão esquerdo do mouse (only when not paused)
+                # Tiro com o botão esquerdo do mouse (apenas se não estiver morto)
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
             
@@ -459,19 +463,20 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         pygame.mixer.unpause()
                         pygame.mouse.set_visible(False)
                     if evento.key == pygame.K_m:
-                        return "menu", pontuacao  # Return "menu" instead of False
+                        return "menu", pontuacao
                 
                 # Handle mouse clicks while paused
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     mouse_pos = pygame.mouse.get_pos()
                     if rect_menu_pausado and rect_menu_pausado.collidepoint(mouse_pos):
                         return "menu", pontuacao
-                        
+            
             else:
-                # During introduction
+                # Durante a introdução, apenas ESC funciona
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_ESCAPE:
                         return False, pontuacao
+                    # Qualquer tecla avança a introdução
                     contador_inicio = 0
         
         # Atualizar contador de introdução
@@ -508,7 +513,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             fade_in = max(0, fade_in - 10)
         
         # Se o jogo estiver pausado, pular a atualização
-# Modify the pause menu section:
         if pausado:
             # Preencher toda a tela com preto antes de desenhar qualquer coisa
             tela.fill((0, 0, 0))
@@ -521,7 +525,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             
             # Desenhar PAUSADO
             desenhar_texto(tela, "PAUSADO", 60, BRANCO, LARGURA // 2, ALTURA_JOGO // 2 - 50)
-            desenhar_texto(tela, "Pressione P para continuar", 30, BRANCO, LARGURA // 2, ALTURA_JOGO // 2 + 20)
+            desenhar_texto(tela, "Pressione ESC para continuar", 30, BRANCO, LARGURA // 2, ALTURA_JOGO // 2 + 20)
             
             # Create Menu button
             largura_menu = 250
@@ -534,9 +538,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             largura_ajustada_menu = int(largura_menu * escala_y)
             altura_ajustada_menu = int(altura_menu * escala_y)
             rect_menu_pausado = pygame.Rect(x_menu - largura_ajustada_menu // 2, 
-                                        y_menu - altura_ajustada_menu // 2, 
-                                        largura_ajustada_menu, 
-                                        altura_ajustada_menu)
+                                           y_menu - altura_ajustada_menu // 2, 
+                                           largura_ajustada_menu, 
+                                           altura_ajustada_menu)
             
             # Draw the menu button
             hover_menu = criar_botao(tela, "VOLTAR AO MENU", x_menu, y_menu, 
@@ -546,15 +550,16 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             pygame.display.flip()
             relogio.tick(FPS)
             continue
-                
-        # Atualizar posição do jogador
-        jogador.mover(movimento_x, movimento_y)
-        jogador.atualizar()
         
-        # Garantir que o jogador não ultrapasse a área de jogo
-        if jogador.y + jogador.tamanho > ALTURA_JOGO:
-            jogador.y = ALTURA_JOGO - jogador.tamanho
-            jogador.rect.y = jogador.y
+        # Atualizar posição do jogador apenas se não estiver morto
+        if not jogador_morto:
+            jogador.mover(movimento_x, movimento_y)
+            jogador.atualizar()
+            
+            # Garantir que o jogador não ultrapasse a área de jogo
+            if jogador.y + jogador.tamanho > ALTURA_JOGO:
+                jogador.y = ALTURA_JOGO - jogador.tamanho
+                jogador.rect.y = jogador.y
         
         # Atualizar moedas e verificar colisões
         moeda_coletada = moeda_manager.atualizar(jogador)
@@ -633,8 +638,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         for tiro in tiros_inimigo[:]:
             tiro.atualizar()
             
-            # Verificar colisão com o jogador
-            if tiro.rect.colliderect(jogador.rect):
+            # Verificar colisão com o jogador apenas se ele não estiver morto
+            if not jogador_morto and tiro.rect.colliderect(jogador.rect):
                 if jogador.tomar_dano():
                     flash = criar_explosao(tiro.x, tiro.y, AZUL, particulas, 25)
                     flashes.append(flash)
@@ -689,9 +694,16 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         
         # Verificar condições de fim de fase
         if jogador.vidas <= 0:
+            # Marcar o jogador como morto
+            jogador_morto = True
+            
             # Iniciar contagem para transição de derrota se ainda não iniciou
             if tempo_transicao_derrota is None:
                 tempo_transicao_derrota = duracao_transicao_derrota
+                
+                # Parar movimento do jogador
+                movimento_x = 0
+                movimento_y = 0
                 
                 # Criar explosões quando o jogador morrer
                 for _ in range(5):
