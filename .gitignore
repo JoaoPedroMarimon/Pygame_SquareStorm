@@ -34,3 +34,4 @@ env/
 Thumbs.db
 
 /data/moedas.json
+/data/upgrades.json

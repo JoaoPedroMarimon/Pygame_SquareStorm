@@ -31,6 +31,9 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         "loja" para ir para a loja
         False para sair
     """
+    # Mostrar cursor
+    pygame.mouse.set_visible(True)
+    
     # Criar efeitos visuais
     estrelas = criar_estrelas(NUM_ESTRELAS_MENU)
     particulas = []
@@ -77,7 +80,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             # Som aleatório
             pygame.mixer.Channel(0).play(pygame.mixer.Sound(gerar_som_explosao()))
         
-        # Atualizar partículas - Parte importante corrigida
+        # Atualizar partículas
         for particula in particulas[:]:
             particula.atualizar()
             if particula.acabou():
@@ -123,7 +126,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         # Desenhar título com animação
         tamanho_titulo = int(60 * titulo_escala)
         if tamanho_titulo > 10:
-            desenhar_texto(tela, "QUADRADO VERSUS QUADRADO", tamanho_titulo, 
+            desenhar_texto(tela, "SQUARE VS SQUARE", tamanho_titulo, 
                            BRANCO, LARGURA // 2, ALTURA // 4, fonte_titulo)
             
             # Desenhar subtítulo com efeito pulsante
@@ -139,23 +142,56 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         
         # Desenhar controles
         desenhar_texto(tela, "Use as teclas WASD para mover", 24, BRANCO, LARGURA // 2, ALTURA // 2 - 50)
-        desenhar_texto(tela, "Teclas SETAS para atirar em todas direções", 24, BRANCO, LARGURA // 2, ALTURA // 2)
+        desenhar_texto(tela, "Use o Mouse para atirar nos inimigos", 24, BRANCO, LARGURA // 2, ALTURA // 2)
         
-        # Desenhar botões e verificar interação - AGORA COM TRÊS BOTÕES
+        # Ajustar dimensões para a resolução atual
+        escala_y = ALTURA / 848
         
-        # 1. Botão de Jogar (aumentado para acomodar o texto)
-        rect_jogar = pygame.Rect(LARGURA // 2 - 150, ALTURA * 3 // 4 - 60, 300, 60)
-        botao_jogar = criar_botao(tela, "JOGAR (ENTER)", LARGURA // 2, ALTURA * 3 // 4 - 60, 300, 60, 
-                                 (60, 60, 180), (80, 80, 220), BRANCO)
+        # Definir retângulos de colisão corretamente
+        # 1. Botão de Jogar
+        largura_jogar = 300
+        altura_jogar = 60
+        x_jogar = LARGURA // 2
+        y_jogar = ALTURA * 3 // 4 - 60
+        largura_ajustada_jogar = int(largura_jogar * escala_y)
+        altura_ajustada_jogar = int(altura_jogar * escala_y)
+        rect_jogar = pygame.Rect(x_jogar - largura_ajustada_jogar // 2, 
+                                y_jogar - altura_ajustada_jogar // 2, 
+                                largura_ajustada_jogar, 
+                                altura_ajustada_jogar)
         
-        # 2. Botão da Loja (aumentado para acomodar o texto)
-        rect_loja = pygame.Rect(LARGURA // 2 - 150, ALTURA * 3 // 4 + 20, 300, 60)
-        botao_loja = criar_botao(tela, "LOJA (L)", LARGURA // 2, ALTURA * 3 // 4 + 20, 300, 60, 
-                                (120, 60, 180), (150, 80, 220), BRANCO)
+        # 2. Botão da Loja
+        largura_loja = 300
+        altura_loja = 60
+        x_loja = LARGURA // 2
+        y_loja = ALTURA * 3 // 4 + 20
+        largura_ajustada_loja = int(largura_loja * escala_y)
+        altura_ajustada_loja = int(altura_loja * escala_y)
+        rect_loja = pygame.Rect(x_loja - largura_ajustada_loja // 2, 
+                               y_loja - altura_ajustada_loja // 2, 
+                               largura_ajustada_loja, 
+                               altura_ajustada_loja)
         
         # 3. Botão de Sair
-        rect_sair = pygame.Rect(LARGURA // 2 - 100, ALTURA * 3 // 4 + 100, 200, 50)
-        botao_sair = criar_botao(tela, "SAIR (ESC)", LARGURA // 2, ALTURA * 3 // 4 + 100, 200, 50, 
+        largura_sair = 200
+        altura_sair = 50
+        x_sair = LARGURA // 2
+        y_sair = ALTURA * 3 // 4 + 100
+        largura_ajustada_sair = int(largura_sair * escala_y)
+        altura_ajustada_sair = int(altura_sair * escala_y)
+        rect_sair = pygame.Rect(x_sair - largura_ajustada_sair // 2, 
+                               y_sair - altura_ajustada_sair // 2, 
+                               largura_ajustada_sair, 
+                               altura_ajustada_sair)
+        
+        # Desenhar botões
+        botao_jogar = criar_botao(tela, "JOGAR (ENTER)", x_jogar, y_jogar, largura_jogar, altura_jogar, 
+                                 (60, 60, 180), (80, 80, 220), BRANCO)
+        
+        botao_loja = criar_botao(tela, "LOJA (L)", x_loja, y_loja, largura_loja, altura_loja, 
+                                (120, 60, 180), (150, 80, 220), BRANCO)
+        
+        botao_sair = criar_botao(tela, "SAIR (ESC)", x_sair, y_sair, largura_sair, altura_sair, 
                                (180, 60, 60), (220, 80, 80), BRANCO)
         
         # Verificar cliques nos botões
@@ -202,6 +238,9 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
     Returns:
         True para jogar novamente, False para sair
     """
+    # Mostrar cursor
+    pygame.mouse.set_visible(True)
+    
     # Criar efeitos visuais
     estrelas = criar_estrelas(100)
     particulas = []
@@ -282,15 +321,39 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
             else:
                 desenhar_texto(tela, "O quadrado inimigo te derrotou!", 30, BRANCO, LARGURA // 2, ALTURA // 3 + 80)
         
+        # Ajustar dimensões para a resolução atual
+        escala_y = ALTURA / 848
+        
         # Definir posição e tamanho dos botões 
-        rect_jogar_novamente = pygame.Rect(LARGURA // 2 - 150, ALTURA // 2 + 100 - 30, 300, 60)
-        rect_sair = pygame.Rect(LARGURA // 2 - 100, ALTURA // 2 + 180 - 25, 200, 50)
+        largura_jogar_novamente = 300
+        altura_jogar_novamente = 60
+        x_jogar_novamente = LARGURA // 2
+        y_jogar_novamente = ALTURA // 2 + 100
+        largura_ajustada_jogar = int(largura_jogar_novamente * escala_y)
+        altura_ajustada_jogar = int(altura_jogar_novamente * escala_y)
+        rect_jogar_novamente = pygame.Rect(x_jogar_novamente - largura_ajustada_jogar // 2, 
+                                         y_jogar_novamente - altura_ajustada_jogar // 2, 
+                                         largura_ajustada_jogar, 
+                                         altura_ajustada_jogar)
+        
+        largura_sair = 200
+        altura_sair = 50
+        x_sair = LARGURA // 2
+        y_sair = ALTURA // 2 + 180
+        largura_ajustada_sair = int(largura_sair * escala_y)
+        altura_ajustada_sair = int(altura_sair * escala_y)
+        rect_sair = pygame.Rect(x_sair - largura_ajustada_sair // 2, 
+                               y_sair - altura_ajustada_sair // 2, 
+                               largura_ajustada_sair, 
+                               altura_ajustada_sair)
         
         # Desenhar botões
-        hover_jogar = criar_botao(tela, "JOGAR NOVAMENTE", LARGURA // 2, ALTURA // 2 + 100, 300, 60, 
+        hover_jogar = criar_botao(tela, "JOGAR NOVAMENTE", x_jogar_novamente, y_jogar_novamente, 
+                                 largura_jogar_novamente, altura_jogar_novamente, 
                                  (60, 120, 60), (80, 180, 80), BRANCO)
         
-        hover_sair = criar_botao(tela, "SAIR", LARGURA // 2, ALTURA // 2 + 180, 200, 50, 
+        hover_sair = criar_botao(tela, "SAIR", x_sair, y_sair, 
+                               largura_sair, altura_sair, 
                                (120, 60, 60), (180, 80, 80), BRANCO)
         
         # Verificar cliques nos botões
@@ -305,9 +368,6 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
         
         pygame.display.flip()
         relogio.tick(FPS)
-
-# Modificação na função tela_vitoria_fase para adicionar atalhos de teclado:
-
 def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual, pontuacao):
     """
     Exibe uma tela de vitória após completar uma fase, com opções para continuar ou voltar ao menu.
@@ -324,6 +384,9 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual, pontuacao):
         "menu" para voltar ao menu principal
         "sair" para sair do jogo
     """
+    # Mostrar cursor
+    pygame.mouse.set_visible(True)
+    
     # Criar efeitos visuais
     estrelas = criar_estrelas(100)
     particulas = []
@@ -401,14 +464,40 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual, pontuacao):
                       BRANCO, LARGURA // 2, ALTURA // 3 + 80)
         desenhar_texto(tela, f"Pontuação: {pontuacao}", 30, AMARELO, LARGURA // 2, ALTURA // 3 + 130)
         
-        # Desenhar botão para próxima fase (com indicação de tecla)
-        rect_proximo = pygame.Rect(LARGURA // 2 - 150, ALTURA // 2 + 50, 300, 60)
-        hover_proximo = criar_botao(tela, "PRÓXIMA FASE (ENTER)", LARGURA // 2, ALTURA // 2 + 50, 300, 60, 
+        # Ajustar dimensões para a resolução atual
+        escala_y = ALTURA / 848
+        
+        # Desenhar botão para próxima fase
+        largura_proximo = 300
+        altura_proximo = 60
+        x_proximo = LARGURA // 2
+        y_proximo = ALTURA // 2 + 50
+        largura_ajustada_proximo = int(largura_proximo * escala_y)
+        altura_ajustada_proximo = int(altura_proximo * escala_y)
+        rect_proximo = pygame.Rect(x_proximo - largura_ajustada_proximo // 2, 
+                                  y_proximo - altura_ajustada_proximo // 2, 
+                                  largura_ajustada_proximo, 
+                                  altura_ajustada_proximo)
+        
+        # Desenhar botão para voltar ao menu
+        largura_menu = 300
+        altura_menu = 60
+        x_menu = LARGURA // 2
+        y_menu = ALTURA // 2 + 130
+        largura_ajustada_menu = int(largura_menu * escala_y)
+        altura_ajustada_menu = int(altura_menu * escala_y)
+        rect_menu = pygame.Rect(x_menu - largura_ajustada_menu // 2, 
+                               y_menu - altura_ajustada_menu // 2, 
+                               largura_ajustada_menu, 
+                               altura_ajustada_menu)
+        
+        # Desenhar os botões
+        hover_proximo = criar_botao(tela, "PRÓXIMA FASE (ENTER)", x_proximo, y_proximo, 
+                                  largura_proximo, altura_proximo, 
                                   (60, 120, 60), (80, 180, 80), BRANCO)
         
-        # Desenhar botão para voltar ao menu (com indicação de tecla)
-        rect_menu = pygame.Rect(LARGURA // 2 - 150, ALTURA // 2 + 130, 300, 60)
-        hover_menu = criar_botao(tela, "VOLTAR AO MENU (M)", LARGURA // 2, ALTURA // 2 + 130, 300, 60, 
+        hover_menu = criar_botao(tela, "VOLTAR AO MENU (M)", x_menu, y_menu, 
+                              largura_menu, altura_menu, 
                               (60, 60, 150), (80, 80, 200), BRANCO)
         
         # Verificar cliques nos botões

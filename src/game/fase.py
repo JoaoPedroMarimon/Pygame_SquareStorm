@@ -389,9 +389,11 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     duracao_transicao_vitoria = 180  # 3 segundos a 60 FPS (ajuste conforme necessário)
     
     # Cursor do mouse visível durante o jogo
-    pygame.mouse.set_visible(False)  # Esconder o cursor padrão do sistema
+    #pygame.mouse.set_visible(False)  # Esconder o cursor padrão do sistema
 
-    # Criar mira personalizada
+    pygame.mouse.set_visible(False)  # Ocultar apenas durante o jogo ativo
+
+        # Criar mira personalizada
     mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
     
     # Loop principal da fase

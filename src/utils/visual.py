@@ -115,33 +115,24 @@ def desenhar_texto(tela, texto, tamanho, cor, x, y, fonte=None, sombra=True):
     
     return rect
 
+# src/utils/visual.py
+
 def criar_botao(tela, texto, x, y, largura, altura, cor_normal, cor_hover, cor_texto):
     """
     Cria um botão interativo na tela.
-    
-    Args:
-        tela: Superfície onde desenhar
-        texto: Texto do botão
-        x, y: Coordenadas do centro do botão
-        largura, altura: Dimensões do botão
-        cor_normal: Cor RGB quando não hover
-        cor_hover: Cor RGB quando hover
-        cor_texto: Cor RGB do texto
-        
-    Returns:
-        True se o mouse estiver sobre o botão, False caso contrário
     """
     # Ajustar dimensões para a resolução atual
     escala_y = ALTURA / 848
     largura_ajustada = int(largura * escala_y)
     altura_ajustada = int(altura * escala_y)
     
-    mouse_pos = pygame.mouse.get_pos()
+    # Criar o retângulo de colisão com as mesmas dimensões ajustadas
     rect = pygame.Rect(x - largura_ajustada // 2, y - altura_ajustada // 2, largura_ajustada, altura_ajustada)
     
+    mouse_pos = pygame.mouse.get_pos()
     hover = rect.collidepoint(mouse_pos)
     
-    # Desenhar o botão com efeito de hover
+    # Desenhar o botão usando o mesmo retângulo
     if hover:
         pygame.draw.rect(tela, cor_hover, rect, 0, 10)
         pygame.draw.rect(tela, (255, 255, 255), rect, 2, 10)
