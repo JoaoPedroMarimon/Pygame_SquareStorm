@@ -10,7 +10,7 @@ import json
 import os
 import pygame
 import math
-from src.config import LARGURA, ALTURA
+from src.config import LARGURA, ALTURA_JOGO
 from src.entities.moeda import Moeda
 
 
@@ -84,18 +84,24 @@ class MoedaManager:
         
         # Verificar se é hora de gerar uma nova moeda
         if tempo_atual - self.ultimo_spawn > self.intervalo_spawn:
-            self.gerar_moeda()  # Alterado para método sem underline
+            self.gerar_moeda()
             self.ultimo_spawn = tempo_atual
             self.intervalo_spawn = random.randint(1000, 3000)  # Novo intervalo aleatório
         
         # Atualizar moedas existentes
         for moeda in self.moedas_na_tela[:]:
+            # Verificar se a moeda está na área de jogo válida
+            if moeda.y > ALTURA_JOGO - moeda.raio:
+                # Moeda está no HUD ou fora da área de jogo, removê-la
+                self.moedas_na_tela.remove(moeda)
+                continue
+                
             # Verificar colisão com o jogador
             if moeda.colidiu(jogador.rect):
                 self.quantidade_moedas += 1
                 self.moedas_na_tela.remove(moeda)
                 pygame.mixer.Channel(3).play(self.som_coleta)
-                self.salvar_moedas()  # Alterado para método sem underline
+                self.salvar_moedas()
                 moeda_coletada = True
                 continue
             
@@ -109,14 +115,14 @@ class MoedaManager:
         
         return moeda_coletada
     
-    def gerar_moeda(self):  # Alterado para método sem underline
-        """Gera uma nova moeda em uma posição aleatória na tela."""
+    def gerar_moeda(self):  
+        """Gera uma nova moeda em uma posição aleatória na tela de jogo (não no HUD)."""
         # Definir uma margem para não gerar moedas muito próximas às bordas
         margem = 50
         
-        # Gerar posição aleatória
+        # Gerar posição aleatória APENAS na área de jogo, não no HUD
         x = random.randint(margem, LARGURA - margem)
-        y = random.randint(margem, ALTURA - margem)
+        y = random.randint(margem, ALTURA_JOGO - margem)  # Usar ALTURA_JOGO em vez de ALTURA
         
         # Criar a moeda
         moeda = Moeda(x, y)

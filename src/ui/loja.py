@@ -167,13 +167,33 @@ def tela_loja(tela, relogio, gradiente_loja):
         
         # Custo e botão de compra
         custo = 50
-        rect_comprar = pygame.Rect(LARGURA // 2 - 120, y_pos + painel_item_altura//2 - 30, 240, 50)
+        botao_largura = 240
+        botao_altura = 50
+        botao_x = LARGURA // 2
+        botao_y = y_pos + painel_item_altura//2 - 30
+        
+        # Criar retângulo para o botão - IMPORTANTE: usamos as mesmas dimensões para visual e colisão
+        rect_comprar = pygame.Rect(botao_x - botao_largura//2, botao_y - botao_altura//2, 
+                                 botao_largura, botao_altura)
+        
         botao_ativo = moeda_manager.obter_quantidade() >= custo
         cor_botao = (60, 120, 60) if botao_ativo else (80, 80, 80)
         cor_hover = (80, 180, 80) if botao_ativo else (100, 100, 100)
         
-        hover_comprar = criar_botao(tela, f"{custo} MOEDAS", LARGURA // 2, y_pos + painel_item_altura//2 - 30, 240, 50, 
-                                  cor_botao, cor_hover, BRANCO)
+        # Verificar hover
+        mouse_pos = pygame.mouse.get_pos()
+        hover = rect_comprar.collidepoint(mouse_pos)
+        
+        # Desenhar o botão manualmente para garantir que coincida com o rect_comprar
+        cor_atual = cor_hover if hover else cor_botao
+        pygame.draw.rect(tela, cor_atual, rect_comprar, 0, 10)
+        pygame.draw.rect(tela, BRANCO, rect_comprar, 2, 10)
+        
+        # Texto do botão
+        fonte_botao = pygame.font.SysFont("Arial", 26)
+        texto_botao = fonte_botao.render(f"{custo} MOEDAS", True, BRANCO)
+        texto_rect = texto_botao.get_rect(center=(botao_x, botao_y))
+        tela.blit(texto_botao, texto_rect)
         
         # ==== ITEM 2: UPGRADE DE ESPINGARDA ====
         y_pos += painel_item_altura + espaco_entre_itens
@@ -284,19 +304,50 @@ def tela_loja(tela, relogio, gradiente_loja):
         
         # Custo e botão de compra da espingarda
         custo_espingarda = 100
-        rect_espingarda = pygame.Rect(LARGURA // 2 - 120, y_pos + painel_item_altura//2 - 30, 240, 50)
+        botao_espingarda_x = LARGURA // 2
+        botao_espingarda_y = y_pos + painel_item_altura//2 - 30
+        
+        # Criar retângulo para o botão da espingarda
+        rect_espingarda = pygame.Rect(botao_espingarda_x - botao_largura//2, 
+                                   botao_espingarda_y - botao_altura//2,
+                                   botao_largura, botao_altura)
+        
         botao_espingarda_ativo = moeda_manager.obter_quantidade() >= custo_espingarda
         cor_botao_espingarda = (60, 60, 120) if botao_espingarda_ativo else (80, 80, 80)
         cor_hover_espingarda = (80, 80, 180) if botao_espingarda_ativo else (100, 100, 100)
         
-        hover_espingarda = criar_botao(tela, f"{custo_espingarda} MOEDAS", LARGURA // 2, y_pos + painel_item_altura//2 - 30, 240, 50, 
-                                     cor_botao_espingarda, cor_hover_espingarda, BRANCO)
+        # Verificar hover para o botão da espingarda
+        hover_espingarda = rect_espingarda.collidepoint(mouse_pos)
+        
+        # Desenhar o botão manualmente
+        cor_atual_espingarda = cor_hover_espingarda if hover_espingarda else cor_botao_espingarda
+        pygame.draw.rect(tela, cor_atual_espingarda, rect_espingarda, 0, 10)
+        pygame.draw.rect(tela, BRANCO, rect_espingarda, 2, 10)
+        
+        # Texto do botão
+        texto_botao_espingarda = fonte_botao.render(f"{custo_espingarda} MOEDAS", True, BRANCO)
+        texto_rect_espingarda = texto_botao_espingarda.get_rect(center=(botao_espingarda_x, botao_espingarda_y))
+        tela.blit(texto_botao_espingarda, texto_rect_espingarda)
         
         # Desenhar botão de voltar
-        y_voltar = ALTURA - 80
-        rect_voltar = pygame.Rect(LARGURA // 2 - 120, y_voltar - 25, 240, 50)
-        hover_voltar = criar_botao(tela, "MENU (ESC)", LARGURA // 2, y_voltar, 240, 50, 
-                                 (60, 60, 150), (80, 80, 220), BRANCO)
+        botao_voltar_x = LARGURA // 2
+        botao_voltar_y = ALTURA - 80
+        rect_voltar = pygame.Rect(botao_voltar_x - botao_largura//2, 
+                               botao_voltar_y - botao_altura//2, 
+                               botao_largura, botao_altura)
+        
+        # Verificar hover para o botão voltar
+        hover_voltar = rect_voltar.collidepoint(mouse_pos)
+        
+        # Desenhar o botão voltar manualmente
+        cor_voltar = (80, 80, 220) if hover_voltar else (60, 60, 150)
+        pygame.draw.rect(tela, cor_voltar, rect_voltar, 0, 10)
+        pygame.draw.rect(tela, BRANCO, rect_voltar, 2, 10)
+        
+        # Texto do botão voltar
+        texto_voltar = fonte_botao.render("MENU (ESC)", True, BRANCO)
+        texto_rect_voltar = texto_voltar.get_rect(center=(botao_voltar_x, botao_voltar_y))
+        tela.blit(texto_voltar, texto_rect_voltar)
         
         # Verificar clique no botão de compra
         if clique_ocorreu and rect_comprar.collidepoint(pygame.mouse.get_pos()):
@@ -373,6 +424,7 @@ def tela_loja(tela, relogio, gradiente_loja):
         relogio.tick(FPS)
     
     return "menu"
+        
 
 # Update in src/ui/loja.py - carregar_upgrades function
 def carregar_upgrades():
