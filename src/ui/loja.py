@@ -113,22 +113,190 @@ def tela_loja(tela, relogio, gradiente_loja):
         # Desenhar divisória
         pygame.draw.line(tela, (100, 100, 150), (LARGURA // 4, 180), (3 * LARGURA // 4, 180), 2)
         
-        # Desenhar itens da loja
-        y_pos = 250
+        # Configurações dos painéis de itens
+        painel_item_largura = 450
+        painel_item_altura = 160
+        espaco_entre_itens = 30
         
-        # Upgrade de vida
-        desenhar_texto(tela, "Upgrade de Vida", 36, BRANCO, LARGURA // 2, y_pos)
-        desenhar_texto(tela, f"+1 Vida Máxima (Atual: {upgrades['vida']})", 24, BRANCO, LARGURA // 2, y_pos + 40)
+        # ==== ITEM 1: UPGRADE DE VIDA ====
+        y_pos = 280
+        
+        # Desenhar painel do item
+        painel_rect = pygame.Rect(LARGURA//2 - painel_item_largura//2, 
+                                y_pos - painel_item_altura//2,
+                                painel_item_largura, painel_item_altura)
+        
+        # Fundo do painel
+        pygame.draw.rect(tela, (60, 20, 20), painel_rect, 0, 15)
+        # Borda do painel
+        pygame.draw.rect(tela, (200, 60, 60), painel_rect, 3, 15)
+        
+        # Título do item
+        desenhar_texto(tela, "Upgrade de Vida", 32, (255, 100, 100), 
+                     LARGURA // 2, y_pos - painel_item_altura//2 + 25)
+        
+        # Descrição do item
+        desenhar_texto(tela, f"+1 Vida Máxima (Atual: {upgrades['vida']})", 22, BRANCO, 
+                     LARGURA // 2, y_pos)
+        
+        # Desenhar ícone de coração
+        coracao_x = LARGURA//2 - painel_item_largura//2 + 60
+        coracao_y = y_pos
+        tamanho_coracao = 30
+        
+        # Base do coração (dois círculos)
+        pygame.draw.circle(tela, (220, 50, 50), 
+                         (coracao_x - tamanho_coracao//3, coracao_y - tamanho_coracao//6), 
+                         tamanho_coracao//2)
+        pygame.draw.circle(tela, (220, 50, 50), 
+                         (coracao_x + tamanho_coracao//3, coracao_y - tamanho_coracao//6), 
+                         tamanho_coracao//2)
+        
+        # Triângulo para a ponta do coração
+        pontos_triangulo = [
+            (coracao_x - tamanho_coracao//1.5, coracao_y - tamanho_coracao//6),
+            (coracao_x + tamanho_coracao//1.5, coracao_y - tamanho_coracao//6),
+            (coracao_x, coracao_y + tamanho_coracao//1.2)
+        ]
+        pygame.draw.polygon(tela, (220, 50, 50), pontos_triangulo)
+        
+        # Brilho no coração
+        pygame.draw.circle(tela, (255, 150, 150), 
+                         (coracao_x - tamanho_coracao//4, coracao_y - tamanho_coracao//3), 
+                         tamanho_coracao//6)
         
         # Custo e botão de compra
         custo = 50
-        rect_comprar = pygame.Rect(LARGURA // 2 - 120, y_pos + 80, 240, 50)
+        rect_comprar = pygame.Rect(LARGURA // 2 - 120, y_pos + painel_item_altura//2 - 30, 240, 50)
         botao_ativo = moeda_manager.obter_quantidade() >= custo
         cor_botao = (60, 120, 60) if botao_ativo else (80, 80, 80)
         cor_hover = (80, 180, 80) if botao_ativo else (100, 100, 100)
         
-        hover_comprar = criar_botao(tela, f"{custo} MOEDAS", LARGURA // 2, y_pos + 100, 240, 50, 
+        hover_comprar = criar_botao(tela, f"{custo} MOEDAS", LARGURA // 2, y_pos + painel_item_altura//2 - 30, 240, 50, 
                                   cor_botao, cor_hover, BRANCO)
+        
+        # ==== ITEM 2: UPGRADE DE ESPINGARDA ====
+        y_pos += painel_item_altura + espaco_entre_itens
+        
+        # Desenhar painel da espingarda
+        painel_rect = pygame.Rect(LARGURA//2 - painel_item_largura//2, 
+                                y_pos - painel_item_altura//2,
+                                painel_item_largura, painel_item_altura)
+        
+        # Fundo do painel
+        pygame.draw.rect(tela, (40, 40, 60), painel_rect, 0, 15)
+        # Borda do painel
+        pygame.draw.rect(tela, (100, 100, 180), painel_rect, 3, 15)
+        
+        # Título do item
+        desenhar_texto(tela, "Upgrade de Espingarda", 32, (150, 150, 255), 
+                     LARGURA // 2, y_pos - painel_item_altura//2 + 25)
+        
+        # Descrição do item
+        desenhar_texto(tela, f"Tiros por partida: {upgrades.get('espingarda', 0)}", 22, BRANCO, 
+                     LARGURA // 2, y_pos)
+        
+        # Desenhar ícone de espingarda
+        espingarda_x = LARGURA//2 - painel_item_largura//2 + 60
+        espingarda_y = y_pos
+        
+        # Calcular ângulo para a espingarda (apontando para a direita)
+        angulo_espingarda = -10  # Ligeiramente para cima
+        # Converter para radianos
+        angulo_rad = math.radians(angulo_espingarda)
+        dx = math.cos(angulo_rad)
+        dy = math.sin(angulo_rad)
+        
+        # Comprimento da espingarda
+        comprimento_arma = 35
+        
+        # Posição da ponta da arma
+        ponta_x = espingarda_x + dx * comprimento_arma
+        ponta_y = espingarda_y + dy * comprimento_arma
+        
+        # Vetor perpendicular
+        perp_x = -dy
+        perp_y = dx
+        
+        # Cores
+        cor_metal = (180, 180, 190)
+        cor_cano = (100, 100, 110)
+        cor_madeira = (120, 80, 40)
+        cor_madeira_clara = (150, 100, 50)
+        
+        # Desenhar cano
+        for i in range(4):
+            offset = i - 1.5
+            pygame.draw.line(tela, cor_cano, 
+                           (espingarda_x + perp_x * offset, espingarda_y + perp_y * offset), 
+                           (ponta_x + perp_x * offset, ponta_y + perp_y * offset), 3)
+        
+        # Boca do cano
+        pygame.draw.circle(tela, cor_metal, (int(ponta_x), int(ponta_y)), 5)
+        pygame.draw.circle(tela, (40, 40, 40), (int(ponta_x), int(ponta_y)), 3)
+        
+        # Suporte sob o cano
+        meio_cano_x = espingarda_x + dx * (comprimento_arma * 0.6)
+        meio_cano_y = espingarda_y + dy * (comprimento_arma * 0.6)
+        pygame.draw.line(tela, cor_metal, 
+                        (meio_cano_x + perp_x * 3, meio_cano_y + perp_y * 3), 
+                        (meio_cano_x - perp_x * 3, meio_cano_y - perp_y * 3), 3)
+        
+        # Corpo central
+        corpo_x = espingarda_x + dx * 8
+        corpo_y = espingarda_y + dy * 8
+        pygame.draw.circle(tela, cor_metal, (int(corpo_x), int(corpo_y)), 7)
+        pygame.draw.circle(tela, (50, 50, 55), (int(corpo_x), int(corpo_y)), 4)
+        brilho_x = corpo_x - dx + perp_x
+        brilho_y = corpo_y - dy + perp_y
+        pygame.draw.circle(tela, (220, 220, 230), (int(brilho_x), int(brilho_y)), 2)
+        
+        # Coronha
+        coronha_base_x = corpo_x - dx * 2
+        coronha_base_y = corpo_y - dy * 2
+        
+        sup_inicio_x = coronha_base_x + perp_x * 6
+        sup_inicio_y = coronha_base_y + perp_y * 6
+        inf_inicio_x = coronha_base_x - perp_x * 6
+        inf_inicio_y = coronha_base_y - perp_y * 6
+        
+        sup_fim_x = coronha_base_x - dx * 15 + perp_x * 4
+        sup_fim_y = coronha_base_y - dy * 15 + perp_y * 4
+        inf_fim_x = coronha_base_x - dx * 15 - perp_x * 4
+        inf_fim_y = coronha_base_y - dy * 15 - perp_y * 4
+        
+        pygame.draw.polygon(tela, cor_madeira, [
+            (sup_inicio_x, sup_inicio_y),
+            (inf_inicio_x, inf_inicio_y),
+            (inf_fim_x, inf_fim_y),
+            (sup_fim_x, sup_fim_y)
+        ])
+        
+        # Detalhes da coronha
+        for i in range(1, 4):
+            linha_x1 = sup_inicio_x - dx * (i * 3) + perp_x * (6 - i * 0.5)
+            linha_y1 = sup_inicio_y - dy * (i * 3) + perp_y * (6 - i * 0.5)
+            linha_x2 = inf_inicio_x - dx * (i * 3) - perp_x * (6 - i * 0.5)
+            linha_y2 = inf_inicio_y - dy * (i * 3) - perp_y * (6 - i * 0.5)
+            pygame.draw.line(tela, cor_madeira_clara, 
+                           (linha_x1, linha_y1), 
+                           (linha_x2, linha_y2), 1)
+        
+        # Custo e botão de compra da espingarda
+        custo_espingarda = 100
+        rect_espingarda = pygame.Rect(LARGURA // 2 - 120, y_pos + painel_item_altura//2 - 30, 240, 50)
+        botao_espingarda_ativo = moeda_manager.obter_quantidade() >= custo_espingarda
+        cor_botao_espingarda = (60, 60, 120) if botao_espingarda_ativo else (80, 80, 80)
+        cor_hover_espingarda = (80, 80, 180) if botao_espingarda_ativo else (100, 100, 100)
+        
+        hover_espingarda = criar_botao(tela, f"{custo_espingarda} MOEDAS", LARGURA // 2, y_pos + painel_item_altura//2 - 30, 240, 50, 
+                                     cor_botao_espingarda, cor_hover_espingarda, BRANCO)
+        
+        # Desenhar botão de voltar
+        y_voltar = ALTURA - 80
+        rect_voltar = pygame.Rect(LARGURA // 2 - 120, y_voltar - 25, 240, 50)
+        hover_voltar = criar_botao(tela, "MENU (ESC)", LARGURA // 2, y_voltar, 240, 50, 
+                                 (60, 60, 150), (80, 80, 220), BRANCO)
         
         # Verificar clique no botão de compra
         if clique_ocorreu and rect_comprar.collidepoint(pygame.mouse.get_pos()):
@@ -149,11 +317,27 @@ def tela_loja(tela, relogio, gradiente_loja):
                 mensagem_cor = VERMELHO
                 mensagem_tempo = 0
         
-        # Desenhar botão de voltar
-        y_voltar = ALTURA - 80
-        rect_voltar = pygame.Rect(LARGURA // 2 - 120, y_voltar - 25, 240, 50)
-        hover_voltar = criar_botao(tela, "MENU (ESC)", LARGURA // 2, y_voltar, 240, 50, 
-                                 (60, 60, 150), (80, 80, 220), BRANCO)
+        # Verificar clique no botão de compra da espingarda
+        if clique_ocorreu and rect_espingarda.collidepoint(pygame.mouse.get_pos()):
+            if botao_espingarda_ativo:
+                # Tem moedas suficientes
+                moeda_manager.quantidade_moedas -= custo_espingarda
+                moeda_manager.salvar_moedas()
+                if 'espingarda' in upgrades:
+                    upgrades["espingarda"] += 1
+                else:
+                    upgrades["espingarda"] = 1
+                salvar_upgrades(upgrades)
+                pygame.mixer.Channel(4).play(som_compra)
+                mensagem = "Upgrade de espingarda comprado!"
+                mensagem_cor = VERDE
+                mensagem_tempo = 0
+            else:
+                # Não tem moedas suficientes
+                pygame.mixer.Channel(4).play(som_erro)
+                mensagem = "Moedas insuficientes!"
+                mensagem_cor = VERMELHO
+                mensagem_tempo = 0
         
         # Verificar clique no botão de voltar
         if clique_ocorreu and rect_voltar.collidepoint(pygame.mouse.get_pos()):
@@ -190,13 +374,15 @@ def tela_loja(tela, relogio, gradiente_loja):
     
     return "menu"
 
+# Update in src/ui/loja.py - carregar_upgrades function
 def carregar_upgrades():
     """
     Carrega os upgrades salvos do arquivo.
     Se o arquivo não existir, inicia com valores padrão.
     """
     upgrades_padrao = {
-        "vida": 1  # Vida máxima inicial é 1
+        "vida": 1,  # Vida máxima inicial é 1
+        "espingarda": 0  # Tiros de espingarda disponíveis (0 = não tem)
     }
     
     try:

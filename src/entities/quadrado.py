@@ -27,6 +27,8 @@ class Quadrado:
         self.cor_escura = self._gerar_cor_escura(cor)
         self.cor_brilhante = self._gerar_cor_brilhante(cor)
         self.velocidade = velocidade
+        self.tiros_espingarda = self._carregar_upgrade_espingarda()
+        self.espingarda_ativa = False
         
         # Verificar se é o jogador e carregar upgrade de vida
         if cor == AZUL:  # Se for o jogador
@@ -99,13 +101,13 @@ class Quadrado:
                 alpha = int(255 * (1 - i / len(self.posicoes_anteriores)))
                 # Garantir que os valores RGB estejam no intervalo válido (0-255)
                 cor_trilha = (max(0, min(255, self.cor[0] - 100)), 
-                              max(0, min(255, self.cor[1] - 100)), 
-                              max(0, min(255, self.cor[2] - 100)))
+                            max(0, min(255, self.cor[1] - 100)), 
+                            max(0, min(255, self.cor[2] - 100)))
                 tamanho = int(self.tamanho * (1 - i / len(self.posicoes_anteriores) * 0.7))
                 pygame.draw.rect(tela, cor_trilha, 
                                 (pos_x + (self.tamanho - tamanho) // 2, 
-                                 pos_y + (self.tamanho - tamanho) // 2, 
-                                 tamanho, tamanho))
+                                pos_y + (self.tamanho - tamanho) // 2, 
+                                tamanho, tamanho))
         
         # Se estiver invulnerável, pisca o quadrado
         if self.invulneravel and pygame.time.get_ticks() % 200 < 100:
@@ -126,7 +128,7 @@ class Quadrado:
         # Desenhar sombra
         pygame.draw.rect(tela, (20, 20, 20), 
                         (self.x + 4, self.y + 4, 
-                         self.tamanho, self.tamanho), 0, 3)
+                        self.tamanho, self.tamanho), 0, 3)
         
         # Desenhar o quadrado com bordas arredondadas
         cor_uso = self.cor
@@ -137,17 +139,17 @@ class Quadrado:
         # Quadrado interior
         pygame.draw.rect(tela, self.cor_escura, 
                         (self.x, self.y, 
-                         self.tamanho + mod_tamanho, self.tamanho + mod_tamanho), 0, 5)
+                        self.tamanho + mod_tamanho, self.tamanho + mod_tamanho), 0, 5)
         
         # Quadrado exterior (menor)
         pygame.draw.rect(tela, cor_uso, 
                         (self.x + 3, self.y + 3, 
-                         self.tamanho + mod_tamanho - 6, self.tamanho + mod_tamanho - 6), 0, 3)
+                        self.tamanho + mod_tamanho - 6, self.tamanho + mod_tamanho - 6), 0, 3)
         
         # Brilho no canto superior esquerdo
         pygame.draw.rect(tela, self.cor_brilhante, 
                         (self.x + 5, self.y + 5, 
-                         8, 8), 0, 2)
+                        8, 8), 0, 2)
         
         # Desenhar indicador de vidas (barra de vida)
         vida_largura = 50
@@ -162,6 +164,145 @@ class Quadrado:
         if vida_atual > 0:
             pygame.draw.rect(tela, self.cor, 
                             (self.x, self.y - 15, vida_atual, altura_barra), 0, 2)
+        
+        # Desenhar espingarda se for o jogador (cor AZUL) e tiver a espingarda ativa
+        if self.cor == AZUL and hasattr(self, 'espingarda_ativa') and self.espingarda_ativa:
+            # Obter a posição do mouse para orientar a espingarda
+            pos_mouse = pygame.mouse.get_pos()
+            
+            # Calcular o centro do jogador
+            centro_x = self.x + self.tamanho // 2
+            centro_y = self.y + self.tamanho // 2
+            
+            # Calcular o vetor direção para o mouse
+            dx = pos_mouse[0] - centro_x
+            dy = pos_mouse[1] - centro_y
+            
+            # Normalizar o vetor direção
+            distancia = math.sqrt(dx**2 + dy**2)
+            if distancia > 0:
+                dx /= distancia
+                dy /= distancia
+            
+            # Comprimento da espingarda
+            comprimento_arma = 35  # Ligeiramente mais longo
+            
+            # Posição da ponta da arma
+            ponta_x = centro_x + dx * comprimento_arma
+            ponta_y = centro_y + dy * comprimento_arma
+            
+            # Vetor perpendicular para elementos laterais
+            perp_x = -dy
+            perp_y = dx
+            
+            # Cores da espingarda
+            cor_metal = (180, 180, 190)  # Metal prateado
+            cor_cano = (100, 100, 110)   # Cano escuro
+            cor_madeira = (120, 80, 40)  # Madeira escura
+            cor_madeira_clara = (150, 100, 50)  # Madeira clara
+            
+            # DESENHO COMPLETO DA ESPINGARDA
+            
+            # 1. Cano principal (mais grosso e com gradiente)
+            for i in range(4):
+                offset = i - 1.5
+                pygame.draw.line(tela, cor_cano, 
+                            (centro_x + perp_x * offset, centro_y + perp_y * offset), 
+                            (ponta_x + perp_x * offset, ponta_y + perp_y * offset), 3)
+            
+            # 2. Boca do cano com destaque
+            pygame.draw.circle(tela, cor_metal, (int(ponta_x), int(ponta_y)), 5)
+            pygame.draw.circle(tela, (40, 40, 40), (int(ponta_x), int(ponta_y)), 3)
+            
+            # 3. Suporte sob o cano
+            meio_cano_x = centro_x + dx * (comprimento_arma * 0.6)
+            meio_cano_y = centro_y + dy * (comprimento_arma * 0.6)
+            pygame.draw.line(tela, cor_metal, 
+                            (meio_cano_x + perp_x * 3, meio_cano_y + perp_y * 3), 
+                            (meio_cano_x - perp_x * 3, meio_cano_y - perp_y * 3), 3)
+            
+            # 4. Corpo central / Mecanismo (mais detalhado)
+            corpo_x = centro_x + dx * 8
+            corpo_y = centro_y + dy * 8
+            # Base do corpo
+            pygame.draw.circle(tela, cor_metal, (int(corpo_x), int(corpo_y)), 7)
+            # Detalhes do mecanismo
+            pygame.draw.circle(tela, (50, 50, 55), (int(corpo_x), int(corpo_y)), 4)
+            # Reflete mecanismo (brilho)
+            brilho_x = corpo_x - dx + perp_x
+            brilho_y = corpo_y - dy + perp_y
+            pygame.draw.circle(tela, (220, 220, 230), (int(brilho_x), int(brilho_y)), 2)
+            
+            # 5. Coronha mais elegante (formato mais curvado)
+            # Pontos para a coronha em formato mais curvo
+            # Base conectando ao corpo
+            coronha_base_x = corpo_x - dx * 2
+            coronha_base_y = corpo_y - dy * 2
+            
+            # Pontos superiores e inferiores no início da coronha
+            sup_inicio_x = coronha_base_x + perp_x * 6
+            sup_inicio_y = coronha_base_y + perp_y * 6
+            inf_inicio_x = coronha_base_x - perp_x * 6
+            inf_inicio_y = coronha_base_y - perp_y * 6
+            
+            # Pontos do final da coronha (mais estreitos)
+            sup_fim_x = coronha_base_x - dx * 15 + perp_x * 4
+            sup_fim_y = coronha_base_y - dy * 15 + perp_y * 4
+            inf_fim_x = coronha_base_x - dx * 15 - perp_x * 4
+            inf_fim_y = coronha_base_y - dy * 15 - perp_y * 4
+            
+            # Desenhar coronha principal
+            pygame.draw.polygon(tela, cor_madeira, [
+                (sup_inicio_x, sup_inicio_y),
+                (inf_inicio_x, inf_inicio_y),
+                (inf_fim_x, inf_fim_y),
+                (sup_fim_x, sup_fim_y)
+            ])
+            
+            # 6. Detalhes da coronha (linhas de madeira)
+            for i in range(1, 4):
+                linha_x1 = sup_inicio_x - dx * (i * 3) + perp_x * (6 - i * 0.5)
+                linha_y1 = sup_inicio_y - dy * (i * 3) + perp_y * (6 - i * 0.5)
+                linha_x2 = inf_inicio_x - dx * (i * 3) - perp_x * (6 - i * 0.5)
+                linha_y2 = inf_inicio_y - dy * (i * 3) - perp_y * (6 - i * 0.5)
+                pygame.draw.line(tela, cor_madeira_clara, 
+                                (linha_x1, linha_y1), 
+                                (linha_x2, linha_y2), 1)
+            
+            # 7. Gatilho e proteção (mais detalhados)
+            # Base do gatilho
+            gatilho_base_x = corpo_x - dx * 3
+            gatilho_base_y = corpo_y - dy * 3
+            
+            # Proteção do gatilho (arco)
+            pygame.draw.arc(tela, cor_metal, 
+                        [gatilho_base_x - 5, gatilho_base_y - 5, 10, 10],
+                        math.pi/2, math.pi * 1.5, 2)
+            
+            # Gatilho (linha curva)
+            gatilho_x = gatilho_base_x - perp_x * 2
+            gatilho_y = gatilho_base_y - perp_y * 2
+            pygame.draw.line(tela, (40, 40, 40), 
+                            (gatilho_base_x, gatilho_base_y), 
+                            (gatilho_x, gatilho_y), 2)
+            
+            # 8. Efeito de brilho no metal
+            pygame.draw.line(tela, (220, 220, 230), 
+                            (centro_x + perp_x * 2, centro_y + perp_y * 2), 
+                            (corpo_x + perp_x * 2, corpo_y + perp_y * 2), 1)
+            
+            # 9. Efeito de energia/carregamento (quando estiver ativa)
+            # Pulsar baseado no tempo atual
+            pulso = (math.sin(tempo_atual / 150) + 1) / 2  # Valor entre 0 e 1
+            cor_energia = (50 + int(pulso * 200), 50 + int(pulso * 150), 255)
+            
+            # Linha de energia ao longo do cano
+            energia_width = 2 + int(pulso * 2)
+            meio_cano2_x = centro_x + dx * (comprimento_arma * 0.3)
+            meio_cano2_y = centro_y + dy * (comprimento_arma * 0.3)
+            pygame.draw.line(tela, cor_energia, 
+                            (meio_cano2_x, meio_cano2_y), 
+                            (ponta_x, ponta_y), energia_width)
 
 
     def mover(self, dx, dy):
@@ -322,6 +463,75 @@ class Quadrado:
                 cor_tiro = (r, g, b)
                 
             tiros.append(Tiro(centro_x, centro_y, direcao[0], direcao[1], self.cor, 7))
+
+    def _carregar_upgrade_espingarda(self):
+        """
+        Carrega o upgrade de espingarda do arquivo de upgrades.
+        Retorna 0 se não houver upgrade.
+        """
+        try:
+            # Verificar se o arquivo existe
+            if os.path.exists("data/upgrades.json"):
+                with open("data/upgrades.json", "r") as f:
+                    upgrades = json.load(f)
+                    return upgrades.get("espingarda", 0)
+            return 0
+        except Exception as e:
+            print(f"Erro ao carregar upgrade de espingarda: {e}")
+            return 0
+# Add to src/entities/quadrado.py in Quadrado class
+# Modifique a função atirar_espingarda no arquivo src/entities/quadrado.py
+    def atirar_espingarda(self, tiros, pos_mouse, num_tiros=5):  # Aumente de 3 para 5 tiros
+        """
+        Dispara múltiplos tiros em um padrão de espingarda.
+        
+        Args:
+            tiros: Lista onde adicionar os novos tiros
+            pos_mouse: Tupla (x, y) com a posição do mouse
+            num_tiros: Número de tiros a disparar
+        """
+        # Verificar cooldown
+        tempo_atual = pygame.time.get_ticks()
+        if tempo_atual - self.tempo_ultimo_tiro < self.tempo_cooldown:
+            return
+        
+        self.tempo_ultimo_tiro = tempo_atual
+        
+        # Posição central do quadrado
+        centro_x = self.x + self.tamanho // 2
+        centro_y = self.y + self.tamanho // 2
+        
+        # Calcular vetor direção para o mouse
+        dx = pos_mouse[0] - centro_x
+        dy = pos_mouse[1] - centro_y
+        
+        # Normalizar o vetor direção
+        distancia = math.sqrt(dx * dx + dy * dy)
+        if distancia > 0:  # Evitar divisão por zero
+            dx /= distancia
+            dy /= distancia
+        
+        # Som de tiro de espingarda (mais forte)
+        som_espingarda = pygame.mixer.Sound(gerar_som_tiro())
+        som_espingarda.set_volume(0.3)  # Volume mais alto para a espingarda
+        pygame.mixer.Channel(1).play(som_espingarda)
+        
+        # Ângulo de dispersão para cada tiro
+        angulo_base = math.atan2(dy, dx)
+        dispersao = 0.3  # Aumentar a dispersão de 0.2 para 0.3 para ter um leque maior
+        
+        # Criar tiros com ângulos ligeiramente diferentes
+        for i in range(num_tiros):
+            # Calcular ângulo para este tiro
+            angulo_variacao = dispersao * (i / (num_tiros - 1) - 0.5) * 2
+            angulo_atual = angulo_base + angulo_variacao
+            
+            # Calcular direção com o novo ângulo
+            tiro_dx = math.cos(angulo_atual)
+            tiro_dy = math.sin(angulo_atual)
+            
+            # Criar tiro com a direção calculada
+            tiros.append(Tiro(centro_x, centro_y, tiro_dx, tiro_dy, AZUL, 8))
 
     def tomar_dano(self):
         """

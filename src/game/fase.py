@@ -445,7 +445,18 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         movimento_x = -1
                     if evento.key == pygame.K_d:
                         movimento_x = 1
-                    
+                    if evento.key == pygame.K_e:
+                        if jogador.tiros_espingarda > 0:
+                            jogador.espingarda_ativa = not jogador.espingarda_ativa
+                            # Mostrar mensagem de ativação/desativação
+                            if jogador.espingarda_ativa:
+                                criar_texto_flutuante("ESPINGARDA ATIVADA!", 
+                                                    LARGURA // 2, ALTURA // 4, 
+                                                    VERDE, particulas, 120, 32)
+                            else:
+                                criar_texto_flutuante("ESPINGARDA DESATIVADA", 
+                                                    LARGURA // 2, ALTURA // 4, 
+                                                    VERMELHO, particulas, 120, 32)
                     # Tecla ESC para pausar
                     if evento.key == pygame.K_ESCAPE:
                         pausado = True
@@ -465,7 +476,17 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 
                 # Tiro com o botão esquerdo do mouse (apenas se não estiver morto ou congelado)
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                    jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
+                    if jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
+                        jogador.atirar_espingarda(tiros_jogador, pos_mouse)
+                        jogador.tiros_espingarda -= 1
+                        # Desativar espingarda se acabaram os tiros
+                        if jogador.tiros_espingarda <= 0:
+                            jogador.espingarda_ativa = False
+                            criar_texto_flutuante("SEM TIROS DE ESPINGARDA!", 
+                                            LARGURA // 2, ALTURA // 4, 
+                                            VERMELHO, particulas, 120, 32)
+                    else:
+                        jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
             
             # Handle pause menu controls
             elif pausado:

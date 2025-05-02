@@ -8,7 +8,7 @@ Versão atualizada do arquivo src/ui/hud.py para separar o HUD da área de jogo.
 import pygame
 import math
 from src.config import LARGURA, ALTURA, LARGURA_JOGO, ALTURA_JOGO, ALTURA_HUD
-from src.config import BRANCO, AMARELO, VERDE, VERMELHO, CINZA_ESCURO
+from src.config import BRANCO, AMARELO, VERDE, VERMELHO, CINZA_ESCURO, AZUL, ROXO
 from src.utils.visual import desenhar_texto
 
 def desenhar_hud(tela, pontuacao, fase_atual, inimigos, tempo_atual, moeda_manager=None):
@@ -58,16 +58,40 @@ def desenhar_hud(tela, pontuacao, fase_atual, inimigos, tempo_atual, moeda_manag
     desenhar_texto(tela, f"Inimigos: {inimigos_restantes}", 28, VERMELHO, pos_inimigos, centro_y)
     
     # Moedas (se o gerenciador de moedas for fornecido)
-    if moeda_manager:
-        # Desenhar ícone de moeda
-        pygame.draw.circle(tela, AMARELO, (pos_moedas - 25, centro_y), 15)
-        pygame.draw.circle(tela, (200, 180, 0), (pos_moedas - 25, centro_y), 15, 2)
+# Adicionar ao desenhar_hud em src/ui/hud.py
+# Se o jogador tem espingarda, mostrar status
+# Se inimigos for uma lista e o jogador estiver nela:
+    if moeda_manager:  # Certifique-se que o manager existe
+        # Posição para o indicador de espingarda
+        pos_espingarda = LARGURA - 200
         
-        # Brilho na moeda
-        pygame.draw.circle(tela, BRANCO, (pos_moedas - 30, centro_y - 5), 5)
+        # Encontrar o jogador na lista de inimigos (se for uma lista)
+        jogador = None
+        if isinstance(inimigos, list):
+            for obj in inimigos:
+                if hasattr(obj, 'cor') and obj.cor == AZUL:
+                    jogador = obj
+                    break
+        else:
+            # Se inimigos já for o jogador
+            jogador = inimigos
         
-        # Contador de moedas
-        desenhar_texto(tela, f"{moeda_manager.obter_quantidade()}", 22, AMARELO, pos_moedas + 20, centro_y)
+        if jogador and hasattr(jogador, 'tiros_espingarda') and jogador.tiros_espingarda > 0:
+            # Desenhar fundo para o indicador de espingarda
+            pygame.draw.rect(tela, (60, 60, 80), 
+                        (pos_espingarda - 80, ALTURA_JOGO + 10, 160, ALTURA_HUD - 20), 0, 10)
+            pygame.draw.rect(tela, ROXO, 
+                        (pos_espingarda - 80, ALTURA_JOGO + 10, 160, ALTURA_HUD - 20), 2, 10)
+            
+            # Texto informativo
+            texto_espingarda = f"E: ESPINGARDA ({jogador.tiros_espingarda})"
+            if hasattr(jogador, 'espingarda_ativa') and jogador.espingarda_ativa:
+                texto_espingarda = f"ESPINGARDA ATIVA! ({jogador.tiros_espingarda})"
+                cor_texto = VERDE
+            else:
+                cor_texto = BRANCO
+                
+            desenhar_texto(tela, texto_espingarda, 22, cor_texto, pos_espingarda, centro_y)
 
 def aplicar_fade(tela, fade_in):
     """

@@ -15,6 +15,7 @@ from src.ui.loja import tela_loja
 from ..ui.selecao_fase import tela_selecao_fase
 from ..utils.progress import ProgressManager
 import os
+import json
 
 def main_game():
     """
@@ -54,6 +55,14 @@ def main_game():
 
     # Adicionar ProgressManager
     progress_manager = ProgressManager()
+    try:
+        if os.path.exists("data/upgrades.json"):
+            with open("data/upgrades.json", "r") as f:
+                upgrades = json.load(f)
+                # Get value but don't reset it in the save file yet
+                shotgun_ammo = upgrades.get("espingarda", 0)
+    except Exception as e:
+        print(f"Erro ao carregar upgrades: {e}")
     
     # Loop principal
     while True:
