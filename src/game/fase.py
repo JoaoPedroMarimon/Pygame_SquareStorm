@@ -367,9 +367,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     tiros_inimigo = []
     particulas = []     
     flashes = []
-    
-    # Pontuação
-    pontuacao = 0
+
     
     # Flag para pausa
     pausado = False
@@ -412,10 +410,12 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
 
     # Criar mira personalizada
     mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
-    
+    intervalo_minimo_clique = 100  # milissegundos
+
     # Rectangle for pause menu button
     rect_menu_pausado = None
-    
+    ultimo_clique_mouse = 0
+
     # Loop principal da fase
     rodando = True
     while rodando:
@@ -432,7 +432,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                return False, pontuacao
+                return False
             
             # Controles do teclado para o jogador (quando não estiver na introdução, pausado, morto ou congelado)
             if not mostrando_inicio and not pausado and not jogador_morto and not em_congelamento:
@@ -445,23 +445,34 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         movimento_x = -1
                     if evento.key == pygame.K_d:
                         movimento_x = 1
-                    if evento.key == pygame.K_e:
-                        if jogador.tiros_espingarda > 0:
-                            jogador.espingarda_ativa = not jogador.espingarda_ativa
-                            # Mostrar mensagem de ativação/desativação
-                            if jogador.espingarda_ativa:
-                                criar_texto_flutuante("ESPINGARDA ATIVADA!", 
-                                                    LARGURA // 2, ALTURA // 4, 
-                                                    VERDE, particulas, 120, 32)
-                            else:
-                                criar_texto_flutuante("ESPINGARDA DESATIVADA", 
-                                                    LARGURA // 2, ALTURA // 4, 
-                                                    VERMELHO, particulas, 120, 32)
+                    
                     # Tecla ESC para pausar
                     if evento.key == pygame.K_ESCAPE:
                         pausado = True
                         pygame.mixer.pause()
                         pygame.mouse.set_visible(True)
+                    
+                    # Tecla para ativar/desativar espingarda (E)
+                    if evento.key == pygame.K_e:
+                        # Verificar se o jogador já comprou o upgrade da espingarda
+                        if hasattr(jogador, 'tiros_espingarda'):
+                            if jogador.tiros_espingarda > 0:
+                                jogador.espingarda_ativa = not jogador.espingarda_ativa
+                                # Mostrar mensagem de ativação/desativação
+                                if jogador.espingarda_ativa:
+                                    criar_texto_flutuante("ESPINGARDA ATIVADA!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        VERDE, particulas, 120, 32)
+                                else:
+                                    criar_texto_flutuante("ESPINGARDA DESATIVADA", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        VERMELHO, particulas, 120, 32)
+                            elif jogador._carregar_upgrade_espingarda() > 0:
+                                # Jogador comprou o upgrade, mas já usou todos os tiros desta partida
+                                criar_texto_flutuante("SEM TIROS DE ESPINGARDA RESTANTES!", 
+                                                    LARGURA // 2, ALTURA // 4, 
+                                                    VERMELHO, particulas, 120, 32)
+                                # Se nunca comprou a espingarda, não mostra mensagem alguma
                 
                 # Parar o movimento quando soltar as teclas
                 if evento.type == pygame.KEYUP:
@@ -476,17 +487,24 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 
                 # Tiro com o botão esquerdo do mouse (apenas se não estiver morto ou congelado)
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                    if jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
-                        jogador.atirar_espingarda(tiros_jogador, pos_mouse)
-                        jogador.tiros_espingarda -= 1
-                        # Desativar espingarda se acabaram os tiros
-                        if jogador.tiros_espingarda <= 0:
-                            jogador.espingarda_ativa = False
-                            criar_texto_flutuante("SEM TIROS DE ESPINGARDA!", 
-                                            LARGURA // 2, ALTURA // 4, 
-                                            VERMELHO, particulas, 120, 32)
-                    else:
-                        jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
+                    # Verificar se passou tempo suficiente desde o último clique
+                    if tempo_atual - ultimo_clique_mouse >= intervalo_minimo_clique:
+                        ultimo_clique_mouse = tempo_atual
+                        
+                        if jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
+                            # Verificar cooldown do jogador
+                            if tempo_atual - jogador.tempo_ultimo_tiro >= jogador.tempo_cooldown:
+                                jogador.atirar_espingarda(tiros_jogador, pos_mouse)
+                                jogador.tiros_espingarda -= 1
+                                # Desativar espingarda se acabaram os tiros
+                                if jogador.tiros_espingarda <= 0:
+                                    jogador.espingarda_ativa = False
+                                    criar_texto_flutuante("SEM TIROS DE ESPINGARDA!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        VERMELHO, particulas, 120, 32)
+                        else:
+                            # Atirar normal (já tem verificação de cooldown na função)
+                            jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
             
             # Handle pause menu controls
             elif pausado:
@@ -496,19 +514,19 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         pygame.mixer.unpause()
                         pygame.mouse.set_visible(False)
                     if evento.key == pygame.K_m:
-                        return "menu", pontuacao
+                        return "menu"
                 
                 # Handle mouse clicks while paused
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     mouse_pos = pygame.mouse.get_pos()
                     if rect_menu_pausado and rect_menu_pausado.collidepoint(mouse_pos):
-                        return "menu", pontuacao
+                        return "menu"
             
             else:
                 # Durante a introdução, apenas ESC funciona
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_ESCAPE:
-                        return False, pontuacao
+                        return False
                     # Qualquer tecla avança a introdução
                     contador_inicio = 0
         
@@ -534,13 +552,14 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             tamanho = 70 + int(math.sin(tempo_atual / 200) * 5)
             desenhar_texto(tela, f"FASE {numero_fase}", tamanho, BRANCO, LARGURA // 2, ALTURA_JOGO // 3)
             desenhar_texto(tela, f"{len(inimigos)} inimigo{'s' if len(inimigos) > 1 else ''} para derrotar", 36, 
-                           AMARELO, LARGURA // 2, ALTURA_JOGO // 2)
+                        AMARELO, LARGURA // 2, ALTURA_JOGO // 2)
             desenhar_texto(tela, "Preparado?", 30, BRANCO, LARGURA // 2, ALTURA_JOGO * 2 // 3)
             desenhar_texto(tela, "Pressione qualquer tecla para começar", 24, BRANCO, LARGURA // 2, ALTURA_JOGO * 3 // 4)
             
             pygame.display.flip()
             relogio.tick(FPS)
             continue
+    
         
         # Lógica de congelamento
         if em_congelamento:
@@ -574,7 +593,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             
             # Desenhar HUD
 # Desenhar HUD
-            desenhar_hud(tela, pontuacao, numero_fase, inimigos, tempo_atual, moeda_manager)
+            desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager)
             # Quando o congelamento terminar
             if tempo_congelamento <= 0:
                 em_congelamento = False
@@ -640,9 +659,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             
             # Atualizar moedas e verificar colisões
             moeda_coletada = moeda_manager.atualizar(jogador)
-            if moeda_coletada:
-                # Adicionar pontos bônus ao coletar moedas
-                pontuacao += 5
+
                 
             # Atualizar IA para cada inimigo
             for idx, inimigo in enumerate(inimigos):
@@ -676,7 +693,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         # Aplicar o dano
                         if inimigo.tomar_dano():
                             # Adicionar pontos bônus ao acertar o inimigo
-                            pontuacao += 10 * numero_fase  # Pontuação aumenta com a fase
                             
                             # Se o inimigo morreu, adicionar moedas
                             if dano_causou_morte:
@@ -767,13 +783,15 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             
             # Quando a contagem chegar a zero, concluir a fase
             if tempo_transicao_vitoria <= 0:
-                return True, pontuacao  # Fase concluída com sucesso
+                return True  # Fase concluída com sucesso
         
         # Verificar condições de fim de fase
         if jogador.vidas <= 0:
             # Marcar o jogador como morto
             jogador_morto = True
-            
+            for inimigo in inimigos:
+                inimigo.invulneravel = True
+                inimigo.duracao_invulneravel = float('inf')
             # Iniciar contagem para transição de derrota se ainda não iniciou
             if tempo_transicao_derrota is None:
                 tempo_transicao_derrota = duracao_transicao_derrota
@@ -798,14 +816,14 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             
             # Quando a contagem chegar a zero, ir para a tela de game over
             if tempo_transicao_derrota <= 0:
-                return False, pontuacao  # Jogador perdeu
+                return False # Jogador perdeu
         
         # Preencher toda a tela com preto antes de desenhar qualquer elemento do jogo
         tela.fill((0, 0, 0))
         
         # Desenhar tela do jogo
         desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo, 
-                        particulas, flashes, estrelas, gradiente_jogo, pontuacao, numero_fase, fade_in, tempo_atual, moeda_manager)
+                        particulas, flashes, estrelas, gradiente_jogo, numero_fase, fade_in, tempo_atual, moeda_manager)
         
         # Desenhar moedas
         moeda_manager.desenhar(tela)
@@ -855,4 +873,4 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         pygame.display.flip()
         relogio.tick(FPS)
     
-    return False, pontuacao  # Padrão: jogador saiu do jogo
+    return False # Padrão: jogador saiu do jogo

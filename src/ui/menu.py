@@ -440,7 +440,7 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
         
         pygame.display.flip()
         relogio.tick(FPS)
-def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual, pontuacao):
+def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
     """
     Exibe uma tela de vitória após completar uma fase, com opções para continuar ou voltar ao menu.
     
@@ -534,7 +534,7 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual, pontuacao):
         # Mostrar número de inimigos derrotados e pontuação
         desenhar_texto(tela, f"Inimigos derrotados: {fase_atual if fase_atual < 3 else 1}", 30, 
                       BRANCO, LARGURA // 2, ALTURA // 3 + 80)
-        desenhar_texto(tela, f"Pontuação: {pontuacao}", 30, AMARELO, LARGURA // 2, ALTURA // 3 + 130)
+        
         
         # Ajustar dimensões para a resolução atual
         escala_y = ALTURA / 848

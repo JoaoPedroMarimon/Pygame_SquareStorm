@@ -93,13 +93,12 @@ def main_game():
         # Variáveis de fase
         if fase_atual is None:  # Se não selecionou uma fase específica
             fase_atual = progress_manager.obter_fase_maxima()
-        pontuacao_total = 0
         
         # Loop de fases
         while fase_atual <= MAX_FASES:
             # Jogar a fase atual
-            resultado, pontuacao = jogar_fase(tela, relogio, fase_atual, gradiente_jogo, fonte_titulo, fonte_normal)
-            pontuacao_total += pontuacao
+            resultado= jogar_fase(tela, relogio, fase_atual, gradiente_jogo, fonte_titulo, fonte_normal)
+
             
             # Adicionar esta verificação para retorno ao menu
             if resultado == "menu":
@@ -120,7 +119,7 @@ def main_game():
                 progress_manager.atualizar_progresso(fase_atual + 1)
                 
                 # Se não for a última fase, mostra tela de vitória intermediária
-                opcao = tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual, pontuacao_total)
+                opcao = tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual)
                 
                 if opcao == "proximo":
                     # Avançar para próxima fase

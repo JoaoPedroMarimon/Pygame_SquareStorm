@@ -11,7 +11,7 @@ from src.config import LARGURA, ALTURA, LARGURA_JOGO, ALTURA_JOGO, ALTURA_HUD
 from src.config import BRANCO, AMARELO, VERDE, VERMELHO, CINZA_ESCURO, AZUL, ROXO
 from src.utils.visual import desenhar_texto
 
-def desenhar_hud(tela, pontuacao, fase_atual, inimigos, tempo_atual, moeda_manager=None):
+def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None):
     """
     Desenha a interface de usuário durante o jogo.
     Agora o HUD está localizado em uma área separada abaixo da tela de jogo.
@@ -33,7 +33,6 @@ def desenhar_hud(tela, pontuacao, fase_atual, inimigos, tempo_atual, moeda_manag
     
     # Posições horizontais para distribuir elementos na barra de HUD
     pos_fase = LARGURA // 5
-    pos_pontuacao = LARGURA // 2
     pos_inimigos = 4 * LARGURA // 5
     pos_moedas = 50  # Posição das moedas (lado esquerdo)
     
@@ -45,12 +44,7 @@ def desenhar_hud(tela, pontuacao, fase_atual, inimigos, tempo_atual, moeda_manag
     pygame.draw.rect(tela, VERDE, (pos_fase - 80, ALTURA_JOGO + 10, 160, ALTURA_HUD - 20), 2, 10)
     desenhar_texto(tela, f"FASE {fase_atual}", 28, VERDE, pos_fase, centro_y)
     
-    # Pontuação com animação
-    pulse = (math.sin(tempo_atual / 200) + 1) * 0.5  # Valor entre 0 e 1
-    cor_pontuacao = tuple(int(c * (0.7 + 0.3 * pulse)) for c in AMARELO)
-    pygame.draw.rect(tela, (80, 80, 40), (pos_pontuacao - 120, ALTURA_JOGO + 10, 240, ALTURA_HUD - 20), 0, 10)
-    pygame.draw.rect(tela, AMARELO, (pos_pontuacao - 120, ALTURA_JOGO + 10, 240, ALTURA_HUD - 20), 2, 10)
-    desenhar_texto(tela, f"Pontuação: {pontuacao}", 28, cor_pontuacao, pos_pontuacao, centro_y)
+
     
     # Inimigos restantes
     pygame.draw.rect(tela, (80, 40, 40), (pos_inimigos - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
@@ -140,7 +134,7 @@ def desenhar_transicao_fase(tela, numero_fase, tempo_transicao, fonte_titulo, fo
         tela.blit(subtexto, subtexto_rect)
 
 def desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo, 
-                     particulas, flashes, estrelas, gradiente_jogo, pontuacao, fase_atual, fade_in, tempo_atual, moeda_manager=None):
+                     particulas, flashes, estrelas, gradiente_jogo,fase_atual, fade_in, tempo_atual, moeda_manager=None):
     """
     Desenha todo o conteúdo da tela de jogo.
     
@@ -198,7 +192,7 @@ def desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo,
         particula.desenhar(tela)
     
     # Desenhar HUD (pontuação, vidas e fase) na área dedicada
-    desenhar_hud(tela, pontuacao, fase_atual, inimigos, tempo_atual, moeda_manager)
+    desenhar_hud(tela,  fase_atual, inimigos, tempo_atual, moeda_manager)
     
     # Aplicar efeito de fade-in (em toda a tela)
     aplicar_fade(tela, fade_in)

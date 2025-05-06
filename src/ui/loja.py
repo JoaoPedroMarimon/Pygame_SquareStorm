@@ -166,7 +166,7 @@ def tela_loja(tela, relogio, gradiente_loja):
                          tamanho_coracao//6)
         
         # Custo e botão de compra
-        custo = 50
+        custo = 35
         botao_largura = 240
         botao_altura = 50
         botao_x = LARGURA // 2
@@ -303,7 +303,7 @@ def tela_loja(tela, relogio, gradiente_loja):
                            (linha_x2, linha_y2), 1)
         
         # Custo e botão de compra da espingarda
-        custo_espingarda = 100
+        custo_espingarda = 15
         botao_espingarda_x = LARGURA // 2
         botao_espingarda_y = y_pos + painel_item_altura//2 - 30
         
