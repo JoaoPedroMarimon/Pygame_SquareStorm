@@ -219,11 +219,36 @@ def tela_loja(tela, relogio, gradiente_loja):
         arma_x = aba1_x - 100
         arma_y = altura_aba_y
         arma_cor = (255, 100, 100)
+        arma_cor_escura = (200, 80, 80)  # Cor mais escura para detalhes
         
-        # Desenhar uma pistola simples
-        pygame.draw.rect(tela, arma_cor, (arma_x - 20, arma_y - 5, 25, 10), 0, 3)  # Cano
-        pygame.draw.rect(tela, arma_cor, (arma_x, arma_y - 5, 15, 20), 0, 3)  # Corpo
-        pygame.draw.rect(tela, arma_cor, (arma_x + 5, arma_y + 15, 10, 10), 0, 3)  # Empunhadura
+        # Tempo pulsante para animar o tiro
+        tempo_pulso = (pygame.time.get_ticks() % 1000) / 1000.0
+        tiro_visivel = tempo_pulso > 0.7  # Pisca periodicamente
+        
+        # Desenhar o efeito de tiro (flash na ponta do cano)
+        if tiro_visivel:
+            # Flash do tiro
+            pygame.draw.circle(tela, (255, 255, 100), (arma_x - 22, arma_y), 7)  # Flash amarelo
+            pygame.draw.circle(tela, (255, 200, 50), (arma_x - 22, arma_y), 4)   # Centro do flash (laranja)
+        
+        # Desenhar uma pistola com mais detalhes
+        # Cano
+        pygame.draw.rect(tela, arma_cor, (arma_x - 20, arma_y - 5, 25, 10), 0, 3)
+        
+        # Detalhe da mira no cano
+        pygame.draw.rect(tela, arma_cor_escura, (arma_x - 18, arma_y - 7, 3, 3), 0, 1)
+        
+        # Corpo principal
+        pygame.draw.rect(tela, arma_cor, (arma_x - 2, arma_y - 5, 14, 20), 0, 3)
+        
+        # Detalhe do corpo (parte traseira)
+        pygame.draw.rect(tela, arma_cor_escura, (arma_x + 9, arma_y - 5, 3, 6), 0, 1)
+        
+        # Gatilho (mais detalhado)
+        pygame.draw.rect(tela, arma_cor_escura, (arma_x + 3, arma_y + 6, 4, 8), 0, 1)
+        
+        # Cabo/empunhadura (mais fino)
+        pygame.draw.rect(tela, arma_cor, (arma_x + 2, arma_y + 12, 7, 12), 0, 3)
         
         # Texto da aba 1
         desenhar_texto(tela, "WEAPONS", 28, BRANCO, aba1_x, altura_aba_y)
@@ -239,16 +264,47 @@ def tela_loja(tela, relogio, gradiente_loja):
         upgrade_y = altura_aba_y
         upgrade_cor = (100, 150, 255)
         
-        # Desenhar um ícone de seta para cima
-        ponta_x = upgrade_x
-        ponta_y = upgrade_y - 10
-        base_esq_x = upgrade_x - 10
-        base_esq_y = upgrade_y + 5
-        base_dir_x = upgrade_x + 10
-        base_dir_y = upgrade_y + 5
+        # Tempo para animação do símbolo de upgrade
+        tempo_anim = pygame.time.get_ticks() / 1000.0
         
-        pygame.draw.polygon(tela, upgrade_cor, [(ponta_x, ponta_y), (base_esq_x, base_esq_y), (base_dir_x, base_dir_y)])
-        pygame.draw.rect(tela, upgrade_cor, (upgrade_x - 3, upgrade_y + 5, 6, 10))
+        # Animação de movimento para cima e para baixo
+        offset_y = math.sin(tempo_anim * 3) * 5  # Movimento suave para cima e para baixo
+        
+        # Desenhar um ícone de seta para cima com animação
+        ponta_x = upgrade_x
+        ponta_y = upgrade_y - 10 + offset_y  # A seta sobe e desce
+        base_esq_x = upgrade_x - 10
+        base_esq_y = upgrade_y + 5 + offset_y
+        base_dir_x = upgrade_x + 10
+        base_dir_y = upgrade_y + 5 + offset_y
+        
+        # Cores que pulsam (de azul claro para azul mais brilhante)
+        cor_pulso = (
+            int(100 + 50 * math.sin(tempo_anim * 5)), 
+            int(150 + 50 * math.sin(tempo_anim * 5)), 
+            255
+        )
+        
+        # Desenhar a seta que pulsa de cor
+        pygame.draw.polygon(tela, cor_pulso, [(ponta_x, ponta_y), (base_esq_x, base_esq_y), (base_dir_x, base_dir_y)])
+        pygame.draw.rect(tela, cor_pulso, (upgrade_x - 3, upgrade_y + 5 + offset_y, 6, 10))
+        
+        # Efeito de brilho ao redor da seta (aparece e desaparece)
+        alpha_brilho = int(128 + 127 * math.sin(tempo_anim * 6))
+        if alpha_brilho > 50:  # Só mostrar quando o brilho for significativo
+            # Criar superfície com transparência para o brilho
+            brilho_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+            cor_brilho = (150, 200, 255, alpha_brilho)
+            
+            # Desenhar brilho maior ao redor da seta
+            pygame.draw.polygon(brilho_surf, cor_brilho, [
+                (15, 5), 
+                (5, 20), 
+                (25, 20)
+            ])
+            
+            # Desenhar o brilho na tela
+            tela.blit(brilho_surf, (upgrade_x - 15, upgrade_y - 15 + offset_y))
         
         # Texto da aba 2
         desenhar_texto(tela, "UPGRADES", 28, BRANCO, aba2_x, altura_aba_y)
