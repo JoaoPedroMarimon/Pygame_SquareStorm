@@ -553,9 +553,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             desenhar_texto(tela, f"FASE {numero_fase}", tamanho, BRANCO, LARGURA // 2, ALTURA_JOGO // 3)
             desenhar_texto(tela, f"{len(inimigos)} inimigo{'s' if len(inimigos) > 1 else ''} para derrotar", 36, 
                         AMARELO, LARGURA // 2, ALTURA_JOGO // 2)
-            desenhar_texto(tela, "Preparado?", 30, BRANCO, LARGURA // 2, ALTURA_JOGO * 2 // 3)
-            desenhar_texto(tela, "Pressione qualquer tecla para começar", 24, BRANCO, LARGURA // 2, ALTURA_JOGO * 3 // 4)
-            
+            desenhar_texto(tela, "Preparado?", 30, BRANCO, LARGURA // 2, ALTURA_JOGO * 2 // 3)            
             pygame.display.flip()
             relogio.tick(FPS)
             continue

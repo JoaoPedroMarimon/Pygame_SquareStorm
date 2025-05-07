@@ -3,6 +3,7 @@
 
 """
 Módulo para a loja do jogo, onde o jogador pode comprar upgrades.
+Redesenhado com base no novo layout Figma.
 """
 
 import pygame
@@ -14,12 +15,60 @@ from src.config import *
 from src.utils.visual import criar_estrelas, desenhar_estrelas, desenhar_texto, criar_botao
 from src.game.moeda_manager import MoedaManager
 import sys
-from src.ui.tela_upgrades import tela_upgrades
-from src.ui.tela_armas import tela_armas
+from src.ui.weapons_shop import desenhar_weapons_shop
+from src.ui.upgrades_shop import desenhar_upgrades_shop
+
+def carregar_upgrades():
+    """
+    Carrega os upgrades salvos do arquivo.
+    Se o arquivo não existir, inicia com valores padrão.
+    """
+    upgrades_padrao = {
+        "vida": 1,  # Vida máxima inicial é 1
+        "espingarda": 0  # Tiros de espingarda disponíveis (0 = não tem)
+    }
+    
+    try:
+        # Criar o diretório de dados se não existir
+        if not os.path.exists("data"):
+            os.makedirs("data")
+        
+        # Tentar carregar o arquivo de upgrades
+        if os.path.exists("data/upgrades.json"):
+            with open("data/upgrades.json", "r") as f:
+                upgrades = json.load(f)
+                # Verificar se todas as chaves existem
+                for chave in upgrades_padrao:
+                    if chave not in upgrades:
+                        upgrades[chave] = upgrades_padrao[chave]
+                return upgrades
+        
+        # Se o arquivo não existir, criar com valores padrão e retornar
+        salvar_upgrades(upgrades_padrao)
+        return upgrades_padrao
+    except Exception as e:
+        print(f"Erro ao carregar upgrades: {e}")
+        return upgrades_padrao
+
+def salvar_upgrades(upgrades):
+    """
+    Salva os upgrades no arquivo.
+    """
+    try:
+        # Criar o diretório de dados se não existir
+        if not os.path.exists("data"):
+            os.makedirs("data")
+        
+        # Salvar os upgrades no arquivo
+        with open("data/upgrades.json", "w") as f:
+            json.dump(upgrades, f)
+    except Exception as e:
+        print(f"Erro ao salvar upgrades: {e}")
 
 def tela_loja(tela, relogio, gradiente_loja):
     """
     Exibe a tela principal da loja onde o jogador pode escolher entre upgrades e armas.
+    Design baseado no layout Figma.
     
     Args:
         tela: Superfície principal do jogo
@@ -37,9 +86,33 @@ def tela_loja(tela, relogio, gradiente_loja):
     
     # Inicializar gerenciador de moedas para ter acesso à quantidade
     moeda_manager = MoedaManager()
+    upgrades = carregar_upgrades()
+    
+    # Som de compra (um som de "ca-ching" ou campainha)
+    som_compra = pygame.mixer.Sound(bytes(bytearray(
+        int(127 + 127 * math.sin(i / 10) * (1.0 - i/4000)) 
+        for i in range(8000)
+    )))
+    som_compra.set_volume(0.2)
+    
+    # Som de erro (quando não tem moedas suficientes)
+    som_erro = pygame.mixer.Sound(bytes(bytearray(
+        int(127 + 127 * math.sin(i / 5) * (1.0 - i/2000)) 
+        for i in range(4000)
+    )))
+    som_erro.set_volume(0.15)
+    
+    # Variáveis para mensagens de feedback
+    mensagem = ""
+    mensagem_tempo = 0
+    mensagem_duracao = 120  # Duração da mensagem em frames
+    mensagem_cor = BRANCO
     
     # Efeito de transição ao entrar
     fade_in = 255
+    
+    # Variável para controlar qual aba da loja está ativa (0: armas, 1: upgrades)
+    aba_ativa = 0
     
     # Loop principal da loja
     rodando = True
@@ -63,161 +136,154 @@ def tela_loja(tela, relogio, gradiente_loja):
                         pygame.display.flip()
                         pygame.time.delay(5)
                     return "menu"
+                # Teclas numéricas para trocar de categoria
+                if evento.key == pygame.K_1:
+                    aba_ativa = 0  # Armas
+                if evento.key == pygame.K_2:
+                    aba_ativa = 1  # Upgrades
             # Verificação de clique do mouse
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 clique_ocorreu = True
         
+        # Atualizar mensagem de feedback
+        if mensagem:
+            mensagem_tempo += 1
+            if mensagem_tempo >= mensagem_duracao:
+                mensagem = ""
+                mensagem_tempo = 0
+                
         # Efeito de fade in ao entrar
         if fade_in > 0:
             fade_in = max(0, fade_in - 10)
         
-        # Desenhar fundo
+        # Desenhar fundo com gradiente
         tela.blit(gradiente_loja, (0, 0))
         
-        # Desenhar estrelas
+        # Desenhar estrelas animadas no fundo
         desenhar_estrelas(tela, estrelas)
         
-        # Desenhar título
-        desenhar_texto(tela, "LOJA", 70, BRANCO, LARGURA // 2, 80)
+        # Primeiro criar uma superfície com transparência
+        s = pygame.Surface((LARGURA - 200, ALTURA - 200), pygame.SRCALPHA)
+        
+        # Desenhar retângulo preenchido com cantos arredondados diretamente na superfície
+        pygame.draw.rect(s, (10, 10, 30, 200), (0, 0, LARGURA - 200, ALTURA - 200), 0, 15)
+        
+        # Aplicar a superfície com o retângulo na tela
+        tela.blit(s, (100, 100))
+        
+        # Desenhar borda brilhante
+        pygame.draw.rect(tela, (100, 100, 255), (100, 100, LARGURA - 200, ALTURA - 200), 3, 15)
+        
+        # Desenhar título da loja
+        desenhar_texto(tela, "SHOP", 80, (200, 200, 255), LARGURA // 2, 140)
+        
+        # Mostrar quantidade de moedas - design simplificado
+        moedas_x = LARGURA // 2
+        moedas_y = 210
+        
+        # Desenhar uma única moeda circular
+        moeda_cor = AMARELO
+        
+        # Moeda simples
+        pygame.draw.circle(tela, moeda_cor, (moedas_x - 50, moedas_y), 20)
         
         # Mostrar quantidade de moedas
-        cor_moeda = AMARELO
-        pygame.draw.circle(tela, cor_moeda, (LARGURA // 2 - 100, 150), 15)  # Ícone de moeda maior
-        desenhar_texto(tela, f"Suas moedas: {moeda_manager.obter_quantidade()}", 28, cor_moeda, LARGURA // 2 + 50, 150)
+        desenhar_texto(tela, f"{moeda_manager.obter_quantidade()}", 45, moeda_cor, moedas_x + 50, moedas_y)
         
-        # Desenhar divisória
-        pygame.draw.line(tela, (100, 100, 150), (LARGURA // 4, 180), (3 * LARGURA // 4, 180), 2)
+        # Definir dimensões e posições para as abas
+        aba_largura = 300
+        aba_altura = 60
+        espaco_entre_abas = 20
+        altura_aba_y = 280
         
-        # Configurações dos botões (LADO A LADO e MAIORES)
-        botao_largura = 350  # Aumentado de 240 para 350
-        botao_altura = 200   # Aumentado de 65 para 200
-        espacamento = 80     # Espaço entre os botões
+        # Calcular posições das abas (centralizadas)
+        aba1_x = LARGURA // 2 - aba_largura - espaco_entre_abas // 2
+        aba2_x = LARGURA // 2 + espaco_entre_abas // 2
         
-        # Calcular posições X para os dois botões lado a lado
-        pos_x_upgrades = LARGURA // 2 - (botao_largura + espacamento) // 2
-        pos_x_armas = LARGURA // 2 + (botao_largura + espacamento) // 2
+        # Desenhar as abas (botões de categoria)
+        rect_aba1 = pygame.Rect(aba1_x - aba_largura//2, altura_aba_y - aba_altura//2, aba_largura, aba_altura)
+        rect_aba2 = pygame.Rect(aba2_x - aba_largura//2, altura_aba_y - aba_altura//2, aba_largura, aba_altura)
         
-        # Posição Y comum para ambos os botões
-        pos_y = ALTURA // 2
-        
-        # ==== BOTÃO DE UPGRADES (ESQUERDA) ====
-        # Criar retângulo para o botão de upgrades
-# ==== BOTÃO DE UPGRADES (ESQUERDA) ====
-# Criar retângulo para o botão de upgrades
-        rect_upgrades = pygame.Rect(pos_x_upgrades - botao_largura // 2, 
-                                pos_y - botao_altura // 2, 
-                                botao_largura, botao_altura)
-
-        # Verificar hover
+        # Verificar hover para as abas
         mouse_pos = pygame.mouse.get_pos()
-        hover_upgrades = rect_upgrades.collidepoint(mouse_pos)
-
-        # Desenhar o botão
-        cor_upgrades = (80, 180, 80) if hover_upgrades else (60, 120, 60)
-        pygame.draw.rect(tela, cor_upgrades, rect_upgrades, 0, 15)
-        pygame.draw.rect(tela, BRANCO, rect_upgrades, 3, 15)  
-
-        # Desenhar símbolo de seta para cima (estilo mais próximo da imagem)
-        centro_x = pos_x_upgrades
-        centro_y = pos_y - 20
-
-        # Primeira seta (maior, em baixo)
-        tamanho_seta1 = 80
-        espessura_seta = 8
-
-        # Pontos para a primeira seta (formato de "v" invertido)
-        pontos_seta1 = [
-            (centro_x - tamanho_seta1//2, centro_y + tamanho_seta1//3),  # Ponta esquerda
-            (centro_x, centro_y - tamanho_seta1//3),                     # Ponta superior
-            (centro_x + tamanho_seta1//2, centro_y + tamanho_seta1//3)   # Ponta direita
-        ]
-
-        # Desenhar a primeira seta com gradiente rosa
-        pygame.draw.lines(tela, (255, 50, 140), False, pontos_seta1, espessura_seta)
-        # Adicionar brilho cyan na borda
-        pygame.draw.lines(tela, (100, 255, 255), False, pontos_seta1, 2)
-
-        # Segunda seta (menor, em cima)
-        tamanho_seta2 = 60
-        offset_y = -25  # Deslocamento para cima
-
-        # Pontos para a segunda seta
-        pontos_seta2 = [
-            (centro_x - tamanho_seta2//2, centro_y + tamanho_seta2//3 + offset_y),  # Ponta esquerda
-            (centro_x, centro_y - tamanho_seta2//3 + offset_y),                     # Ponta superior
-            (centro_x + tamanho_seta2//2, centro_y + tamanho_seta2//3 + offset_y)   # Ponta direita
-        ]
-
-        # Desenhar a segunda seta com cor mais clara
-        pygame.draw.lines(tela, (200, 100, 255), False, pontos_seta2, espessura_seta)
-        # Adicionar brilho cyan na borda
-        pygame.draw.lines(tela, (120, 255, 255), False, pontos_seta2, 2)
-
-        # Adicionar brilho na junção das setas
-
-        # Texto do botão
-        fonte_botao = pygame.font.SysFont("Arial", 32, True)
-        texto_upgrades = fonte_botao.render("UPGRADES", True, BRANCO)
-        texto_rect_upgrades = texto_upgrades.get_rect(center=(pos_x_upgrades, pos_y + botao_altura//3))
-        tela.blit(texto_upgrades, texto_rect_upgrades)
+        hover_aba1 = rect_aba1.collidepoint(mouse_pos)
+        hover_aba2 = rect_aba2.collidepoint(mouse_pos)
         
-        # ==== BOTÃO DE ARMAS (DIREITA) ====
-        # Criar retângulo para o botão de armas
-        rect_armas = pygame.Rect(pos_x_armas - botao_largura // 2, 
-                                pos_y - botao_altura // 2, 
-                                botao_largura, botao_altura)
+        # Desenhar aba 1 (Armas)
+        cor_aba1 = (150, 50, 50) if aba_ativa == 0 else (80, 30, 30)
+        cor_hover_aba1 = (200, 70, 70) if aba_ativa == 0 else (100, 40, 40)
+        pygame.draw.rect(tela, cor_hover_aba1 if hover_aba1 else cor_aba1, rect_aba1, 0, 10)
+        pygame.draw.rect(tela, (255, 100, 100), rect_aba1, 3 if aba_ativa == 0 else 1, 10)
         
-        # Verificar hover
-        hover_armas = rect_armas.collidepoint(mouse_pos)
+        # Ícone de arma para aba 1
+        arma_x = aba1_x - 100
+        arma_y = altura_aba_y
+        arma_cor = (255, 100, 100)
         
-        # Desenhar o botão
-        cor_armas = (80, 80, 220) if hover_armas else (60, 60, 150)
-        pygame.draw.rect(tela, cor_armas, rect_armas, 0, 15)  # Raio do arredondamento aumentado para 15
-        pygame.draw.rect(tela, BRANCO, rect_armas, 3, 15)  # Bordas mais grossas (3px)
+        # Desenhar uma pistola simples
+        pygame.draw.rect(tela, arma_cor, (arma_x - 20, arma_y - 5, 25, 10), 0, 3)  # Cano
+        pygame.draw.rect(tela, arma_cor, (arma_x, arma_y - 5, 15, 20), 0, 3)  # Corpo
+        pygame.draw.rect(tela, arma_cor, (arma_x + 5, arma_y + 15, 10, 10), 0, 3)  # Empunhadura
         
-        # Desenhar símbolo de mira
-        tamanho_mira = 80  # Tamanho do símbolo
-        centro_x = pos_x_armas
-        centro_y = pos_y - 20
-        raio_externo = tamanho_mira // 2
-        espessura = 8
+        # Texto da aba 1
+        desenhar_texto(tela, "WEAPONS", 28, BRANCO, aba1_x, altura_aba_y)
         
-        # Círculo externo
-        pygame.draw.circle(tela, PRETO, (centro_x, centro_y), raio_externo, espessura)
+        # Desenhar aba 2 (Upgrades)
+        cor_aba2 = (50, 80, 150) if aba_ativa == 1 else (30, 50, 80)
+        cor_hover_aba2 = (70, 100, 200) if aba_ativa == 1 else (40, 60, 100)
+        pygame.draw.rect(tela, cor_hover_aba2 if hover_aba2 else cor_aba2, rect_aba2, 0, 10)
+        pygame.draw.rect(tela, (100, 150, 255), rect_aba2, 3 if aba_ativa == 1 else 1, 10)
         
-        # Marcas de posição (cima, baixo, esquerda, direita)
-        comprimento_marca = raio_externo // 2
+        # Ícone de upgrade para aba 2
+        upgrade_x = aba2_x - 100
+        upgrade_y = altura_aba_y
+        upgrade_cor = (100, 150, 255)
         
-        # Marca superior
-        pygame.draw.rect(tela, PRETO, 
-                       (centro_x - espessura//2, centro_y - raio_externo, 
-                        espessura, comprimento_marca))
+        # Desenhar um ícone de seta para cima
+        ponta_x = upgrade_x
+        ponta_y = upgrade_y - 10
+        base_esq_x = upgrade_x - 10
+        base_esq_y = upgrade_y + 5
+        base_dir_x = upgrade_x + 10
+        base_dir_y = upgrade_y + 5
         
-        # Marca inferior
-        pygame.draw.rect(tela, PRETO, 
-                       (centro_x - espessura//2, centro_y + raio_externo - comprimento_marca, 
-                        espessura, comprimento_marca))
+        pygame.draw.polygon(tela, upgrade_cor, [(ponta_x, ponta_y), (base_esq_x, base_esq_y), (base_dir_x, base_dir_y)])
+        pygame.draw.rect(tela, upgrade_cor, (upgrade_x - 3, upgrade_y + 5, 6, 10))
         
-        # Marca esquerda
-        pygame.draw.rect(tela, PRETO, 
-                       (centro_x - raio_externo, centro_y - espessura//2, 
-                        comprimento_marca, espessura))
+        # Texto da aba 2
+        desenhar_texto(tela, "UPGRADES", 28, BRANCO, aba2_x, altura_aba_y)
         
-        # Marca direita
-        pygame.draw.rect(tela, PRETO, 
-                       (centro_x + raio_externo - comprimento_marca, centro_y - espessura//2, 
-                        comprimento_marca, espessura))
+        # Verificar cliques nas abas
+        if clique_ocorreu:
+            if rect_aba1.collidepoint(mouse_pos):
+                aba_ativa = 0  # Armas
+            elif rect_aba2.collidepoint(mouse_pos):
+                aba_ativa = 1  # Upgrades
         
-        # Texto do botão
-        texto_armas = fonte_botao.render("ARMAS", True, BRANCO)
-        texto_rect_armas = texto_armas.get_rect(center=(pos_x_armas, pos_y + botao_altura//3))
-        tela.blit(texto_armas, texto_rect_armas)
+        # Área de conteúdo da aba ativa - movida para cima
+        area_conteudo = pygame.Rect(150, 330, LARGURA - 300, ALTURA - 450)
+        pygame.draw.rect(tela, (20, 20, 50, 150), area_conteudo, 0, 10)
+        pygame.draw.rect(tela, (70, 70, 130), area_conteudo, 2, 10)
         
-        # Desenhar botão de voltar
+        # Desenhar itens baseados na aba ativa
+        if aba_ativa == 0:  # Armas
+            resultado = desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, 
+                                          mouse_pos, clique_ocorreu, som_compra, som_erro)
+            if resultado:
+                mensagem, mensagem_cor = resultado
+                mensagem_tempo = 0
+        else:  # Upgrades
+            resultado = desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, 
+                                          mouse_pos, clique_ocorreu, som_compra, som_erro)
+            if resultado:
+                mensagem, mensagem_cor = resultado
+                mensagem_tempo = 0
+        
+        # Desenhar botão de voltar (ajustado para ficar mais abaixo)
         botao_voltar_largura = 240
         botao_voltar_altura = 50
         botao_voltar_x = LARGURA // 2
-        botao_voltar_y = ALTURA - 80
+        botao_voltar_y = ALTURA - 50  # Ajustado de 80 para 50 (mais próximo do fundo)
         rect_voltar = pygame.Rect(botao_voltar_x - botao_voltar_largura//2, 
                                botao_voltar_y - botao_voltar_altura//2, 
                                botao_voltar_largura, botao_voltar_altura)
@@ -225,37 +291,38 @@ def tela_loja(tela, relogio, gradiente_loja):
         # Verificar hover para o botão voltar
         hover_voltar = rect_voltar.collidepoint(mouse_pos)
         
-        # Desenhar o botão voltar
+        # Desenhar o botão voltar com estilo Figma
         cor_voltar = (80, 80, 220) if hover_voltar else (60, 60, 150)
         pygame.draw.rect(tela, cor_voltar, rect_voltar, 0, 10)
         pygame.draw.rect(tela, BRANCO, rect_voltar, 2, 10)
         
         # Texto do botão voltar
-        texto_voltar = pygame.font.SysFont("Arial", 26).render("MENU (ESC)", True, BRANCO)
+        texto_voltar = pygame.font.SysFont("Arial", 26).render("BACK TO MENU (ESC)", True, BRANCO)
         texto_rect_voltar = texto_voltar.get_rect(center=(botao_voltar_x, botao_voltar_y))
         tela.blit(texto_voltar, texto_rect_voltar)
         
-        # Verificar cliques nos botões
-        if clique_ocorreu:
-            # Clique no botão de upgrades
-            if rect_upgrades.collidepoint(mouse_pos):
-                tela_upgrades(tela, relogio, gradiente_loja)
-                
-            # Clique no botão de armas
-            elif rect_armas.collidepoint(mouse_pos):
-                tela_armas(tela, relogio, gradiente_loja)
-                
-            # Clique no botão de voltar
-            elif rect_voltar.collidepoint(mouse_pos):
-                # Efeito de fade out ao sair
-                for i in range(30):
-                    fade = pygame.Surface((LARGURA, ALTURA))
-                    fade.fill((0, 0, 0))
-                    fade.set_alpha(i * 8)
-                    tela.blit(fade, (0, 0))
-                    pygame.display.flip()
-                    pygame.time.delay(5)
-                return "menu"
+        # Verificar clique no botão de voltar
+        if clique_ocorreu and rect_voltar.collidepoint(mouse_pos):
+            # Efeito de fade out ao sair
+            for i in range(30):
+                fade = pygame.Surface((LARGURA, ALTURA))
+                fade.fill((0, 0, 0))
+                fade.set_alpha(i * 8)
+                tela.blit(fade, (0, 0))
+                pygame.display.flip()
+                pygame.time.delay(5)
+            return "menu"
+        
+        # Mostrar mensagem de feedback se existir
+        if mensagem:
+            # Fazer a mensagem pulsar
+            alpha = int(255 * (1.0 - mensagem_tempo / mensagem_duracao))
+            y_mensagem = area_conteudo.y - 20
+            fonte = pygame.font.SysFont("Arial", 30, True)
+            texto_surf = fonte.render(mensagem, True, mensagem_cor)
+            texto_surf.set_alpha(alpha)
+            texto_rect = texto_surf.get_rect(center=(LARGURA // 2, y_mensagem))
+            tela.blit(texto_surf, texto_rect)
         
         # Aplicar efeito de fade-in
         if fade_in > 0:
