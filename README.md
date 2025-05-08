@@ -4,7 +4,6 @@ A fast-paced 2D geometry-based shooter game where you battle waves of enemy squa
 
 ![Game Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Python Version](https://img.shields.io/badge/python-3.8+-green.svg)
-![License](https://img.shields.io/badge/license-MIT-red.svg)
 
 ## 🎮 About The Game
 
@@ -37,4 +36,6 @@ SquareStorm is an action-packed arcade shooter where you control a blue square f
 1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/squarestorm.git
-cd squarestorm
+cd SquareStorm
+pip install -r requirements.txt
+python main.py

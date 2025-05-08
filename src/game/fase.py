@@ -494,7 +494,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         if jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
                             # Verificar cooldown do jogador
                             if tempo_atual - jogador.tempo_ultimo_tiro >= jogador.tempo_cooldown:
-                                jogador.atirar_espingarda(tiros_jogador, pos_mouse)
+                                jogador.atirar_espingarda(tiros_jogador, pos_mouse, particulas, flashes)
                                 jogador.tiros_espingarda -= 1
                                 # Desativar espingarda se acabaram os tiros
                                 if jogador.tiros_espingarda <= 0:

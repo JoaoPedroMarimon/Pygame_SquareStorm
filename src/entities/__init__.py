@@ -3,3 +3,4 @@ from src.entities.quadrado import Quadrado
 from src.entities.tiro import Tiro
 from src.entities.particula import Particula, criar_explosao
 from src.entities.moeda import Moeda
+from src.entities.inimigo_factory import InimigoFactory

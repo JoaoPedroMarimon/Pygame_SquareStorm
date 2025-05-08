@@ -9,6 +9,8 @@ Factory pattern para facilitar a criação de diferentes níveis/fases.
 import random
 from src.config import *
 from src.entities.quadrado import Quadrado
+from src.entities.inimigo_factory import InimigoFactory
+
 import math  # Adicionando a importação de math
 
 
@@ -49,109 +51,105 @@ class NivelFactory:
         # Inimigo centralizado
         pos_x = LARGURA - 150
         pos_y = ALTURA // 2
-        cor_inimigo = VERMELHO
-        velocidade = VELOCIDADE_INIMIGO_BASE
         
-        inimigo = Quadrado(pos_x, pos_y, TAMANHO_QUADRADO, cor_inimigo, velocidade)
+        inimigo = InimigoFactory.criar_inimigo_basico(pos_x, pos_y)
         inimigos.append(inimigo)
         
         return inimigos
     
-    @staticmethod
     def criar_fase_2():
-
+        """
+        Fase 2: Dois inimigos, um superior e um inferior.
+        """
         inimigos = []
         
-        # Inimigo 1 - Superior
+        # Inimigo 1 - Superior (básico)
         pos_x1 = LARGURA - 150
         pos_y1 = ALTURA // 3
-        cor_inimigo1 = VERMELHO
-        velocidade_inimigo1 = VELOCIDADE_INIMIGO_BASE
-        inimigos.append(Quadrado(pos_x1, pos_y1, TAMANHO_QUADRADO, cor_inimigo1, velocidade_inimigo1))
+        inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x1, pos_y1))
         
-        # Inimigo 2 - Inferior (com cor ligeiramente diferente)
+        # Inimigo 2 - Inferior (rápido)
         pos_x2 = LARGURA - 150
         pos_y2 = 2 * ALTURA // 3
-        cor_inimigo2 = (255, 80, 80)  # Vermelho um pouco diferente
-        velocidade_inimigo2 = VELOCIDADE_INIMIGO_BASE * 1.1  # Um pouco mais rápido
-        inimigos.append(Quadrado(pos_x2, pos_y2, TAMANHO_QUADRADO, cor_inimigo2, velocidade_inimigo2))
+        inimigos.append(InimigoFactory.criar_inimigo_rapido(pos_x2, pos_y2))
         
         return inimigos
     
     @staticmethod
     def criar_fase_3():
-
+        """
+        Fase 3: Um inimigo especial roxo com 2 vidas.
+        """
         inimigos = []
         
         pos_x = LARGURA - 150
         pos_y = ALTURA // 2
         
-        inimigo_especial = Quadrado(pos_x, pos_y, TAMANHO_QUADRADO, ROXO, VELOCIDADE_INIMIGO_ESPECIAL)
-        
-        inimigo_especial.vidas = 2
-        inimigo_especial.vidas_max = 2
-        inimigo_especial.tempo_cooldown = COOLDOWN_TIRO_ESPECIAL
-        
+        inimigo_especial = InimigoFactory.criar_inimigo_especial(pos_x, pos_y)
         inimigos.append(inimigo_especial)
         
         return inimigos
     
     @staticmethod
     def criar_fase_4():
-
+        """
+        Fase 4: Dois inimigos básicos e um inimigo especial.
+        """
         inimigos = []
         
+        # Dois inimigos básicos
         pos_x1 = LARGURA - 200
         pos_y1 = ALTURA // 4
-        inimigos.append(Quadrado(pos_x1, pos_y1, TAMANHO_QUADRADO, VERMELHO, VELOCIDADE_INIMIGO_BASE))
+        inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x1, pos_y1))
         
         pos_x2 = LARGURA - 200
         pos_y2 = 3 * ALTURA // 4
-        inimigos.append(Quadrado(pos_x2, pos_y2, TAMANHO_QUADRADO, VERMELHO, VELOCIDADE_INIMIGO_BASE))
+        inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x2, pos_y2))
         
+        # Um inimigo especial roxo no meio
         pos_x3 = LARGURA - 100
         pos_y3 = ALTURA // 2
-        inimigo_roxo = Quadrado(pos_x3, pos_y3, TAMANHO_QUADRADO, ROXO, VELOCIDADE_INIMIGO_ESPECIAL)
-        inimigo_roxo.vidas = 2
-        inimigo_roxo.vidas_max = 2
-        inimigo_roxo.tempo_cooldown = COOLDOWN_TIRO_ESPECIAL
-        inimigos.append(inimigo_roxo)
+        inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x3, pos_y3))
         
         return inimigos
     
     @staticmethod
     def criar_fase_5():
-
+        """
+        Fase 5: Um inimigo elite ciano.
+        """
         inimigos = []
         
-        pos_x4 = LARGURA - 50
-        pos_y4 = ALTURA // 2
-        inimigo_ciano = Quadrado(pos_x4, pos_y4, TAMANHO_QUADRADO, CIANO, VELOCIDADE_INIMIGO_CIANO)
-        inimigos.append(inimigo_ciano)
+        pos_x = LARGURA - 150
+        pos_y = ALTURA // 2
+        
+        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x, pos_y))
         
         return inimigos
 
 
     @staticmethod
     def criar_fase_6():
-
+        """
+        Fase 6: Um mix de todos os tipos de inimigos.
+        """
         inimigos = []
         
+        # Inimigo básico
         pos_x1 = LARGURA - 200
-        pos_y1 = ALTURA // 4
-        inimigos.append(Quadrado(pos_x1, pos_y1, TAMANHO_QUADRADO, VERMELHO, VELOCIDADE_INIMIGO_BASE))
+        pos_y1 = ALTURA // 5
+        inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x1, pos_y1))
         
-        pos_x2 = LARGURA - 200
-        pos_y2 = 3 * ALTURA // 4
-        inimigo_roxo = Quadrado(pos_x2, pos_y2, TAMANHO_QUADRADO, ROXO, VELOCIDADE_INIMIGO_ESPECIAL)
-        inimigo_roxo.vidas = 2
-        inimigo_roxo.vidas_max = 2
-        inimigo_roxo.tempo_cooldown = COOLDOWN_TIRO_ESPECIAL
-        inimigos.append(inimigo_roxo)
+
         
-        pos_x3 = LARGURA - 100
-        pos_y3 = ALTURA // 2
-        inimigo_ciano = Quadrado(pos_x3, pos_y3, TAMANHO_QUADRADO, CIANO, VELOCIDADE_INIMIGO_CIANO)
-        inimigos.append(inimigo_ciano)
+        # Inimigo especial
+        pos_x3 = LARGURA - 150
+        pos_y3 = 3 * ALTURA // 5
+        inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x3, pos_y3))
+        
+        # Inimigo elite
+        pos_x4 = LARGURA - 100
+        pos_y4 = 4 * ALTURA // 5
+        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x4, pos_y4))
         
         return inimigos

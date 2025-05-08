@@ -481,13 +481,16 @@ class Quadrado:
             return 0
 # Add to src/entities/quadrado.py in Quadrado class
 # Modifique a função atirar_espingarda no arquivo src/entities/quadrado.py
-    def atirar_espingarda(self, tiros, pos_mouse, num_tiros=5):  # Aumente de 3 para 5 tiros
+# Modificação do método atirar_espingarda no arquivo src/entities/quadrado.py
+    def atirar_espingarda(self, tiros, pos_mouse, particulas=None, flashes=None, num_tiros=5):
         """
-        Dispara múltiplos tiros em um padrão de espingarda.
+        Dispara múltiplos tiros em um padrão de espingarda e cria uma animação de partículas no cano.
         
         Args:
             tiros: Lista onde adicionar os novos tiros
             pos_mouse: Tupla (x, y) com a posição do mouse
+            particulas: Lista de partículas para efeitos visuais (opcional)
+            flashes: Lista de flashes para efeitos visuais (opcional)
             num_tiros: Número de tiros a disparar
         """
         # Verificar cooldown
@@ -520,6 +523,54 @@ class Quadrado:
         angulo_base = math.atan2(dy, dx)
         dispersao = 0.3  # Aumentar a dispersão de 0.2 para 0.3 para ter um leque maior
         
+        # Calcular a posição da ponta do cano para o efeito de partículas
+        comprimento_arma = 35
+        ponta_cano_x = centro_x + dx * comprimento_arma
+        ponta_cano_y = centro_y + dy * comprimento_arma
+        
+        # Criar efeito de partículas na ponta do cano
+        if particulas is not None:
+            from src.entities.particula import Particula
+            import random
+            
+            # Definir cor amarela para todas as partículas
+            cor_amarela = (255, 255, 0)  # Amarelo puro
+            
+            # Criar várias partículas para um efeito de explosão no cano
+            for _ in range(15):
+                # Todas as partículas serão amarelas
+                cor = cor_amarela
+                
+                # Posição com pequena variação aleatória ao redor da ponta do cano
+                vari_x = random.uniform(-5, 5)
+                vari_y = random.uniform(-5, 5)
+                pos_x = ponta_cano_x + vari_x
+                pos_y = ponta_cano_y + vari_y
+                
+                # Criar partícula
+                particula = Particula(pos_x, pos_y, cor)
+                
+                # Configurar propriedades da partícula para simular o disparo
+                particula.velocidade_x = dx * random.uniform(2, 5) + random.uniform(-1, 1)
+                particula.velocidade_y = dy * random.uniform(2, 5) + random.uniform(-1, 1)
+                particula.vida = random.randint(5, 15)  # Vida curta para um efeito rápido
+                particula.tamanho = random.uniform(1.5, 4)  # Partículas menores
+                particula.gravidade = 0.03  # Gravidade reduzida
+                
+                # Adicionar à lista de partículas
+                particulas.append(particula)
+        
+        # Adicionar um flash luminoso na ponta do cano
+        if flashes is not None:
+            flash = {
+                'x': ponta_cano_x,
+                'y': ponta_cano_y,
+                'raio': 15,
+                'vida': 5,
+                'cor': (255, 255, 0)  # Amarelo puro, mesma cor das partículas
+            }
+            flashes.append(flash)
+        
         # Criar tiros com ângulos ligeiramente diferentes
         for i in range(num_tiros):
             # Calcular ângulo para este tiro
@@ -532,6 +583,7 @@ class Quadrado:
             
             # Criar tiro com a direção calculada
             tiros.append(Tiro(centro_x, centro_y, tiro_dx, tiro_dy, AZUL, 8))
+
 
     def tomar_dano(self):
         """
