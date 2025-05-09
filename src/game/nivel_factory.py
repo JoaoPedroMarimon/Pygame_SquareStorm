@@ -135,21 +135,68 @@ class NivelFactory:
         """
         inimigos = []
         
-        # Inimigo básico
-        pos_x1 = LARGURA - 200
-        pos_y1 = ALTURA // 5
+        pos_x1 = LARGURA - 150
+        pos_y1 = ALTURA // 3
         inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x1, pos_y1))
         
 
         
         # Inimigo especial
         pos_x3 = LARGURA - 150
-        pos_y3 = 3 * ALTURA // 5
+        pos_y3 =   ALTURA // 1.7
         inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x3, pos_y3))
         
         # Inimigo elite
         pos_x4 = LARGURA - 100
         pos_y4 = 4 * ALTURA // 5
         inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x4, pos_y4))
+        
+        return inimigos
+
+    @staticmethod
+    def criar_fase_7():
+        """
+        Fase 7: dois cianos e um especial.
+        """
+        inimigos = []
+        
+        pos_x1 = LARGURA - 150
+        pos_y1 = ALTURA // 3
+        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x1, pos_y1))
+        
+
+        
+        # Inimigo especial
+        pos_x3 = LARGURA - 150
+        pos_y3 =   ALTURA // 1.7
+        inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x3, pos_y3))
+        
+        # Inimigo elite
+        pos_x4 = LARGURA - 100
+        pos_y4 = 4 * ALTURA // 5
+        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x4, pos_y4))
+        
+        return inimigos
+    
+    @staticmethod
+    def criar_fase_8():
+        """
+        Fase de exemplo com inimigos perseguidores.
+        """
+        inimigos = []
+        
+        # Adicionar 3 perseguidores em posições diferentes
+        pos_x1 = LARGURA - 100
+        pos_y1 = ALTURA // 4
+        inimigos.append(InimigoFactory.criar_inimigo_perseguidor(pos_x1, pos_y1))
+        
+        pos_x2 = LARGURA - 200
+        pos_y2 = ALTURA // 2
+        inimigos.append(InimigoFactory.criar_inimigo_perseguidor(pos_x2, pos_y2))
+        
+        pos_x3 = LARGURA - 100
+        pos_y3 = 3 * ALTURA // 4
+        inimigos.append(InimigoFactory.criar_inimigo_perseguidor(pos_x3, pos_y3))
+        
         
         return inimigos

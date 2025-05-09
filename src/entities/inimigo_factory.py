@@ -223,3 +223,32 @@ class InimigoFactory:
             return InimigoFactory.criar_inimigo_elite(x, y)
         else:
             return InimigoFactory.criar_inimigo_basico(x, y)  # Fallback
+        
+
+    @staticmethod
+    def criar_inimigo_perseguidor(x, y):
+        """
+        Cria um inimigo perseguidor que corre atrás do jogador e causa dano por colisão.
+        
+        Args:
+            x, y: Posição inicial do inimigo
+                
+        Returns:
+            Objeto Quadrado configurado como inimigo perseguidor
+        """
+        # Cor laranja vibrante para o perseguidor
+        cor_perseguidor = (255, 140, 0)  # Laranja
+        # Velocidade maior que a média, para poder alcançar o jogador
+        velocidade = VELOCIDADE_INIMIGO_BASE * 1.3
+        
+        inimigo = Quadrado(x, y, TAMANHO_QUADRADO, cor_perseguidor, velocidade)
+        inimigo.vidas = 2
+        inimigo.vidas_max = 2
+        # Definir um cooldown para o dano por colisão (evitar dano contínuo)
+        inimigo.cooldown_colisao = 1000  # 1 segundo entre danos
+        inimigo.tempo_ultima_colisao = 0
+        # Flag para identificar este tipo especial de inimigo
+        inimigo.perseguidor = True
+        # Não vai atirar, então pode ter um cooldown muito alto
+        inimigo.tempo_cooldown = 99999999
+        return inimigo

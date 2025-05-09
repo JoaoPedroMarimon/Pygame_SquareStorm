@@ -49,9 +49,10 @@ Essa função deve substituir a função correspondente no arquivo src/game/fase
 """
 
 def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_atual, tempo_movimento_inimigos, 
-                        intervalo_movimento, numero_fase, tiros_inimigo, movimento_x, movimento_y):
+                        intervalo_movimento, numero_fase, tiros_inimigo, movimento_x, movimento_y, 
+                        particulas=None, flashes=None):
     """
-    Atualiza a IA de um inimigo específico.
+    Atualiza a IA de um inimigo específico com comportamento mais individualizado.
     
     Args:
         inimigo: O inimigo a ser atualizado
@@ -65,6 +66,8 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
         numero_fase: Número da fase atual
         tiros_inimigo: Lista onde adicionar novos tiros
         movimento_x, movimento_y: Direção de movimento do jogador
+        particulas: Lista de partículas para efeitos visuais (opcional)
+        flashes: Lista de flashes para efeitos visuais (opcional)
 
     Returns:
         A timestamp atualizada do último movimento para este inimigo
@@ -72,7 +75,91 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
     # Se o inimigo foi derrotado, pular
     if inimigo.vidas <= 0:
         return tempo_movimento_inimigos[idx]
+    
+    # Verificar se é um inimigo perseguidor
+    if hasattr(inimigo, 'perseguidor') and inimigo.perseguidor:
+        # Calcular vetor direto para o jogador
+        dir_x = jogador.x - inimigo.x
+        dir_y = jogador.y - inimigo.y
+        dist = math.sqrt(dir_x**2 + dir_y**2)
         
+        # Normalizar
+        if dist > 0:
+            dir_x /= dist
+            dir_y /= dist
+        
+        # Verificar colisão com o jogador
+        if inimigo.rect.colliderect(jogador.rect):
+            # Verificar cooldown de colisão
+            if tempo_atual - inimigo.tempo_ultima_colisao > inimigo.cooldown_colisao:
+                # Causar dano ao jogador
+                if jogador.tomar_dano():
+                    # Atualizar tempo da última colisão
+                    inimigo.tempo_ultima_colisao = tempo_atual
+                    # Empurrar o jogador para trás
+                    recuo_x = -dir_x * 40
+                    recuo_y = -dir_y * 40
+                    # Garantir que o recuo não empurre o jogador para fora da tela
+                    nova_x = max(0, min(jogador.x + recuo_x, LARGURA - jogador.tamanho))
+                    nova_y = max(0, min(jogador.y + recuo_y, ALTURA - jogador.tamanho))
+                    jogador.x = nova_x
+                    jogador.y = nova_y
+                    jogador.rect.x = jogador.x
+                    jogador.rect.y = jogador.y
+                    # Tocar som de dano
+                    pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_dano()))
+                    
+                    # Criar efeito visual apenas se as listas de partículas e flashes foram fornecidas
+                    if particulas is not None and flashes is not None:
+                        flash = criar_explosao(jogador.x + jogador.tamanho//2, 
+                                              jogador.y + jogador.tamanho//2, 
+                                              LARANJA, particulas, 25)
+                        flashes.append(flash)
+            
+            # Recuar o inimigo um pouco após a colisão (para não ficar preso no jogador)
+            inimigo.x -= dir_x * 15
+            inimigo.y -= dir_y * 15
+            inimigo.rect.x = inimigo.x
+            inimigo.rect.y = inimigo.y
+            
+            # Sair da função, já que o inimigo colidiu e não precisa de movimento adicional
+            return tempo_movimento_inimigos[idx]
+        
+        # Movimento constante em direção ao jogador
+        mover_x = dir_x
+        mover_y = dir_y
+        
+        # Verificar limites da tela
+        if inimigo.x < 10 or inimigo.x > LARGURA - inimigo.tamanho - 10:
+            mover_x = 0  # Evitar que fique preso nas bordas laterais
+        if inimigo.y < 10 or inimigo.y > ALTURA - inimigo.tamanho - 10:
+            mover_y = 0  # Evitar que fique preso nas bordas superior/inferior
+        
+        # Adicionar pequena variação para evitar movimento em linha reta perfeita
+        mover_x += random.uniform(-0.1, 0.1)
+        mover_y += random.uniform(-0.1, 0.1)
+        
+        # Normalizar o vetor de movimento
+        magnitude = math.sqrt(mover_x**2 + mover_y**2)
+        if magnitude > 0:
+            mover_x /= magnitude
+            mover_y /= magnitude
+        
+        # Executar o movimento
+        inimigo.mover(mover_x, mover_y)
+        inimigo.atualizar()
+        
+        # Retornar timestamp de movimento
+        return tempo_movimento_inimigos[idx]
+    
+    # Adicionar variação com base no ID único do inimigo
+    # Isso garantirá que mesmo inimigos do mesmo tipo tenham comportamentos diferentes
+    inimigo_id = inimigo.id
+    
+    # Calcular um valor de offset para este inimigo específico
+    offset_fator = (inimigo_id % 10) / 10.0  # Valor entre 0.0 e 0.9 com base no ID
+    random_seed = (inimigo_id * tempo_atual) % 10000  # Semente única para este inimigo neste momento
+    
     # Calcular vetor direção para o jogador
     dir_x = jogador.x - inimigo.x
     dir_y = jogador.y - inimigo.y
@@ -83,14 +170,38 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
         dir_x /= dist
         dir_y /= dist
     
-    # Atualizar comportamento a cada intervalo
-    if tempo_atual - tempo_movimento_inimigos[idx] > intervalo_movimento + (idx * 100):
+    # Modificar o intervalo de movimento de cada inimigo com base em seu ID
+    # Isso faz com que inimigos iguais atualizem seu movimento em momentos diferentes
+    intervalo_ajustado = intervalo_movimento * (0.8 + offset_fator * 0.4)  # 80%-120% do valor original
+    
+    # Atualizar comportamento a cada intervalo ajustado
+    if tempo_atual - tempo_movimento_inimigos[idx] > intervalo_ajustado + (idx * 100):
         tempo_movimento_inimigos[idx] = tempo_atual
+        
+        # Usar uma semente baseada no ID do inimigo para seu comportamento aleatório
+        # Inicializar o gerador de números aleatórios com uma semente baseada no ID
+        random_state = random.getstate()  # Salvar estado atual
+        random.seed(random_seed)
         
         # Escolher comportamento baseado na situação e fase
         comportamentos = ["perseguir", "flanquear", "recuar", "evasivo"]
         pesos = [0.4, 0.3, 0.15, 0.15]
         
+        # Modificar a preferência de comportamento baseado no ID do inimigo
+        # Isso faz com que diferentes inimigos prefiram diferentes táticas
+        if offset_fator < 0.3:  # 30% dos inimigos preferem perseguir
+            pesos[0] += 0.2
+            pesos[1] -= 0.1
+            pesos[2] -= 0.1
+        elif offset_fator < 0.6:  # 30% preferem flanquear
+            pesos[0] -= 0.1
+            pesos[1] += 0.2  
+            pesos[3] -= 0.1
+        else:  # 40% preferem comportamento evasivo ou recuar
+            pesos[0] -= 0.2
+            pesos[2] += 0.1
+            pesos[3] += 0.1
+            
         # Aumentar agressividade com o nível da fase
         pesos[0] += min(0.3, numero_fase * 0.03)  # Mais perseguição nas fases avançadas
         
@@ -101,15 +212,20 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
         # Chance de atirar baseada na distância e fase
         chance_tiro = min(0.9, 0.4 + (800 - dist) / 1000 + (numero_fase * 0.05))
         
+        # Adicionar variação na decisão de tiro baseada no ID do inimigo
+        chance_tiro = chance_tiro * (0.8 + offset_fator * 0.4)  # 80%-120% da chance original
+        
         if random.random() < chance_tiro:
             # Calcular direção para o jogador com previsão de movimento
             dir_tiro_x = dir_x
             dir_tiro_y = dir_y
             
             # Adicionar previsão simples (mirar um pouco à frente)
+            # Inimigos diferentes terão níveis diferentes de previsão
+            fator_previsao = 0.3 * (1.0 + offset_fator)  # 0.3 a 0.57
             if abs(movimento_x) > 0 or abs(movimento_y) > 0:
-                dir_tiro_x += movimento_x * 0.3
-                dir_tiro_y += movimento_y * 0.3
+                dir_tiro_x += movimento_x * fator_previsao
+                dir_tiro_y += movimento_y * fator_previsao
             
             # Normalizar novamente
             norm = math.sqrt(dir_tiro_x**2 + dir_tiro_y**2)
@@ -118,11 +234,16 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
                 dir_tiro_y /= norm
             
             # Reduzir imprecisão em fases avançadas
-            imprecisao = max(0.05, min(0.4, dist / 1000 - (numero_fase * 0.02)))
+            # Inimigos diferentes terão níveis diferentes de precisão
+            fator_precisao = 1.0 - offset_fator * 0.5  # 0.5-1.0
+            imprecisao = max(0.05, min(0.4, (dist / 1000 - (numero_fase * 0.02)) * fator_precisao))
             dir_tiro_x += random.uniform(-imprecisao, imprecisao)
             dir_tiro_y += random.uniform(-imprecisao, imprecisao)
             
             inimigo.atirar(tiros_inimigo, (dir_tiro_x, dir_tiro_y))
+        
+        # Restaurar o estado original do gerador de números aleatórios
+        random.setstate(random_state)
     
     # Definir zona de segurança das bordas (mais ampla que antes)
     margem_borda = 100
@@ -147,6 +268,10 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
                           jogador.x > LARGURA - jogador.tamanho - margem_borda or
                           jogador.y < margem_borda or 
                           jogador.y > ALTURA - jogador.tamanho - margem_borda)
+    
+    # Inicializar o gerador de números aleatórios com uma semente baseada no ID
+    random_state = random.getstate()  # Salvar estado atual
+    random.seed(random_seed + tempo_atual // 1000)  # Mudar a cada segundo
     
     # Verificar proximidade com outros inimigos (evitar empilhamento)
     evitar_x, evitar_y = 0, 0
@@ -202,6 +327,10 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
         if dist_centro > 0:
             mover_x = para_centro_x / dist_centro * 1.5  # Força forte para o centro
             mover_y = para_centro_y / dist_centro * 1.5
+            
+            # Adicionar variação para que inimigos do mesmo tipo não se movam identicamente
+            mover_x += random.uniform(-0.2, 0.2) * offset_fator
+            mover_y += random.uniform(-0.2, 0.2) * offset_fator
     
     # PRIORIDADE 2: Evite tiros próximos
     elif tiro_mais_proximo is not None:
@@ -230,12 +359,17 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
                 para_centro_x /= dist_centro
                 para_centro_y /= dist_centro
             
-            # Combinar os vetores (70% evasão, 30% para o centro)
-            mover_x = vetor_perp_x * 0.7 + para_centro_x * 0.3
-            mover_y = vetor_perp_y * 0.7 + para_centro_y * 0.3
+            # Combinar os vetores (% baseado no ID do inimigo)
+            fator_evasao = 0.7 - offset_fator * 0.2  # 0.5-0.7
+            mover_x = vetor_perp_x * fator_evasao + para_centro_x * (1 - fator_evasao)
+            mover_y = vetor_perp_y * fator_evasao + para_centro_y * (1 - fator_evasao)
         else:
             mover_x = vetor_perp_x
             mover_y = vetor_perp_y
+            
+        # Adicionar variação para que inimigos não se movam de forma idêntica
+        mover_x += random.uniform(-0.2, 0.2) * offset_fator
+        mover_y += random.uniform(-0.2, 0.2) * offset_fator
     
     # PRIORIDADE 3: Comportamento normal baseado na situação
     elif not perto_da_borda or (jogador_perto_borda and inimigo.x > margem_borda and 
@@ -244,25 +378,39 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
                                inimigo.y < ALTURA - inimigo.tamanho - margem_borda):
         # Comportamento tático adaptado à distância do jogador
         if dist < 300:  # Muito perto
-            if random.random() < 0.7:  # Às vezes recuar
-                mover_x = -dir_x * 0.8
-                mover_y = -dir_y * 0.8
+            # Modificar a chance com base no ID do inimigo
+            recuar_chance = 0.7 + (offset_fator - 0.5) * 0.4  # 0.5-0.9 dependendo do ID
+            if random.random() < recuar_chance:  # Às vezes recuar
+                mover_x = -dir_x * (0.8 + offset_fator * 0.4)  # Velocidade de recuo variável
+                mover_y = -dir_y * (0.8 + offset_fator * 0.4)
             else:  # Movimento lateral para flanquear
-                mover_x = dir_y
-                mover_y = -dir_x
+                # Cada inimigo prefere um lado diferente para flanquear
+                if offset_fator > 0.5:
+                    mover_x = dir_y
+                    mover_y = -dir_x
+                else:
+                    mover_x = -dir_y
+                    mover_y = dir_x
         elif dist > 500:  # Muito longe
-            # Aproximar do jogador
-            mover_x = dir_x
-            mover_y = dir_y
+            # Aproximar do jogador com velocidade variável
+            fator_aprox = 1.0 + (offset_fator - 0.5) * 0.6  # 0.7-1.3
+            mover_x = dir_x * fator_aprox
+            mover_y = dir_y * fator_aprox
         else:  # Distância média
             # Movimento estratégico: circular ao redor do jogador
-            mover_x = dir_y * 0.8
-            mover_y = -dir_x * 0.8
+            # Direção de circular variável com o ID
+            if offset_fator > 0.5:
+                mover_x = dir_y * 0.8
+                mover_y = -dir_x * 0.8
+            else:
+                mover_x = -dir_y * 0.8
+                mover_y = dir_x * 0.8
             
             # Com chance de se aproximar ou afastar
-            if random.random() < 0.3:
-                mover_x += dir_x * 0.3
-                mover_y += dir_y * 0.3
+            aprox_chance = 0.3 + (offset_fator - 0.5) * 0.2  # 0.2-0.4
+            if random.random() < aprox_chance:
+                mover_x += dir_x * (0.3 + offset_fator * 0.1)  # 0.3-0.4
+                mover_y += dir_y * (0.3 + offset_fator * 0.1)
     
     # PRIORIDADE 4: Perto da borda mas não na zona crítica
     else:
@@ -284,16 +432,19 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
             para_centro_y /= dist_centro
             
         # Aplicar um fator multiplicador baseado na proximidade da borda
-        fator_borda = 0.6
+        # Variável com base no ID do inimigo
+        fator_borda = 0.6 + (offset_fator - 0.5) * 0.2  # 0.5-0.7
         mover_x = para_centro_x * fator_borda
         mover_y = para_centro_y * fator_borda
     
     # Adicionar componente para evitar outros inimigos
-    mover_x += evitar_x * 0.5
-    mover_y += evitar_y * 0.5
+    mover_x += evitar_x * (0.5 + offset_fator * 0.2)  # 0.5-0.7
+    mover_y += evitar_y * (0.5 + offset_fator * 0.2)
     
     # Adicionar um pouco de aleatoriedade ao movimento (menos quando perto da borda)
-    aleatoriedade = 0.05 if muito_perto_da_borda else (0.1 if perto_da_borda else 0.2)
+    aleatoriedade_base = 0.05 if muito_perto_da_borda else (0.1 if perto_da_borda else 0.2)
+    # Variável com base no ID do inimigo
+    aleatoriedade = aleatoriedade_base * (1.0 + offset_fator * 0.5)  # 50% mais ou menos aleatório
     mover_x += random.uniform(-aleatoriedade, aleatoriedade)
     mover_y += random.uniform(-aleatoriedade, aleatoriedade)
     
@@ -316,7 +467,10 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
     
     # IMPORTANTE: movimento suavizado - isso evita tremores bruscos
     # Não alterar a velocidade quando estiver na zona crítica para permitir escape rápido
-    velocidade_atual = inimigo.velocidade if muito_perto_da_borda else inimigo.velocidade * 0.8
+    velocidade_atual = inimigo.velocidade if muito_perto_da_borda else inimigo.velocidade * (0.8 + offset_fator * 0.1)
+    
+    # Restaurar o estado original do gerador de números aleatórios
+    random.setstate(random_state)
     
     # Executar o movimento
     inimigo.mover(mover_x, mover_y)
@@ -664,7 +818,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 tempo_movimento_inimigos[idx] = atualizar_IA_inimigo(
                     inimigo, idx, jogador, tiros_jogador, inimigos, tempo_atual, 
                     tempo_movimento_inimigos, intervalo_movimento, numero_fase, 
-                    tiros_inimigo, movimento_x, movimento_y
+                    tiros_inimigo, movimento_x, movimento_y,
+                    particulas, flashes  # Passando as listas como parâmetros
                 )
                 
                 # Garantir que os inimigos não ultrapassem a área de jogo

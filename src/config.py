@@ -9,7 +9,7 @@ LARGURA_JOGO, ALTURA_JOGO = 1480, 820-80  # Dimensões da área jogável
 ALTURA_HUD = 80  # Altura da barra de HUD
 TITULO = "SquareStorm"
 FPS = 60
-MAX_FASES = 6  # Alterado de 2 para 3 - agora com fase especial
+MAX_FASES = 8  # Alterado de 2 para 3 - agora com fase especial
 
 # Cores
 PRETO = (0, 0, 0)
@@ -24,7 +24,6 @@ ROXO = (180, 50, 230)  # Cor do inimigo especial
 CIANO = (0, 255, 255)
 LARANJA = (255, 165, 0)
 CINZA_ESCURO = (40, 40, 60)  # Cor para o fundo do HUD
-
 # Configurações de jogabilidade
 VELOCIDADE_INIMIGO_CIANO = 4.5 * 4.0
 VELOCIDADE_JOGADOR = 4.5

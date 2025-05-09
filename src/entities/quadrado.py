@@ -125,6 +125,32 @@ class Quadrado:
         else:
             mod_tamanho = 12 - self.pulsando
             
+
+        if hasattr(self, 'perseguidor') and self.perseguidor:
+            # Desenhar um efeito de "chamas" perseguindo
+            # Calcular o centro do quadrado
+            centro_x = self.x + self.tamanho // 2
+            centro_y = self.y + self.tamanho // 2
+            
+            # Desenhar efeito de rastro de "fogo"
+            for i in range(8):
+                # Variação no tamanho e posição
+                offset_x = random.uniform(-self.tamanho / 3, self.tamanho / 3)
+                offset_y = random.uniform(-self.tamanho / 3, self.tamanho / 3)
+                
+                # Cores variando de laranja a amarelo
+                cor_r = min(255, self.cor[0] + random.randint(-40, 40))
+                cor_g = min(255, self.cor[1] + random.randint(-40, 20))
+                cor_b = 0  # Sem componente azul para manter o visual de fogo
+                
+                tamanho_particula = random.randint(3, 8)
+                
+                # Desenhar partícula de fogo
+                pygame.draw.circle(tela, (cor_r, cor_g, cor_b), 
+                                (int(self.x - offset_x + random.uniform(0, self.tamanho)), 
+                                int(self.y - offset_y + random.uniform(0, self.tamanho))), 
+                                tamanho_particula)
+
         # Desenhar sombra
         pygame.draw.rect(tela, (20, 20, 20), 
                         (self.x + 4, self.y + 4, 
@@ -531,7 +557,6 @@ class Quadrado:
         # Criar efeito de partículas na ponta do cano
         if particulas is not None:
             from src.entities.particula import Particula
-            import random
             
             # Definir cor amarela para todas as partículas
             cor_amarela = (255, 255, 0)  # Amarelo puro
