@@ -617,17 +617,20 @@ class Quadrado:
         """
         if not self.invulneravel:
             self.vidas -= 1
-            self.invulneravel = True
-            self.tempo_invulneravel = pygame.time.get_ticks()
+            # Apenas o jogador fica invulnerável após tomar dano
+            if self.cor == AZUL:
+                self.invulneravel = True
+                self.tempo_invulneravel = pygame.time.get_ticks()
             self.efeito_dano = 10  # Frames de efeito visual
             return True
         return False
 
     def atualizar(self):
         """Atualiza o estado do quadrado."""
-        # Verificar se o tempo de invulnerabilidade acabou
-        if self.invulneravel and pygame.time.get_ticks() - self.tempo_invulneravel > self.duracao_invulneravel:
+        # Verificar se o tempo de invulnerabilidade acabou (apenas para o jogador)
+        if self.invulneravel and self.duracao_invulneravel != float('inf') and pygame.time.get_ticks() - self.tempo_invulneravel > self.duracao_invulneravel:
             self.invulneravel = False
+
 
     def atirar_com_mouse(self, tiros, pos_mouse):
         """

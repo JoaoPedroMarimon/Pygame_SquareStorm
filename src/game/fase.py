@@ -96,24 +96,42 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
                 if jogador.tomar_dano():
                     # Atualizar tempo da última colisão
                     inimigo.tempo_ultima_colisao = tempo_atual
-                    # Empurrar o jogador para trás
-                    recuo_x = -dir_x * 40
-                    recuo_y = -dir_y * 40
+                    
+                    # DIREÇÃO CORRIGIDA: Calcular vetor diretamente do inimigo para o jogador
+                    dir_empurrar_x = jogador.x - inimigo.x
+                    dir_empurrar_y = jogador.y - inimigo.y
+                    
+                    # Normalizar o vetor
+                    dist_empurrar = math.sqrt(dir_empurrar_x**2 + dir_empurrar_y**2)
+                    if dist_empurrar > 0:
+                        dir_empurrar_x /= dist_empurrar
+                        dir_empurrar_y /= dist_empurrar
+                    
+                    # Força do arremesso (quanto maior, mais longe o jogador vai)
+                    forca_arremesso = 160
+                    
+                    # Calcular o deslocamento
+                    recuo_x = dir_empurrar_x * forca_arremesso
+                    recuo_y = dir_empurrar_y * forca_arremesso
+                    
                     # Garantir que o recuo não empurre o jogador para fora da tela
                     nova_x = max(0, min(jogador.x + recuo_x, LARGURA - jogador.tamanho))
                     nova_y = max(0, min(jogador.y + recuo_y, ALTURA - jogador.tamanho))
+                    
+                    # Aplicar o recuo ao jogador
                     jogador.x = nova_x
                     jogador.y = nova_y
                     jogador.rect.x = jogador.x
                     jogador.rect.y = jogador.y
+                    
                     # Tocar som de dano
                     pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_dano()))
                     
                     # Criar efeito visual apenas se as listas de partículas e flashes foram fornecidas
                     if particulas is not None and flashes is not None:
                         flash = criar_explosao(jogador.x + jogador.tamanho//2, 
-                                              jogador.y + jogador.tamanho//2, 
-                                              LARANJA, particulas, 25)
+                                            jogador.y + jogador.tamanho//2, 
+                                            LARANJA, particulas, 25)
                         flashes.append(flash)
             
             # Recuar o inimigo um pouco após a colisão (para não ficar preso no jogador)
