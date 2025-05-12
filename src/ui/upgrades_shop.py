@@ -88,7 +88,7 @@ def desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_p
     desenhar_texto(tela, vida_status, 22, BRANCO, item_rect.x + 200, item_y + 60)
     
     # Custo do upgrade
-    custo_vida = 35
+    custo_vida = 20
     
     # Botão de compra
     botao_compra_x = item_rect.x + item_rect.width - 130

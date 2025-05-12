@@ -8,7 +8,6 @@ Redesenhado com base no novo layout Figma.
 
 import pygame
 import math
-import random
 import json
 import os
 from src.config import *
@@ -18,52 +17,7 @@ import sys
 from src.ui.weapons_shop import desenhar_weapons_shop
 from src.ui.upgrades_shop import desenhar_upgrades_shop
 
-def carregar_upgrades():
-    """
-    Carrega os upgrades salvos do arquivo.
-    Se o arquivo não existir, inicia com valores padrão.
-    """
-    upgrades_padrao = {
-        "vida": 1,  # Vida máxima inicial é 1
-        "espingarda": 0  # Tiros de espingarda disponíveis (0 = não tem)
-    }
-    
-    try:
-        # Criar o diretório de dados se não existir
-        if not os.path.exists("data"):
-            os.makedirs("data")
-        
-        # Tentar carregar o arquivo de upgrades
-        if os.path.exists("data/upgrades.json"):
-            with open("data/upgrades.json", "r") as f:
-                upgrades = json.load(f)
-                # Verificar se todas as chaves existem
-                for chave in upgrades_padrao:
-                    if chave not in upgrades:
-                        upgrades[chave] = upgrades_padrao[chave]
-                return upgrades
-        
-        # Se o arquivo não existir, criar com valores padrão e retornar
-        salvar_upgrades(upgrades_padrao)
-        return upgrades_padrao
-    except Exception as e:
-        print(f"Erro ao carregar upgrades: {e}")
-        return upgrades_padrao
 
-def salvar_upgrades(upgrades):
-    """
-    Salva os upgrades no arquivo.
-    """
-    try:
-        # Criar o diretório de dados se não existir
-        if not os.path.exists("data"):
-            os.makedirs("data")
-        
-        # Salvar os upgrades no arquivo
-        with open("data/upgrades.json", "w") as f:
-            json.dump(upgrades, f)
-    except Exception as e:
-        print(f"Erro ao salvar upgrades: {e}")
 
 def tela_loja(tela, relogio, gradiente_loja):
     """
