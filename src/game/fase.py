@@ -19,10 +19,10 @@ from src.game.nivel_factory import NivelFactory
 from src.game.moeda_manager import MoedaManager  # Importar o MoedaManager
 from src.config import LARGURA_JOGO, ALTURA_JOGO
 from src.utils.visual import desenhar_mira, criar_mira
-from src.utils.visual import desenhar_texto, criar_texto_flutuante,criar_botao
-from ..utils.visual import desenhar_estrelas, criar_estrelas  # Adicione essas funções
-from ..ui import desenhar_hud, desenhar_tela_jogo
-
+from src.utils.visual import desenhar_texto, criar_texto_flutuante, criar_botao
+from src.utils.visual import desenhar_estrelas, criar_estrelas
+from src.ui import desenhar_hud, desenhar_tela_jogo
+from src.entities.granada import Granada
 
 
 def criar_inimigos(numero_fase):
@@ -37,16 +37,8 @@ def criar_inimigos(numero_fase):
     """
     inimigos = []
     
-    
-    
     return inimigos
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
-"""
-Versão atualizada da função para remover o comportamento de tremor dos inimigos.
-Essa função deve substituir a função correspondente no arquivo src/game/fase.py
-"""
 
 def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_atual, tempo_movimento_inimigos, 
                         intervalo_movimento, numero_fase, tiros_inimigo, movimento_x, movimento_y, 
@@ -496,15 +488,6 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
     
     return tempo_movimento_inimigos[idx]
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-"""
-Atualização da lógica de controle no arquivo src/game/fase.py
-para implementar o sistema de mira com o mouse.
-"""
-
-# Modificação da função jogar_fase no arquivo src/game/fase.py
 
 def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):
     """
@@ -525,21 +508,20 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     """
     # Criar jogador
     jogador = Quadrado(100, ALTURA_JOGO // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
-# No início da função jogar_fase, logo após criar jogador e antes do loop principal, adicione:
-
-# Criar fontes
+    
+    # Criar fontes
     fonte_pequena = pygame.font.SysFont("Arial", 18)  # Fonte pequena para o HUD
     
-    # Criar inimigos (quantidade = número da fase)
+    # Criar inimigos
     inimigos = NivelFactory.criar_fase(numero_fase)    
     moeda_manager = MoedaManager()
 
-    # Listas para tiros e partículas
+    # Listas para tiros, granadas e partículas
     tiros_jogador = []
     tiros_inimigo = []
     particulas = []     
     flashes = []
-
+    granadas = []  # Nova lista para as granadas
     
     # Flag para pausa
     pausado = False
@@ -573,8 +555,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     tempo_transicao_derrota = None  # Será definido quando o jogador perder
     duracao_transicao_derrota = 120  # 2 segundos a 60 FPS
     
-    # Tempo de congelamento no início da fase
-    tempo_congelamento = 240  # 3 segundos a 60 FPS
+    # Tempo de congelamento no início da fase (IMPORTANTE: Definir isso ANTES de usar)
+    tempo_congelamento = 240  # 4 segundos a 60 FPS
     em_congelamento = False  # Será ativado após a introdução
     
     # Cursor do mouse visível durante o jogo
@@ -587,8 +569,12 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     # Rectangle for pause menu button
     rect_menu_pausado = None
     ultimo_clique_mouse = 0
+    
+    # Contador para evitar múltiplos lançamentos de granada
+    tempo_ultimo_lancamento_granada = 0
+    intervalo_lancamento_granada = 500  # Milissegundos entre lançamentos
 
-    # Loop principal da fase
+# Loop principal da fase
     rodando = True
     while rodando:
         tempo_atual = pygame.time.get_ticks()
@@ -630,6 +616,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         if hasattr(jogador, 'tiros_espingarda'):
                             if jogador.tiros_espingarda > 0:
                                 jogador.espingarda_ativa = not jogador.espingarda_ativa
+                                jogador.granada_selecionada = False  # Desativar granada ao selecionar espingarda
                                 # Mostrar mensagem de ativação/desativação
                                 if jogador.espingarda_ativa:
                                     criar_texto_flutuante("ESPINGARDA ATIVADA!", 
@@ -645,6 +632,29 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                                     LARGURA // 2, ALTURA // 4, 
                                                     VERMELHO, particulas, 120, 32)
                                 # Se nunca comprou a espingarda, não mostra mensagem alguma
+                    
+                    # Tecla para ativar/desativar granada (Q)
+                    if evento.key == pygame.K_q:
+                        # Alternar modo de granada
+                        if hasattr(jogador, 'granadas'):
+                            if jogador.granadas > 0:
+                                jogador.granada_selecionada = not jogador.granada_selecionada
+                                jogador.espingarda_ativa = False  # Desativar espingarda ao selecionar granada
+                                
+                                # Mostrar mensagem de ativação/desativação
+                                if jogador.granada_selecionada:
+                                    criar_texto_flutuante("GRANADA ATIVADA!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        VERDE, particulas, 120, 32)
+                                else:
+                                    criar_texto_flutuante("GRANADA DESATIVADA", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        VERMELHO, particulas, 120, 32)
+                            elif jogador._carregar_upgrade_granada() > 0:
+                                # Jogador comprou o upgrade, mas já usou todas as granadas desta partida
+                                criar_texto_flutuante("SEM GRANADAS RESTANTES!", 
+                                                    LARGURA // 2, ALTURA // 4, 
+                                                    VERMELHO, particulas, 120, 32)
                 
                 # Parar o movimento quando soltar as teclas
                 if evento.type == pygame.KEYUP:
@@ -663,7 +673,12 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if tempo_atual - ultimo_clique_mouse >= intervalo_minimo_clique:
                         ultimo_clique_mouse = tempo_atual
                         
-                        if jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
+                        if jogador.granada_selecionada and jogador.granadas > 0:
+                            # Verificar intervalo entre lançamentos de granadas
+                            if tempo_atual - tempo_ultimo_lancamento_granada >= intervalo_lancamento_granada:
+                                tempo_ultimo_lancamento_granada = tempo_atual
+                                jogador.lancar_granada(granadas, pos_mouse, particulas, flashes)
+                        elif jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
                             # Verificar cooldown do jogador
                             if tempo_atual - jogador.tempo_ultimo_tiro >= jogador.tempo_cooldown:
                                 jogador.atirar_espingarda(tiros_jogador, pos_mouse, particulas, flashes)
@@ -729,9 +744,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             pygame.display.flip()
             relogio.tick(FPS)
             continue
-    
-        
-        # Lógica de congelamento
+
+# Lógica de congelamento
         if em_congelamento:
             tempo_congelamento -= 1
             
@@ -762,8 +776,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                           LARGURA // 2, ALTURA_JOGO // 2)
             
             # Desenhar HUD
-# Desenhar HUD
             desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager)
+            
             # Quando o congelamento terminar
             if tempo_congelamento <= 0:
                 em_congelamento = False
@@ -814,8 +828,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             pygame.display.flip()
             relogio.tick(FPS)
             continue
-        
-        # Só atualiza se não estiver congelado
+
+# Só atualiza se não estiver congelado
         if not em_congelamento:
             # Atualizar posição do jogador apenas se não estiver morto
             if not jogador_morto:
@@ -844,8 +858,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 if inimigo.y + inimigo.tamanho > ALTURA_JOGO:
                     inimigo.y = ALTURA_JOGO - inimigo.tamanho
                     inimigo.rect.y = inimigo.y
-            
-            # Atualizar tiros do jogador
+
+# Atualizar tiros do jogador
             for tiro in tiros_jogador[:]:
                 tiro.atualizar()
                 
@@ -863,8 +877,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         
                         # Aplicar o dano
                         if inimigo.tomar_dano():
-                            # Adicionar pontos bônus ao acertar o inimigo
-                            
                             # Se o inimigo morreu, adicionar moedas
                             if dano_causou_morte:
                                 # Determinar quantidade de moedas com base no tipo de inimigo
@@ -914,14 +926,53 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 # Remover tiros que saíram da tela
                 if tiro.fora_da_tela():
                     tiros_inimigo.remove(tiro)
+# Atualizar granadas
+            for granada in granadas[:]:
+                # Atualizar a granada e verificar se ainda está ativa
+                if not granada.atualizar(particulas, flashes):
+                    # Verificar dano a inimigos se a granada explodiu
+                    if granada.explodiu:
+                        for inimigo in inimigos:
+                            if inimigo.vidas > 0 and granada.causa_dano(inimigo):
+                                dano_causou_morte = False
+                                
+                                # Verificar se este dano vai matar o inimigo
+                                if inimigo.vidas == 1:
+                                    dano_causou_morte = True
+                                
+                                # Aplicar o dano
+                                if inimigo.tomar_dano():
+                                    # Se o inimigo morreu, adicionar moedas
+                                    if dano_causou_morte:
+                                        # Determinar quantidade de moedas com base no tipo de inimigo
+                                        moedas_bonus = 1  # Valor padrão para inimigos básicos
+                                        
+                                        # Inimigos com mais vida ou especiais dão mais moedas
+                                        if inimigo.cor == ROXO:  # Inimigo roxo (especial)
+                                            moedas_bonus = 3
+                                        elif inimigo.cor == CIANO:  # Inimigo ciano
+                                            moedas_bonus = 5
+                                        elif inimigo.vidas_max > 1:  # Inimigos com múltiplas vidas
+                                            moedas_bonus = 2
+                                        
+                                        # Adicionar moedas ao contador
+                                        moeda_manager.quantidade_moedas += moedas_bonus
+                                        moeda_manager.salvar_moedas()  # Salvar as moedas no arquivo
+                                        
+                                        # Criar animação de pontuação no local da morte
+                                        criar_texto_flutuante(f"+{moedas_bonus}", inimigo.x + inimigo.tamanho//2, 
+                                                            inimigo.y, AMARELO, particulas)
+                    
+                    # Remover a granada da lista
+                    granadas.remove(granada)
             
             # Atualizar partículas
             for particula in particulas[:]:
                 particula.atualizar()
                 if particula.acabou():
                     particulas.remove(particula)
-            
-            # Atualizar flashes
+
+# Atualizar flashes
             for flash in flashes[:]:
                 flash['vida'] -= 1
                 flash['raio'] += 2
@@ -988,18 +1039,67 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             # Quando a contagem chegar a zero, ir para a tela de game over
             if tempo_transicao_derrota <= 0:
                 return False # Jogador perdeu
-        
-        # Preencher toda a tela com preto antes de desenhar qualquer elemento do jogo
+# Desenhar fundo
         tela.fill((0, 0, 0))
+        tela.blit(gradiente_jogo, (0, 0))
         
-        # Desenhar tela do jogo
-        desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo, 
-                        particulas, flashes, estrelas, gradiente_jogo, numero_fase, fade_in, tempo_atual, moeda_manager)
+        # Desenhar névoa colorida ondulante
+        for y in range(0, ALTURA_JOGO, 20):
+            wave_offset = math.sin((y + tempo_atual/20) / 30) * 10
+            alpha = int(20 + 15 * math.sin((y + tempo_atual/30) / 50))
+            linha_surf = pygame.Surface((LARGURA, 2), pygame.SRCALPHA)
+            linha_surf.fill((100, 200, 255, alpha))
+            tela.blit(linha_surf, (wave_offset, y))
+            
+        # Desenhar estrelas
+        desenhar_estrelas(tela, estrelas)
+        
+        # Desenhar grid de fundo
+        for i in range(0, LARGURA, 50):
+            pygame.draw.line(tela, (30, 30, 60), (i, 0), (i, ALTURA_JOGO), 1)
+        for i in range(0, ALTURA_JOGO, 50):
+            pygame.draw.line(tela, (30, 30, 60), (0, i), (LARGURA, i), 1)
+        
+        # Desenhar flashes
+        for flash in flashes:
+            if flash['y'] < ALTURA_JOGO:  # Só desenhar flashes na área de jogo
+                pygame.draw.circle(tela, flash['cor'], (int(flash['x']), int(flash['y'])), int(flash['raio']))
+        
+        # Desenhar objetos do jogo
+        if jogador.vidas > 0:
+            jogador.desenhar(tela)
+        
+        # Desenhar inimigos ativos
+        for inimigo in inimigos:
+            if inimigo.vidas > 0:
+                inimigo.desenhar(tela)
+        
+        for tiro in tiros_jogador:
+            tiro.desenhar(tela)
+        
+        for tiro in tiros_inimigo:
+            tiro.desenhar(tela)
+        
+        # Desenhar granadas
+        for granada in granadas:
+            granada.desenhar(tela)
+        
+        for particula in particulas:
+            particula.desenhar(tela)
         
         # Desenhar moedas
         moeda_manager.desenhar(tela)
         
-        # Desenhar mensagem de vitória durante a transição
+        # Desenhar HUD (pontuação, vidas e fase) na área dedicada
+        desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager)
+        
+        # Aplicar efeito de fade-in (em toda a tela)
+        if fade_in > 0:
+            fade = pygame.Surface((LARGURA, ALTURA))
+            fade.fill((0, 0, 0))
+            fade.set_alpha(fade_in)
+            tela.blit(fade, (0, 0))
+# Desenhar mensagem de vitória durante a transição
         if tempo_transicao_vitoria is not None:
             # Criar um efeito de fade ou texto pulsante
             alpha = int(255 * (duracao_transicao_vitoria - tempo_transicao_vitoria) / duracao_transicao_vitoria)
@@ -1037,7 +1137,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 y = jogador.y + random.randint(-50, 50)
                 criar_explosao(x, y, VERMELHO, particulas, 20)
         
-        # Desenhar mira personalizada do mouse apenas se não estiver congelado
+# Desenhar mira personalizada do mouse apenas se não estiver congelado
         if not em_congelamento:
             desenhar_mira(tela, pos_mouse, (mira_surface, mira_rect))
         
