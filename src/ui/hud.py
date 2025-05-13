@@ -86,6 +86,27 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None):
                 cor_texto = BRANCO
                 
             desenhar_texto(tela, texto_espingarda, 22, cor_texto, pos_espingarda, centro_y)
+        
+        # Posição para o indicador de granada
+        pos_granada = LARGURA - 400
+        
+        # Verificar se o jogador tem granadas
+        if jogador and hasattr(jogador, 'granadas') and jogador.granadas > 0:
+            # Desenhar fundo para o indicador de granada
+            pygame.draw.rect(tela, (60, 80, 60), 
+                        (pos_granada - 80, ALTURA_JOGO + 10, 160, ALTURA_HUD - 20), 0, 10)
+            pygame.draw.rect(tela, (100, 200, 100), 
+                        (pos_granada - 80, ALTURA_JOGO + 10, 160, ALTURA_HUD - 20), 2, 10)
+            
+            # Texto informativo
+            texto_granada = f"Q: GRANADA ({jogador.granadas})"
+            if hasattr(jogador, 'granada_selecionada') and jogador.granada_selecionada:
+                texto_granada = f"GRANADA ATIVA! ({jogador.granadas})"
+                cor_texto = VERDE
+            else:
+                cor_texto = BRANCO
+                
+            desenhar_texto(tela, texto_granada, 22, cor_texto, pos_granada, centro_y)
 
 def aplicar_fade(tela, fade_in):
     """
@@ -134,7 +155,7 @@ def desenhar_transicao_fase(tela, numero_fase, tempo_transicao, fonte_titulo, fo
         tela.blit(subtexto, subtexto_rect)
 
 def desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo, 
-                     particulas, flashes, estrelas, gradiente_jogo,fase_atual, fade_in, tempo_atual, moeda_manager=None):
+                     particulas, flashes, estrelas, gradiente_jogo, fase_atual, fade_in, tempo_atual, moeda_manager=None, granadas=None):
     """
     Desenha todo o conteúdo da tela de jogo.
     
@@ -152,6 +173,7 @@ def desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo,
         fade_in: Valor para efeito de fade (0-255)
         tempo_atual: Tempo atual em ms
         moeda_manager: Gerenciador de moedas (opcional)
+        granadas: Lista de granadas (opcional)
     """
     # Desenhar fundo na área de jogo
     tela.blit(gradiente_jogo, (0, 0), (0, 0, LARGURA, ALTURA_JOGO))
@@ -188,11 +210,16 @@ def desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo,
     for tiro in tiros_inimigo:
         tiro.desenhar(tela)
     
+    # Desenhar granadas se existirem
+    if granadas is not None:
+        for granada in granadas:
+            granada.desenhar(tela)
+    
     for particula in particulas:
         particula.desenhar(tela)
     
     # Desenhar HUD (pontuação, vidas e fase) na área dedicada
-    desenhar_hud(tela,  fase_atual, inimigos, tempo_atual, moeda_manager)
+    desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager)
     
     # Aplicar efeito de fade-in (em toda a tela)
     aplicar_fade(tela, fade_in)

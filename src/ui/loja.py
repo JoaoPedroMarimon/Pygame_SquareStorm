@@ -16,6 +16,7 @@ from src.game.moeda_manager import MoedaManager
 import sys
 from src.ui.weapons_shop import desenhar_weapons_shop
 from src.ui.upgrades_shop import desenhar_upgrades_shop
+from src.ui.items_shop import desenhar_items_shop
 
 
 
@@ -65,7 +66,7 @@ def tela_loja(tela, relogio, gradiente_loja):
     # Efeito de transição ao entrar
     fade_in = 255
     
-    # Variável para controlar qual aba da loja está ativa (0: armas, 1: upgrades)
+    # Variável para controlar qual aba da loja está ativa (0: armas, 1: upgrades, 2: items)
     aba_ativa = 0
     
     # Loop principal da loja
@@ -95,6 +96,8 @@ def tela_loja(tela, relogio, gradiente_loja):
                     aba_ativa = 0  # Armas
                 if evento.key == pygame.K_2:
                     aba_ativa = 1  # Upgrades
+                if evento.key == pygame.K_3:
+                    aba_ativa = 2  # Items
             # Verificação de clique do mouse
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 clique_ocorreu = True
@@ -145,23 +148,26 @@ def tela_loja(tela, relogio, gradiente_loja):
         desenhar_texto(tela, f"{moeda_manager.obter_quantidade()}", 45, moeda_cor, moedas_x + 50, moedas_y)
         
         # Definir dimensões e posições para as abas
-        aba_largura = 300
+        aba_largura = 250
         aba_altura = 60
-        espaco_entre_abas = 20
+        espaco_entre_abas = 15
         altura_aba_y = 280
         
         # Calcular posições das abas (centralizadas)
-        aba1_x = LARGURA // 2 - aba_largura - espaco_entre_abas // 2
-        aba2_x = LARGURA // 2 + espaco_entre_abas // 2
+        aba1_x = LARGURA // 2 - aba_largura - espaco_entre_abas
+        aba2_x = LARGURA // 2 
+        aba3_x = LARGURA // 2 + aba_largura + espaco_entre_abas
         
         # Desenhar as abas (botões de categoria)
         rect_aba1 = pygame.Rect(aba1_x - aba_largura//2, altura_aba_y - aba_altura//2, aba_largura, aba_altura)
         rect_aba2 = pygame.Rect(aba2_x - aba_largura//2, altura_aba_y - aba_altura//2, aba_largura, aba_altura)
+        rect_aba3 = pygame.Rect(aba3_x - aba_largura//2, altura_aba_y - aba_altura//2, aba_largura, aba_altura)
         
         # Verificar hover para as abas
         mouse_pos = pygame.mouse.get_pos()
         hover_aba1 = rect_aba1.collidepoint(mouse_pos)
         hover_aba2 = rect_aba2.collidepoint(mouse_pos)
+        hover_aba3 = rect_aba3.collidepoint(mouse_pos)
         
         # Desenhar aba 1 (Armas)
         cor_aba1 = (150, 50, 50) if aba_ativa == 0 else (80, 30, 30)
@@ -263,12 +269,52 @@ def tela_loja(tela, relogio, gradiente_loja):
         # Texto da aba 2
         desenhar_texto(tela, "UPGRADES", 28, BRANCO, aba2_x, altura_aba_y)
         
+        # Desenhar aba 3 (Items)
+        cor_aba3 = (50, 120, 50) if aba_ativa == 2 else (30, 70, 30)
+        cor_hover_aba3 = (70, 160, 70) if aba_ativa == 2 else (40, 90, 40)
+        pygame.draw.rect(tela, cor_hover_aba3 if hover_aba3 else cor_aba3, rect_aba3, 0, 10)
+        pygame.draw.rect(tela, (120, 220, 120), rect_aba3, 3 if aba_ativa == 2 else 1, 10)
+        
+        # Ícone de item para aba 3 (granada)
+        item_x = aba3_x - 100
+        item_y = altura_aba_y
+        
+        # Desenhar ícone de granada
+        # Cor base da granada
+        cor_granada = (100, 180, 100)
+        tamanho_granada = 12
+        
+        # Corpo da granada (círculo)
+        pygame.draw.circle(tela, cor_granada, (item_x, item_y), tamanho_granada)
+        
+        # Parte superior (bocal)
+        pygame.draw.rect(tela, (150, 150, 150), 
+                       (item_x - 4, item_y - tamanho_granada - 5, 8, 5), 0, 2)
+        
+        # Pino da granada
+        pin_x = item_x + 7
+        pin_y = item_y - tamanho_granada - 2
+        
+        # Anel do pino
+        pygame.draw.circle(tela, (220, 220, 100), (pin_x, pin_y), 5, 2)
+        
+        # Pulso para animar a granada
+        tempo_pulso = (pygame.time.get_ticks() % 2000) / 2000.0
+        if tempo_pulso > 0.7:  # Pulsar periodicamente
+            # Adicionar efeito de brilho
+            pygame.draw.circle(tela, (150, 255, 150), (item_x, item_y), tamanho_granada+3, 2)
+        
+        # Texto da aba 3
+        desenhar_texto(tela, "ITEMS", 28, BRANCO, aba3_x, altura_aba_y)
+        
         # Verificar cliques nas abas
         if clique_ocorreu:
             if rect_aba1.collidepoint(mouse_pos):
                 aba_ativa = 0  # Armas
             elif rect_aba2.collidepoint(mouse_pos):
                 aba_ativa = 1  # Upgrades
+            elif rect_aba3.collidepoint(mouse_pos):
+                aba_ativa = 2  # Items
         
         # Área de conteúdo da aba ativa - movida para cima
         area_conteudo = pygame.Rect(150, 330, LARGURA - 300, ALTURA - 450)
@@ -282,8 +328,14 @@ def tela_loja(tela, relogio, gradiente_loja):
             if resultado:
                 mensagem, mensagem_cor = resultado
                 mensagem_tempo = 0
-        else:  # Upgrades
+        elif aba_ativa == 1:  # Upgrades
             resultado = desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, 
+                                          mouse_pos, clique_ocorreu, som_compra, som_erro)
+            if resultado:
+                mensagem, mensagem_cor = resultado
+                mensagem_tempo = 0
+        else:  # Items (aba 2)
+            resultado = desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, 
                                           mouse_pos, clique_ocorreu, som_compra, som_erro)
             if resultado:
                 mensagem, mensagem_cor = resultado
