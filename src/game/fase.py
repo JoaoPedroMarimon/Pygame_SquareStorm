@@ -8,20 +8,18 @@ Módulo para gerenciar a lógica das fases do jogo.
 import pygame
 import random
 import math
-import sys
 from src.config import *
 from src.entities.quadrado import Quadrado
 from src.entities.particula import criar_explosao
 from src.utils.visual import criar_estrelas, desenhar_texto
 from src.utils.sound import gerar_som_explosao, gerar_som_dano
-from src.ui.hud import desenhar_tela_jogo, desenhar_transicao_fase
 from src.game.nivel_factory import NivelFactory
-from src.game.moeda_manager import MoedaManager  # Importar o MoedaManager
-from src.config import LARGURA_JOGO, ALTURA_JOGO
+from src.game.moeda_manager import MoedaManager
+from src.config import ALTURA_JOGO
 from src.utils.visual import desenhar_mira, criar_mira
 from src.utils.visual import desenhar_texto, criar_texto_flutuante, criar_botao
 from src.utils.visual import desenhar_estrelas, criar_estrelas
-from src.ui import desenhar_hud, desenhar_tela_jogo
+from src.ui import desenhar_hud
 from src.entities.granada import Granada
 
 
@@ -603,12 +601,25 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         movimento_x = -1
                     if evento.key == pygame.K_d:
                         movimento_x = 1
-                    
-                    # Tecla ESC para pausar
+
                     if evento.key == pygame.K_ESCAPE:
                         pausado = True
                         pygame.mixer.pause()
                         pygame.mouse.set_visible(True)
+               
+
+
+                # Parar o movimento quando soltar as teclas
+                if evento.type == pygame.KEYUP:
+                    if evento.key == pygame.K_w and movimento_y < 0:
+                        movimento_y = 0
+                    if evento.key == pygame.K_s and movimento_y > 0:
+                        movimento_y = 0
+                    if evento.key == pygame.K_a and movimento_x < 0:
+                        movimento_x = 0
+                    if evento.key == pygame.K_d and movimento_x > 0:
+                        movimento_x = 0
+                    
                     
                     # Tecla para ativar/desativar espingarda (E)
                     if evento.key == pygame.K_e:
@@ -618,14 +629,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                 jogador.espingarda_ativa = not jogador.espingarda_ativa
                                 jogador.granada_selecionada = False  # Desativar granada ao selecionar espingarda
                                 # Mostrar mensagem de ativação/desativação
-                                if jogador.espingarda_ativa:
-                                    criar_texto_flutuante("ESPINGARDA ATIVADA!", 
-                                                        LARGURA // 2, ALTURA // 4, 
-                                                        VERDE, particulas, 120, 32)
-                                else:
-                                    criar_texto_flutuante("ESPINGARDA DESATIVADA", 
-                                                        LARGURA // 2, ALTURA // 4, 
-                                                        VERMELHO, particulas, 120, 32)
+
+
                             elif jogador._carregar_upgrade_espingarda() > 0:
                                 # Jogador comprou o upgrade, mas já usou todos os tiros desta partida
                                 criar_texto_flutuante("SEM TIROS DE ESPINGARDA RESTANTES!", 
@@ -642,30 +647,14 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                 jogador.espingarda_ativa = False  # Desativar espingarda ao selecionar granada
                                 
                                 # Mostrar mensagem de ativação/desativação
-                                if jogador.granada_selecionada:
-                                    criar_texto_flutuante("GRANADA ATIVADA!", 
-                                                        LARGURA // 2, ALTURA // 4, 
-                                                        VERDE, particulas, 120, 32)
-                                else:
-                                    criar_texto_flutuante("GRANADA DESATIVADA", 
-                                                        LARGURA // 2, ALTURA // 4, 
-                                                        VERMELHO, particulas, 120, 32)
+
                             elif jogador._carregar_upgrade_granada() > 0:
                                 # Jogador comprou o upgrade, mas já usou todas as granadas desta partida
                                 criar_texto_flutuante("SEM GRANADAS RESTANTES!", 
                                                     LARGURA // 2, ALTURA // 4, 
                                                     VERMELHO, particulas, 120, 32)
                 
-                # Parar o movimento quando soltar as teclas
-                if evento.type == pygame.KEYUP:
-                    if evento.key == pygame.K_w and movimento_y < 0:
-                        movimento_y = 0
-                    if evento.key == pygame.K_s and movimento_y > 0:
-                        movimento_y = 0
-                    if evento.key == pygame.K_a and movimento_x < 0:
-                        movimento_x = 0
-                    if evento.key == pygame.K_d and movimento_x > 0:
-                        movimento_x = 0
+
                 
                 # Tiro com o botão esquerdo do mouse (apenas se não estiver morto ou congelado)
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
@@ -700,8 +689,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         pausado = False
                         pygame.mixer.unpause()
                         pygame.mouse.set_visible(False)
-                    if evento.key == pygame.K_m:
-                        return "menu"
+
                 
                 # Handle mouse clicks while paused
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
@@ -709,13 +697,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if rect_menu_pausado and rect_menu_pausado.collidepoint(mouse_pos):
                         return "menu"
             
-            else:
-                # Durante a introdução, apenas ESC funciona
-                if evento.type == pygame.KEYDOWN:
-                    if evento.key == pygame.K_ESCAPE:
-                        return False
-                    # Qualquer tecla avança a introdução
-                    contador_inicio = 0
+
         
         # Atualizar contador de introdução
         if mostrando_inicio:
@@ -884,9 +866,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                 
                                 # Inimigos com mais vida ou especiais dão mais moedas
                                 if inimigo.cor == ROXO:  # Inimigo roxo (especial)
-                                    moedas_bonus = 3
-                                elif inimigo.cor == CIANO:  # Inimigo ciano
                                     moedas_bonus = 5
+                                elif inimigo.cor == CIANO:  # Inimigo ciano
+                                    moedas_bonus = 8
                                 elif inimigo.vidas_max > 1:  # Inimigos com múltiplas vidas
                                     moedas_bonus = 2
                                 
@@ -895,7 +877,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                 moeda_manager.salvar_moedas()  # Salvar as moedas no arquivo
                                 
                                 # Criar animação de pontuação no local da morte
-                                criar_texto_flutuante(f"+{moedas_bonus}", inimigo.x + inimigo.tamanho//2, 
+                                criar_texto_flutuante(f"+{moedas_bonus}", inimigo.x + inimigo.tamanho//5, 
                                                     inimigo.y, AMARELO, particulas)
                             
                             # Efeitos visuais de explosão
@@ -1044,12 +1026,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         tela.blit(gradiente_jogo, (0, 0))
         
         # Desenhar névoa colorida ondulante
-        for y in range(0, ALTURA_JOGO, 20):
-            wave_offset = math.sin((y + tempo_atual/20) / 30) * 10
-            alpha = int(20 + 15 * math.sin((y + tempo_atual/30) / 50))
-            linha_surf = pygame.Surface((LARGURA, 2), pygame.SRCALPHA)
-            linha_surf.fill((100, 200, 255, alpha))
-            tela.blit(linha_surf, (wave_offset, y))
+
             
         # Desenhar estrelas
         desenhar_estrelas(tela, estrelas)

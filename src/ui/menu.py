@@ -58,8 +58,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                     return "jogar"
                 if evento.key == pygame.K_l:
                     return "loja"
-                if evento.key == pygame.K_ESCAPE:
-                    return False
+
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 clique_ocorreu = True
         
@@ -360,8 +359,7 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_RETURN:
                     return True  # Jogar novamente
-                if evento.key == pygame.K_ESCAPE:
-                    return False  # Sair do jogo
+
             # Verificação explícita de clique do mouse
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 clique_ocorreu = True
@@ -493,8 +491,7 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
                     return "menu"  # Voltar ao menu
                 
                 # Tecla ESC para sair
-                if evento.key == pygame.K_ESCAPE:
-                    return "sair"  # Sair do jogo
+
                 
             # Verificação de clique do mouse
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:

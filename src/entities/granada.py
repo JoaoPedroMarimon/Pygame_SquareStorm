@@ -25,7 +25,7 @@ class Granada:
         
         # Normalizar a velocidade
         comprimento = math.sqrt(dx**2 + dy**2)
-        velocidade_base = 6.0  # Velocidade base da granada
+        velocidade_base = 10.0  # Aumentado de 6.0 para 10.0 para arremessar mais longe
         
         if comprimento > 0:
             self.dx = dx / comprimento * velocidade_base
@@ -39,15 +39,15 @@ class Granada:
         self.dy += random.uniform(-0.5, 0.5)
         
         # Física da granada
-        self.gravidade = 0.2
-        self.tempo_vida = 120  # 2 segundos a 60 FPS
+        self.gravidade = 0.0  # Removendo a gravidade
+        self.tempo_vida = 90  # Reduzido de 120 para 90 (1.5 segundos a 60 FPS)
         self.tempo_explosao = 0  # Será definido quando a granada parar
         self.explodiu = False
         self.raio_explosao = 150  # Raio da área de dano
         
         # Quicar a granada
-        self.elasticidade = 0.6  # Quão "quicante" é a granada
-        self.fricao = 0.98  # Desaceleração por fricção
+        self.elasticidade = 0.9  # Aumentado de 0.6 para 0.9 para maior rebatimento
+        self.fricao = 0.99  # Aumentado de 0.98 para 0.99 para menos desaceleração
         
         # Parâmetros para animação de rotação
         self.angulo = 0
@@ -60,13 +60,14 @@ class Granada:
         self.particulas_rastro = []
         self.ultimo_rastro = 0
     
-    def atualizar(self, particulas=None, flashes=None):
+    def atualizar(self, particulas=None, flashes=None, inimigos=None):
         """
         Atualiza o estado da granada (movimento, física, etc.)
         
         Args:
             particulas: Lista de partículas para efeito visual
             flashes: Lista de flashes para efeito visual
+            inimigos: Lista de inimigos para verificar colisão
             
         Returns:
             True se a granada ainda está ativa, False se deve ser removida
@@ -75,10 +76,9 @@ class Granada:
         if self.explodiu:
             return False
         
-        # Aplicar gravidade
-        self.dy += self.gravidade
+        # Não aplicamos mais gravidade aqui
         
-        # Atualizar velocidade com fricção
+        # Atualizar velocidade com fricção (leve)
         self.dx *= self.fricao
         self.dy *= self.fricao
         
@@ -86,28 +86,27 @@ class Granada:
         velocidade_total = math.sqrt(self.dx**2 + self.dy**2)
         if velocidade_total < 0.5 and self.tempo_explosao == 0:
             # Se a granada está quase parada, começar contagem para explosão
-            self.tempo_explosao = 60  # 1 segundo até explodir
+            self.tempo_explosao = 30  # Reduzido de 60 para 30 (0.5 segundo até explodir)
+        
         
         # Mover granada
         self.x += self.dx
         self.y += self.dy
         
-        # Verificar colisão com as bordas da tela
+        # Verificar colisão com as bordas da tela com rebatimento melhorado
         if self.x - self.raio < 0:
             self.x = self.raio
-            self.dx = -self.dx * self.elasticidade
+            self.dx = abs(self.dx) * self.elasticidade  # Garantir que rebata para a direita
         elif self.x + self.raio > LARGURA:
             self.x = LARGURA - self.raio
-            self.dx = -self.dx * self.elasticidade
+            self.dx = -abs(self.dx) * self.elasticidade  # Garantir que rebata para a esquerda
             
         if self.y - self.raio < 0:
             self.y = self.raio
-            self.dy = -self.dy * self.elasticidade
+            self.dy = abs(self.dy) * self.elasticidade  # Garantir que rebata para baixo
         elif self.y + self.raio > ALTURA_JOGO:  # Considerar apenas a área de jogo
             self.y = ALTURA_JOGO - self.raio
-            self.dy = -self.dy * self.elasticidade
-            # Reduzir também a velocidade horizontal quando bate no chão
-            self.dx *= 0.9
+            self.dy = -abs(self.dy) * self.elasticidade  # Garantir que rebata para cima
         
         # Atualizar retângulo de colisão
         self.rect.x = self.x - self.raio
@@ -135,7 +134,7 @@ class Granada:
             self.tempo_explosao -= 1
             
             # Piscar a granada quando estiver perto de explodir
-            if self.tempo_explosao < 30 and self.tempo_explosao % 5 < 3:
+            if self.tempo_explosao < 15 and self.tempo_explosao % 3 < 2:  # Piscar mais rápido
                 self.cor = (200, 60, 60)  # Vermelho para indicar que vai explodir
             else:
                 self.cor = (60, 120, 60)  # Voltar ao verde normal
