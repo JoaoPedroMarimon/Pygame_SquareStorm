@@ -13,6 +13,8 @@ from src.entities.tiro import Tiro
 from src.utils.sound import gerar_som_tiro
 import os
 import json
+from src.items.granada import carregar_upgrade_granada,desenhar_granada_selecionada
+from src.weapons.espingarda import carregar_upgrade_espingarda,desenhar_espingarda
 
 class Quadrado:
     """
@@ -27,10 +29,9 @@ class Quadrado:
         self.cor_escura = self._gerar_cor_escura(cor)
         self.cor_brilhante = self._gerar_cor_brilhante(cor)
         self.velocidade = velocidade
-        self.tiros_espingarda = self._carregar_upgrade_espingarda()
-        self.espingarda_ativa = False
-        self.granada_selecionada = False
-        self.granadas = self._carregar_upgrade_granada()
+        self._init_granada()
+        self._init_espingarda()  # Inicializar granada usando o novo sistema
+
         
         # Verificar se é o jogador e carregar upgrade de vida
         if cor == AZUL:  # Se for o jogador
@@ -95,308 +96,119 @@ class Quadrado:
         """Gera uma versão mais brilhante da cor."""
         return tuple(min(255, c + 70) for c in cor)
 
-    def desenhar(self, tela):
-            """Desenha o quadrado na tela com seus efeitos visuais."""
-            # Desenhar trilha de movimento para o inimigo (qualquer coisa diferente de AZUL)
-            if self.cor != AZUL:
-                for i, (pos_x, pos_y) in enumerate(self.posicoes_anteriores):
-                    alpha = int(255 * (1 - i / len(self.posicoes_anteriores)))
-                    # Garantir que os valores RGB estejam no intervalo válido (0-255)
-                    cor_trilha = (max(0, min(255, self.cor[0] - 100)), 
-                                max(0, min(255, self.cor[1] - 100)), 
-                                max(0, min(255, self.cor[2] - 100)))
-                    tamanho = int(self.tamanho * (1 - i / len(self.posicoes_anteriores) * 0.7))
-                    pygame.draw.rect(tela, cor_trilha, 
-                                    (pos_x + (self.tamanho - tamanho) // 2, 
-                                    pos_y + (self.tamanho - tamanho) // 2, 
-                                    tamanho, tamanho))
-            
-            # Se estiver invulnerável, pisca o quadrado
-            if self.invulneravel and pygame.time.get_ticks() % 200 < 100:
-                return
-            
-            # Efeito de pulsação
+    def desenhar(self, tela, tempo_atual=None):
+        """
+        Desenha o quadrado na tela com seus efeitos visuais.
+        
+        Args:
+            tela: Superfície onde desenhar
+            tempo_atual: Tempo atual em ms para efeitos de animação (opcional)
+        """
+        # Se tempo_atual não foi fornecido, obtenha-o
+        if tempo_atual is None:
             tempo_atual = pygame.time.get_ticks()
-            if tempo_atual - self.tempo_pulsacao > 100:
-                self.tempo_pulsacao = tempo_atual
-                self.pulsando = (self.pulsando + 1) % 12
+            
+        # Desenhar trilha de movimento para o inimigo (qualquer coisa diferente de AZUL)
+        if self.cor != AZUL:
+            for i, (pos_x, pos_y) in enumerate(self.posicoes_anteriores):
+                alpha = int(255 * (1 - i / len(self.posicoes_anteriores)))
+                # Garantir que os valores RGB estejam no intervalo válido (0-255)
+                cor_trilha = (max(0, min(255, self.cor[0] - 100)), 
+                            max(0, min(255, self.cor[1] - 100)), 
+                            max(0, min(255, self.cor[2] - 100)))
+                tamanho = int(self.tamanho * (1 - i / len(self.posicoes_anteriores) * 0.7))
+                pygame.draw.rect(tela, cor_trilha, 
+                                (pos_x + (self.tamanho - tamanho) // 2, 
+                                pos_y + (self.tamanho - tamanho) // 2, 
+                                tamanho, tamanho))
+        
+        # Se estiver invulnerável, pisca o quadrado
+        if self.invulneravel and tempo_atual % 200 < 100:
+            return
+        
+        # Efeito de pulsação
+        if tempo_atual - self.tempo_pulsacao > 100:
+            self.tempo_pulsacao = tempo_atual
+            self.pulsando = (self.pulsando + 1) % 12
+            
+        mod_tamanho = 0
+        if self.pulsando < 6:
+            mod_tamanho = self.pulsando
+        else:
+            mod_tamanho = 12 - self.pulsando
+            
+        if hasattr(self, 'perseguidor') and self.perseguidor:
+            # Desenhar um efeito de "chamas" perseguindo
+            # Calcular o centro do quadrado
+            centro_x = self.x + self.tamanho // 2
+            centro_y = self.y + self.tamanho // 2
+            
+            # Desenhar efeito de rastro de "fogo"
+            for i in range(8):
+                # Variação no tamanho e posição
+                offset_x = random.uniform(-self.tamanho / 3, self.tamanho / 3)
+                offset_y = random.uniform(-self.tamanho / 3, self.tamanho / 3)
                 
-            mod_tamanho = 0
-            if self.pulsando < 6:
-                mod_tamanho = self.pulsando
-            else:
-                mod_tamanho = 12 - self.pulsando
+                # Cores variando de laranja a amarelo
+                cor_r = min(255, self.cor[0] + random.randint(-40, 40))
+                cor_g = min(255, self.cor[1] + random.randint(-40, 20))
+                cor_b = 0  # Sem componente azul para manter o visual de fogo
                 
+                tamanho_particula = random.randint(3, 8)
+                
+                # Desenhar partícula de fogo
+                pygame.draw.circle(tela, (cor_r, cor_g, cor_b), 
+                                (int(self.x - offset_x + random.uniform(0, self.tamanho)), 
+                                int(self.y - offset_y + random.uniform(0, self.tamanho))), 
+                                tamanho_particula)
 
-            if hasattr(self, 'perseguidor') and self.perseguidor:
-                # Desenhar um efeito de "chamas" perseguindo
-                # Calcular o centro do quadrado
-                centro_x = self.x + self.tamanho // 2
-                centro_y = self.y + self.tamanho // 2
-                
-                # Desenhar efeito de rastro de "fogo"
-                for i in range(8):
-                    # Variação no tamanho e posição
-                    offset_x = random.uniform(-self.tamanho / 3, self.tamanho / 3)
-                    offset_y = random.uniform(-self.tamanho / 3, self.tamanho / 3)
-                    
-                    # Cores variando de laranja a amarelo
-                    cor_r = min(255, self.cor[0] + random.randint(-40, 40))
-                    cor_g = min(255, self.cor[1] + random.randint(-40, 20))
-                    cor_b = 0  # Sem componente azul para manter o visual de fogo
-                    
-                    tamanho_particula = random.randint(3, 8)
-                    
-                    # Desenhar partícula de fogo
-                    pygame.draw.circle(tela, (cor_r, cor_g, cor_b), 
-                                    (int(self.x - offset_x + random.uniform(0, self.tamanho)), 
-                                    int(self.y - offset_y + random.uniform(0, self.tamanho))), 
-                                    tamanho_particula)
-
-            # Desenhar sombra
-            pygame.draw.rect(tela, (20, 20, 20), 
-                            (self.x + 4, self.y + 4, 
-                            self.tamanho, self.tamanho), 0, 3)
-            
-            # Desenhar o quadrado com bordas arredondadas
-            cor_uso = self.cor
-            if self.efeito_dano > 0:
-                cor_uso = BRANCO
-                self.efeito_dano -= 1
-            
-            # Quadrado interior
-            pygame.draw.rect(tela, self.cor_escura, 
-                            (self.x, self.y, 
-                            self.tamanho + mod_tamanho, self.tamanho + mod_tamanho), 0, 5)
-            
-            # Quadrado exterior (menor)
-            pygame.draw.rect(tela, cor_uso, 
-                            (self.x + 3, self.y + 3, 
-                            self.tamanho + mod_tamanho - 6, self.tamanho + mod_tamanho - 6), 0, 3)
-            
-            # Brilho no canto superior esquerdo
-            pygame.draw.rect(tela, self.cor_brilhante, 
-                            (self.x + 5, self.y + 5, 
-                            8, 8), 0, 2)
-            
-            # Desenhar indicador de vidas (barra de vida)
-            vida_largura = 50
-            altura_barra = 6
-            
-            # Fundo escuro
-            pygame.draw.rect(tela, (40, 40, 40), 
-                            (self.x, self.y - 15, vida_largura, altura_barra), 0, 2)
-            
-            # Vida atual
-            vida_atual = int((self.vidas / self.vidas_max) * vida_largura)
-            if vida_atual > 0:
-                pygame.draw.rect(tela, self.cor, 
-                                (self.x, self.y - 15, vida_atual, altura_barra), 0, 2)
-            
-            # Desenhar espingarda se for o jogador (cor AZUL) e tiver a espingarda ativa
-            if self.cor == AZUL and hasattr(self, 'espingarda_ativa') and self.espingarda_ativa:
-                # Obter a posição do mouse para orientar a espingarda
-                pos_mouse = pygame.mouse.get_pos()
-                
-                # Calcular o centro do jogador
-                centro_x = self.x + self.tamanho // 2
-                centro_y = self.y + self.tamanho // 2
-                
-                # Calcular o vetor direção para o mouse
-                dx = pos_mouse[0] - centro_x
-                dy = pos_mouse[1] - centro_y
-                
-                # Normalizar o vetor direção
-                distancia = math.sqrt(dx**2 + dy**2)
-                if distancia > 0:
-                    dx /= distancia
-                    dy /= distancia
-                
-                # Comprimento da espingarda
-                comprimento_arma = 35  # Ligeiramente mais longo
-                
-                # Posição da ponta da arma
-                ponta_x = centro_x + dx * comprimento_arma
-                ponta_y = centro_y + dy * comprimento_arma
-                
-                # Vetor perpendicular para elementos laterais
-                perp_x = -dy
-                perp_y = dx
-                
-                # Cores da espingarda
-                cor_metal = (180, 180, 190)  # Metal prateado
-                cor_cano = (100, 100, 110)   # Cano escuro
-                cor_madeira = (120, 80, 40)  # Madeira escura
-                cor_madeira_clara = (150, 100, 50)  # Madeira clara
-                
-                # DESENHO COMPLETO DA ESPINGARDA
-                
-                # 1. Cano principal (mais grosso e com gradiente)
-                for i in range(4):
-                    offset = i - 1.5
-                    pygame.draw.line(tela, cor_cano, 
-                                (centro_x + perp_x * offset, centro_y + perp_y * offset), 
-                                (ponta_x + perp_x * offset, ponta_y + perp_y * offset), 3)
-                
-                # 2. Boca do cano com destaque
-                pygame.draw.circle(tela, cor_metal, (int(ponta_x), int(ponta_y)), 5)
-                pygame.draw.circle(tela, (40, 40, 40), (int(ponta_x), int(ponta_y)), 3)
-                
-                # 3. Suporte sob o cano
-                meio_cano_x = centro_x + dx * (comprimento_arma * 0.6)
-                meio_cano_y = centro_y + dy * (comprimento_arma * 0.6)
-                pygame.draw.line(tela, cor_metal, 
-                                (meio_cano_x + perp_x * 3, meio_cano_y + perp_y * 3), 
-                                (meio_cano_x - perp_x * 3, meio_cano_y - perp_y * 3), 3)
-                
-                # 4. Corpo central / Mecanismo (mais detalhado)
-                corpo_x = centro_x + dx * 8
-                corpo_y = centro_y + dy * 8
-                # Base do corpo
-                pygame.draw.circle(tela, cor_metal, (int(corpo_x), int(corpo_y)), 7)
-                # Detalhes do mecanismo
-                pygame.draw.circle(tela, (50, 50, 55), (int(corpo_x), int(corpo_y)), 4)
-                # Reflete mecanismo (brilho)
-                brilho_x = corpo_x - dx + perp_x
-                brilho_y = corpo_y - dy + perp_y
-                pygame.draw.circle(tela, (220, 220, 230), (int(brilho_x), int(brilho_y)), 2)
-                
-                # 5. Coronha mais elegante (formato mais curvado)
-                # Pontos para a coronha em formato mais curvo
-                # Base conectando ao corpo
-                coronha_base_x = corpo_x - dx * 2
-                coronha_base_y = corpo_y - dy * 2
-                
-                # Pontos superiores e inferiores no início da coronha
-                sup_inicio_x = coronha_base_x + perp_x * 6
-                sup_inicio_y = coronha_base_y + perp_y * 6
-                inf_inicio_x = coronha_base_x - perp_x * 6
-                inf_inicio_y = coronha_base_y - perp_y * 6
-                
-                # Pontos do final da coronha (mais estreitos)
-                sup_fim_x = coronha_base_x - dx * 15 + perp_x * 4
-                sup_fim_y = coronha_base_y - dy * 15 + perp_y * 4
-                inf_fim_x = coronha_base_x - dx * 15 - perp_x * 4
-                inf_fim_y = coronha_base_y - dy * 15 - perp_y * 4
-                
-                # Desenhar coronha principal
-                pygame.draw.polygon(tela, cor_madeira, [
-                    (sup_inicio_x, sup_inicio_y),
-                    (inf_inicio_x, inf_inicio_y),
-                    (inf_fim_x, inf_fim_y),
-                    (sup_fim_x, sup_fim_y)
-                ])
-                
-                # 6. Detalhes da coronha (linhas de madeira)
-                for i in range(1, 4):
-                    linha_x1 = sup_inicio_x - dx * (i * 3) + perp_x * (6 - i * 0.5)
-                    linha_y1 = sup_inicio_y - dy * (i * 3) + perp_y * (6 - i * 0.5)
-                    linha_x2 = inf_inicio_x - dx * (i * 3) - perp_x * (6 - i * 0.5)
-                    linha_y2 = inf_inicio_y - dy * (i * 3) - perp_y * (6 - i * 0.5)
-                    pygame.draw.line(tela, cor_madeira_clara, 
-                                    (linha_x1, linha_y1), 
-                                    (linha_x2, linha_y2), 1)
-                
-                # 7. Gatilho e proteção (mais detalhados)
-                # Base do gatilho
-                gatilho_base_x = corpo_x - dx * 3
-                gatilho_base_y = corpo_y - dy * 3
-                
-                # Proteção do gatilho (arco)
-                pygame.draw.arc(tela, cor_metal, 
-                            [gatilho_base_x - 5, gatilho_base_y - 5, 10, 10],
-                            math.pi/2, math.pi * 1.5, 2)
-                
-                # Gatilho (linha curva)
-                gatilho_x = gatilho_base_x - perp_x * 2
-                gatilho_y = gatilho_base_y - perp_y * 2
-                pygame.draw.line(tela, (40, 40, 40), 
-                                (gatilho_base_x, gatilho_base_y), 
-                                (gatilho_x, gatilho_y), 2)
-                
-                # 8. Efeito de brilho no metal
-                pygame.draw.line(tela, (220, 220, 230), 
-                                (centro_x + perp_x * 2, centro_y + perp_y * 2), 
-                                (corpo_x + perp_x * 2, corpo_y + perp_y * 2), 1)
-                
-                # 9. Efeito de energia/carregamento (quando estiver ativa)
-                # Pulsar baseado no tempo atual
-                pulso = (math.sin(tempo_atual / 150) + 1) / 2  # Valor entre 0 e 1
-                cor_energia = (50 + int(pulso * 200), 50 + int(pulso * 150), 255)
-                
-                # Linha de energia ao longo do cano
-                energia_width = 2 + int(pulso * 2)
-                meio_cano2_x = centro_x + dx * (comprimento_arma * 0.3)
-                meio_cano2_y = centro_y + dy * (comprimento_arma * 0.3)
-                pygame.draw.line(tela, cor_energia, 
-                                (meio_cano2_x, meio_cano2_y), 
-                                (ponta_x, ponta_y), energia_width)
-            
-            # Desenhar granada selecionada (se for o jogador e tiver granadas)
-            if self.cor == AZUL and hasattr(self, 'granada_selecionada') and self.granada_selecionada and self.granadas > 0:
-                # Obter a posição do mouse para orientar a direção de lançamento
-                pos_mouse = pygame.mouse.get_pos()
-                
-                # Calcular o centro do jogador
-                centro_x = self.x + self.tamanho // 2
-                centro_y = self.y + self.tamanho // 2
-                
-                # Calcular o vetor direção para o mouse
-                dx = pos_mouse[0] - centro_x
-                dy = pos_mouse[1] - centro_y
-                
-                # Normalizar o vetor direção
-                distancia = math.sqrt(dx**2 + dy**2)
-                if distancia > 0:
-                    dx /= distancia
-                    dy /= distancia
-                
-                # Distância do jogador onde a granada será desenhada
-                distancia_desenho = 25
-                
-                # Posição da granada
-                granada_x = centro_x + dx * distancia_desenho
-                granada_y = centro_y + dy * distancia_desenho
-                
-                # Tamanho e cores da granada
-                tamanho_granada = 12
-                cor_granada = (60, 120, 60)  # Verde militar
-                cor_escura = (40, 80, 40)   # Verde mais escuro
-                
-                # Desenhar corpo da granada (círculo)
-                pygame.draw.circle(tela, cor_granada, (int(granada_x), int(granada_y)), tamanho_granada)
-                
-                # Detalhes da granada (linhas cruzadas)
-                pygame.draw.line(tela, cor_escura, 
-                            (granada_x - tamanho_granada * 0.6, granada_y), 
-                            (granada_x + tamanho_granada * 0.6, granada_y), 2)
-                pygame.draw.line(tela, cor_escura, 
-                            (granada_x, granada_y - tamanho_granada * 0.6), 
-                            (granada_x, granada_y + tamanho_granada * 0.6), 2)
-                            
-                # Parte superior (bocal)
-                pygame.draw.rect(tela, (150, 150, 150), 
-                            (granada_x - 4, granada_y - tamanho_granada - 5, 8, 5), 0, 2)
-                
-                # Pino da granada
-                pin_x = granada_x + 7
-                pin_y = granada_y - tamanho_granada - 2
-                
-                # Anel do pino
-                pygame.draw.circle(tela, (220, 220, 100), (pin_x, pin_y), 5, 2)
-                
-                # Efeito de pulso para indicar que está pronta para uso
-                if (tempo_atual // 300) % 2 == 0:  # Piscar a cada 0.3 segundos
-                    # Brilho ao redor da granada
-                    pygame.draw.circle(tela, (100, 255, 100, 128), 
-                                    (int(granada_x), int(granada_y)), 
-                                    tamanho_granada + 5, 2)
-                
-                # Desenhar contador de granadas perto do jogador
-                fonte = pygame.font.SysFont("Arial", 20, True)
-                texto_granada = fonte.render(f"{self.granadas}", True, (60, 255, 60))
-                texto_rect = texto_granada.get_rect(center=(self.x + self.tamanho + 15, self.y - 10))
-                tela.blit(texto_granada, texto_rect)
+        # Desenhar sombra
+        pygame.draw.rect(tela, (20, 20, 20), 
+                        (self.x + 4, self.y + 4, 
+                        self.tamanho, self.tamanho), 0, 3)
+        
+        # Desenhar o quadrado com bordas arredondadas
+        cor_uso = self.cor
+        if self.efeito_dano > 0:
+            cor_uso = BRANCO
+            self.efeito_dano -= 1
+        
+        # Quadrado interior
+        pygame.draw.rect(tela, self.cor_escura, 
+                        (self.x, self.y, 
+                        self.tamanho + mod_tamanho, self.tamanho + mod_tamanho), 0, 5)
+        
+        # Quadrado exterior (menor)
+        pygame.draw.rect(tela, cor_uso, 
+                        (self.x + 3, self.y + 3, 
+                        self.tamanho + mod_tamanho - 6, self.tamanho + mod_tamanho - 6), 0, 3)
+        
+        # Brilho no canto superior esquerdo
+        pygame.draw.rect(tela, self.cor_brilhante, 
+                        (self.x + 5, self.y + 5, 
+                        8, 8), 0, 2)
+        
+        # Desenhar indicador de vidas (barra de vida)
+        vida_largura = 50
+        altura_barra = 6
+        
+        # Fundo escuro
+        pygame.draw.rect(tela, (40, 40, 40), 
+                        (self.x, self.y - 15, vida_largura, altura_barra), 0, 2)
+        
+        # Vida atual
+        vida_atual = int((self.vidas / self.vidas_max) * vida_largura)
+        if vida_atual > 0:
+            pygame.draw.rect(tela, self.cor, 
+                            (self.x, self.y - 15, vida_atual, altura_barra), 0, 2)
+        
+        # DELEGAÇÃO: Desenhar espingarda se for o jogador (cor AZUL) e tiver a espingarda ativa
+        if self.cor == AZUL and hasattr(self, 'espingarda_ativa') and self.espingarda_ativa and self.tiros_espingarda > 0:
+            desenhar_espingarda(tela, self, tempo_atual)
+        
+        # DELEGAÇÃO: Desenhar granada selecionada (se for o jogador e tiver granadas)
+        if self.cor == AZUL and hasattr(self, 'granada_selecionada') and self.granada_selecionada and self.granadas > 0:
+            desenhar_granada_selecionada(tela, self, tempo_atual)
 
 
     def mover(self, dx, dy):
@@ -558,124 +370,10 @@ class Quadrado:
                 
             tiros.append(Tiro(centro_x, centro_y, direcao[0], direcao[1], self.cor, 7))
 
-    def _carregar_upgrade_espingarda(self):
-        """
-        Carrega o upgrade de espingarda do arquivo de upgrades.
-        Retorna 0 se não houver upgrade.
-        """
-        try:
-            # Verificar se o arquivo existe
-            if os.path.exists("data/upgrades.json"):
-                with open("data/upgrades.json", "r") as f:
-                    upgrades = json.load(f)
-                    return upgrades.get("espingarda", 0)
-            return 0
-        except Exception as e:
-            print(f"Erro ao carregar upgrade de espingarda: {e}")
-            return 0
-# Add to src/entities/quadrado.py in Quadrado class
-# Modifique a função atirar_espingarda no arquivo src/entities/quadrado.py
-# Modificação do método atirar_espingarda no arquivo src/entities/quadrado.py
-    def atirar_espingarda(self, tiros, pos_mouse, particulas=None, flashes=None, num_tiros=5):
-        """
-        Dispara múltiplos tiros em um padrão de espingarda e cria uma animação de partículas no cano.
-        
-        Args:
-            tiros: Lista onde adicionar os novos tiros
-            pos_mouse: Tupla (x, y) com a posição do mouse
-            particulas: Lista de partículas para efeitos visuais (opcional)
-            flashes: Lista de flashes para efeitos visuais (opcional)
-            num_tiros: Número de tiros a disparar
-        """
-        # Verificar cooldown
-        tempo_atual = pygame.time.get_ticks()
-        if tempo_atual - self.tempo_ultimo_tiro < self.tempo_cooldown:
-            return
-        
-        self.tempo_ultimo_tiro = tempo_atual
-        
-        # Posição central do quadrado
-        centro_x = self.x + self.tamanho // 2
-        centro_y = self.y + self.tamanho // 2
-        
-        # Calcular vetor direção para o mouse
-        dx = pos_mouse[0] - centro_x
-        dy = pos_mouse[1] - centro_y
-        
-        # Normalizar o vetor direção
-        distancia = math.sqrt(dx * dx + dy * dy)
-        if distancia > 0:  # Evitar divisão por zero
-            dx /= distancia
-            dy /= distancia
-        
-        # Som de tiro de espingarda (mais forte)
-        som_espingarda = pygame.mixer.Sound(gerar_som_tiro())
-        som_espingarda.set_volume(0.3)  # Volume mais alto para a espingarda
-        pygame.mixer.Channel(1).play(som_espingarda)
-        
-        # Ângulo de dispersão para cada tiro
-        angulo_base = math.atan2(dy, dx)
-        dispersao = 0.3  # Aumentar a dispersão de 0.2 para 0.3 para ter um leque maior
-        
-        # Calcular a posição da ponta do cano para o efeito de partículas
-        comprimento_arma = 35
-        ponta_cano_x = centro_x + dx * comprimento_arma
-        ponta_cano_y = centro_y + dy * comprimento_arma
-        
-        # Criar efeito de partículas na ponta do cano
-        if particulas is not None:
-            from src.entities.particula import Particula
-            
-            # Definir cor amarela para todas as partículas
-            cor_amarela = (255, 255, 0)  # Amarelo puro
-            
-            # Criar várias partículas para um efeito de explosão no cano
-            for _ in range(15):
-                # Todas as partículas serão amarelas
-                cor = cor_amarela
-                
-                # Posição com pequena variação aleatória ao redor da ponta do cano
-                vari_x = random.uniform(-5, 5)
-                vari_y = random.uniform(-5, 5)
-                pos_x = ponta_cano_x + vari_x
-                pos_y = ponta_cano_y + vari_y
-                
-                # Criar partícula
-                particula = Particula(pos_x, pos_y, cor)
-                
-                # Configurar propriedades da partícula para simular o disparo
-                particula.velocidade_x = dx * random.uniform(2, 5) + random.uniform(-1, 1)
-                particula.velocidade_y = dy * random.uniform(2, 5) + random.uniform(-1, 1)
-                particula.vida = random.randint(5, 15)  # Vida curta para um efeito rápido
-                particula.tamanho = random.uniform(1.5, 4)  # Partículas menores
-                particula.gravidade = 0.03  # Gravidade reduzida
-                
-                # Adicionar à lista de partículas
-                particulas.append(particula)
-        
-        # Adicionar um flash luminoso na ponta do cano
-        if flashes is not None:
-            flash = {
-                'x': ponta_cano_x,
-                'y': ponta_cano_y,
-                'raio': 15,
-                'vida': 5,
-                'cor': (255, 255, 0)  # Amarelo puro, mesma cor das partículas
-            }
-            flashes.append(flash)
-        
-        # Criar tiros com ângulos ligeiramente diferentes
-        for i in range(num_tiros):
-            # Calcular ângulo para este tiro
-            angulo_variacao = dispersao * (i / (num_tiros - 1) - 0.5) * 2
-            angulo_atual = angulo_base + angulo_variacao
-            
-            # Calcular direção com o novo ângulo
-            tiro_dx = math.cos(angulo_atual)
-            tiro_dy = math.sin(angulo_atual)
-            
-            # Criar tiro com a direção calculada
-            tiros.append(Tiro(centro_x, centro_y, tiro_dx, tiro_dy, AZUL, 8))
+    def _init_espingarda(self):
+        """Inicializa o upgrade de espingarda usando o módulo weapons"""
+        self.tiros_espingarda = carregar_upgrade_espingarda()
+        self.espingarda_ativa = False
 
 
     def tomar_dano(self):
@@ -746,92 +444,9 @@ class Quadrado:
                 cor_tiro = (r, g, b)
                 
             tiros.append(Tiro(centro_x, centro_y, dx, dy, cor_tiro, 7))
-    def _carregar_upgrade_granada(self):
-            """
-            Carrega o upgrade de granada do arquivo de upgrades.
-            Retorna 0 se não houver upgrade.
-            """
-            try:
-                # Verificar se o arquivo existe
-                if os.path.exists("data/upgrades.json"):
-                    with open("data/upgrades.json", "r") as f:
-                        upgrades = json.load(f)
-                        return upgrades.get("granada", 0)
-                return 0
-            except Exception as e:
-                print(f"Erro ao carregar upgrade de granada: {e}")
-                return 0
-            
+    def _init_granada(self):
+        """Inicializa o upgrade de granada usando o módulo items"""
+        self.granadas = carregar_upgrade_granada()
+        self.granada_selecionada = False
+                
 
-    def lancar_granada(self, granadas_lista, pos_mouse, particulas=None, flashes=None):
-            """
-            Lança uma granada na direção do cursor do mouse.
-            
-            Args:
-                granadas_lista: Lista onde adicionar a nova granada
-                pos_mouse: Tupla (x, y) com a posição do mouse na tela
-                particulas: Lista de partículas para efeitos visuais (opcional)
-                flashes: Lista de flashes para efeitos visuais (opcional)
-            """
-            # Verificar se o jogador tem granadas disponíveis
-            if self.granadas <= 0:
-                return
-            
-            # Reduzir o contador de granadas
-            self.granadas -= 1
-            
-            # Posição central do jogador
-            centro_x = self.x + self.tamanho // 2
-            centro_y = self.y + self.tamanho // 2
-            
-            # Calcular vetor direção para o mouse
-            dx = pos_mouse[0] - centro_x
-            dy = pos_mouse[1] - centro_y
-            
-            # Normalizar o vetor direção
-            distancia = math.sqrt(dx * dx + dy * dy)
-            if distancia > 0:  # Evitar divisão por zero
-                dx /= distancia
-                dy /= distancia
-            
-            # Criar som de lançamento de granada
-            tamanho_amostra = 8000
-            som_granada = pygame.mixer.Sound(bytes(bytearray(
-                int(127 + 127 * (math.sin(i / 15) if i < 2000 else 0)) 
-                for i in range(tamanho_amostra)
-            )))
-            som_granada.set_volume(0.2)
-            pygame.mixer.Channel(3).play(som_granada)
-            
-            # Criar efeito visual de lançamento
-            if particulas is not None and flashes is not None:
-                from src.entities.particula import Particula
-                
-                # Posição inicial da granada (ligeiramente à frente do jogador)
-                pos_x = centro_x + dx * self.tamanho
-                pos_y = centro_y + dy * self.tamanho
-                
-                # Criar algumas partículas para o efeito de lançamento
-                for _ in range(10):
-                    cor = (100, 200, 100)  # Verde claro
-                    particula = Particula(pos_x, pos_y, cor)
-                    particula.velocidade_x = dx * random.uniform(0.5, 2.0) + random.uniform(-1, 1)
-                    particula.velocidade_y = dy * random.uniform(0.5, 2.0) + random.uniform(-1, 1)
-                    particula.vida = random.randint(10, 20)
-                    particula.tamanho = random.uniform(2, 4)
-                    particulas.append(particula)
-            
-            # Importar a classe Granada (para evitar importação circular)
-            from src.entities.granada import Granada
-            
-            # Criar a granada com uma posição ligeiramente à frente do jogador
-            pos_x = centro_x + dx * self.tamanho
-            pos_y = centro_y + dy * self.tamanho
-            
-            # Adicionar a granada à lista
-            granada = Granada(pos_x, pos_y, dx, dy)
-            granadas_lista.append(granada)
-            
-            # Desativar o modo de granada após lançar
-            if self.granadas <= 0:
-                self.granada_selecionada = False
