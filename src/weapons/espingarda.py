@@ -140,7 +140,7 @@ def atirar_espingarda(jogador, tiros, pos_mouse, particulas=None, flashes=None, 
             jogador.espingarda_ativa = False
             # Efeito visual será mostrado no arquivo fase.py
 
-def desenhar_espingarda(tela, jogador, tempo_atual):
+def desenhar_espingarda(tela, jogador, tempo_atual,pos_mouse):
     """
     Desenha a espingarda na posição do jogador, orientada para a direção do mouse.
     
@@ -150,7 +150,6 @@ def desenhar_espingarda(tela, jogador, tempo_atual):
         tempo_atual: Tempo atual em ms para efeitos de animação
     """
     # Obter a posição do mouse para orientar a espingarda
-    pos_mouse = pygame.mouse.get_pos()
     
     # Calcular o centro do jogador
     centro_x = jogador.x + jogador.tamanho // 2

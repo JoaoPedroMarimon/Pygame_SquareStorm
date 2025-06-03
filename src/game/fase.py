@@ -280,8 +280,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                           LARGURA // 2, ALTURA_JOGO // 2)
             
             # Desenhar HUD
-            desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager)
-            
+            desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager, jogador)            
             # Quando o congelamento terminar
             if tempo_congelamento <= 0:
                 em_congelamento = False
@@ -552,8 +551,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         moeda_manager.desenhar(tela)
         
         # Desenhar HUD (pontuação, vidas e fase) na área dedicada
-        desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager)
-        
+        desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager, jogador)        
         # Aplicar efeito de fade-in (em toda a tela)
         if fade_in > 0:
             fade = pygame.Surface((LARGURA, ALTURA))

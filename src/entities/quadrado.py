@@ -204,7 +204,8 @@ class Quadrado:
         
         # DELEGAÇÃO: Desenhar espingarda se for o jogador (cor AZUL) e tiver a espingarda ativa
         if self.cor == AZUL and hasattr(self, 'espingarda_ativa') and self.espingarda_ativa and self.tiros_espingarda > 0:
-            desenhar_espingarda(tela, self, tempo_atual)
+            pos_mouse = pygame.mouse.get_pos()
+            desenhar_espingarda(tela, self, tempo_atual,pos_mouse)
         
         # DELEGAÇÃO: Desenhar granada selecionada (se for o jogador e tiver granadas)
         if self.cor == AZUL and hasattr(self, 'granada_selecionada') and self.granada_selecionada and self.granadas > 0:
