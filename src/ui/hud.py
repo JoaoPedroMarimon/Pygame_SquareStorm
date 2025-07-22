@@ -2,23 +2,24 @@
 # -*- coding: utf-8 -*-
 
 """
-Versão atualizada do arquivo src/ui/hud.py para separar o HUD da área de jogo.
-Agora inclui indicador visual da arma/item equipado entre "FASE" e "INIMIGOS".
+Versão atualizada do arquivo src/ui/hud.py para incluir o sistema de inventário.
+Agora mostra a arma selecionada no inventário e sua munição restante.
 """
 
 import pygame
 import math
 from src.config import LARGURA, ALTURA, LARGURA_JOGO, ALTURA_JOGO, ALTURA_HUD
-from src.config import BRANCO, AMARELO, VERDE, VERMELHO, CINZA_ESCURO, AZUL, ROXO
+from src.config import BRANCO, AMARELO, VERDE, VERMELHO, CINZA_ESCURO, AZUL, ROXO, LARANJA
 from src.utils.visual import desenhar_texto
 from src.weapons.espingarda import desenhar_espingarda
+from src.weapons.metralhadora import desenhar_metralhadora
 from src.items.granada import desenhar_granada_selecionada
 
 
 def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jogador=None):
     """
     Desenha a interface de usuário durante o jogo.
-    Agora o HUD está localizado em uma área separada abaixo da tela de jogo.
+    Agora inclui indicador da arma selecionada no sistema de inventário.
     
     Args:
         tela: Superfície onde desenhar
@@ -26,7 +27,7 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
         inimigos: Lista de inimigos para contar os vivos
         tempo_atual: Tempo atual para efeitos
         moeda_manager: Gerenciador de moedas (opcional)
-        jogador: Objeto do jogador para mostrar arma/item equipado (opcional)
+        jogador: Objeto do jogador para mostrar arma equipada (opcional)
     """
     # Fundo da barra de HUD (área separada)
     pygame.draw.rect(tela, CINZA_ESCURO, (0, ALTURA_JOGO, LARGURA, ALTURA_HUD))
@@ -36,16 +37,15 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
     inimigos_restantes = sum(1 for inimigo in inimigos if inimigo.vidas > 0)
     
     # Posições horizontais para distribuir elementos na barra de HUD
-    # Agora com 4 elementos: moedas, fase, equipamento, inimigos
     pos_moedas = LARGURA // 8        # 1/8 da largura
     pos_fase = 3 * LARGURA // 8      # 3/8 da largura  
-    pos_equipamento = 5 * LARGURA // 8  # 5/8 da largura (novo)
+    pos_equipamento = 5 * LARGURA // 8  # 5/8 da largura
     pos_inimigos = 7 * LARGURA // 8     # 7/8 da largura
     
     # Posição vertical central da barra de HUD
     centro_y = ALTURA_JOGO + ALTURA_HUD // 2
     
-    # Indicador de moedas (se o gerenciador de moedas for fornecido)
+    # Indicador de moedas
     if moeda_manager:
         pygame.draw.rect(tela, (80, 80, 40), (pos_moedas - 80, ALTURA_JOGO + 10, 160, ALTURA_HUD - 20), 0, 10)
         pygame.draw.rect(tela, AMARELO, (pos_moedas - 80, ALTURA_JOGO + 10, 160, ALTURA_HUD - 20), 2, 10)
@@ -59,55 +59,53 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
     pygame.draw.rect(tela, VERDE, (pos_fase - 80, ALTURA_JOGO + 10, 160, ALTURA_HUD - 20), 2, 10)
     desenhar_texto(tela, f"FASE {fase_atual}", 28, VERDE, pos_fase, centro_y)
     
-    # Indicador de equipamento (arma/item equipado) - NOVO
-    if jogador:
-        equipamento_ativo = False
+    # NOVO: Indicador de arma atual baseado no sistema de inventário
+    if jogador and jogador.cor == AZUL:  # Só para o jogador
+        arma_ativa = "TIRO NORMAL"
         cor_fundo = (40, 40, 80)
-        cor_borda = (80, 80, 150)
-        texto_equipamento = "NENHUM"
-        cor_texto = (150, 150, 150)
+        cor_borda = AZUL
+        municao = "∞"
+        cor_texto = BRANCO
+        tem_arma_especial = False
         
-        # Verificar se tem espingarda ativa
-        if hasattr(jogador, 'espingarda_ativa') and jogador.espingarda_ativa and hasattr(jogador, 'tiros_espingarda') and jogador.tiros_espingarda > 0:
-            equipamento_ativo = True
-            cor_fundo = (80, 40, 80)
-            cor_borda = ROXO
-            texto_equipamento = f"SHOTGUN ({jogador.tiros_espingarda})"
-            cor_texto = BRANCO
+        # Verificar qual arma está ativa baseado no novo sistema
+        if hasattr(jogador, 'metralhadora_ativa') and jogador.metralhadora_ativa and hasattr(jogador, 'tiros_metralhadora') and jogador.tiros_metralhadora > 0:
+            arma_ativa = "METRALHADORA"
+            cor_fundo = (80, 40, 20)
+            cor_borda = LARANJA
+            municao = str(jogador.tiros_metralhadora)
+            tem_arma_especial = True
             
-        # Verificar se tem granada ativa
+        elif hasattr(jogador, 'espingarda_ativa') and jogador.espingarda_ativa and hasattr(jogador, 'tiros_espingarda') and jogador.tiros_espingarda > 0:
+            arma_ativa = "ESPINGARDA"
+            cor_fundo = (80, 60, 20)
+            cor_borda = AMARELO
+            municao = str(jogador.tiros_espingarda)
+            tem_arma_especial = True
+            
         elif hasattr(jogador, 'granada_selecionada') and jogador.granada_selecionada and hasattr(jogador, 'granadas') and jogador.granadas > 0:
-            equipamento_ativo = True
-            cor_fundo = (40, 80, 40)
-            cor_borda = (100, 200, 100)
-            texto_equipamento = f"GRENADE ({jogador.granadas})"
-            cor_texto = BRANCO
+            arma_ativa = "GRANADA"
+            cor_fundo = (80, 40, 40)
+            cor_borda = VERMELHO
+            municao = str(jogador.granadas)
+            tem_arma_especial = True
         
-        # Desenhar fundo do indicador de equipamento
+        # Desenhar fundo do indicador de arma
         pygame.draw.rect(tela, cor_fundo, (pos_equipamento - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
         pygame.draw.rect(tela, cor_borda, (pos_equipamento - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 2, 10)
         
-        # Se tem equipamento ativo, desenhar ícone
-        if equipamento_ativo:
-            # Criar uma superfície temporária para desenhar o ícone da arma/item
+        # Se tem arma especial, desenhar ícone
+        if tem_arma_especial:
+            # Criar uma superfície temporária para desenhar o ícone da arma
             icone_surface = pygame.Surface((60, 40), pygame.SRCALPHA)
             
-            if hasattr(jogador, 'espingarda_ativa') and jogador.espingarda_ativa:
-                # Desenhar ícone da espingarda usando a função existente
-                # Criar um jogador temporário centralizado na superfície do ícone
-                class JogadorTemp:
-                    def __init__(self):
-                        self.x = 15  # Centralizar na superfície 60x40
-                        self.y = 15
-                        self.tamanho = 10
+            if hasattr(jogador, 'metralhadora_ativa') and jogador.metralhadora_ativa:
+                # Desenhar ícone da metralhadora
+                desenhar_icone_metralhadora(icone_surface, 30, 20, tempo_atual)
                 
-                jogador_temp = JogadorTemp()
-                
-                # Simular posição do mouse para apontar para a direita
-                pos_mouse = (45, 20)  # Apontar para a direita na superfície
-                
-                # Desenhar espingarda menor na superfície temporária
-                desenhar_espingarda(icone_surface, jogador_temp, tempo_atual,pos_mouse)
+            elif hasattr(jogador, 'espingarda_ativa') and jogador.espingarda_ativa:
+                # Desenhar ícone da espingarda
+                desenhar_icone_espingarda(icone_surface, 30, 20, tempo_atual)
                 
             elif hasattr(jogador, 'granada_selecionada') and jogador.granada_selecionada:
                 # Desenhar ícone da granada
@@ -115,14 +113,98 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             
             # Aplicar o ícone na posição correta do HUD
             tela.blit(icone_surface, (pos_equipamento - 30, centro_y - 20))
+        else:
+            # Desenhar ícone de tiro normal (quadrado simples)
+            pygame.draw.rect(tela, AZUL, (pos_equipamento - 8, centro_y - 8, 16, 16), 0, 3)
+            pygame.draw.rect(tela, BRANCO, (pos_equipamento - 8, centro_y - 8, 16, 16), 2, 3)
         
-        # Texto do equipamento (menor para não sobrepor o ícone)
-        desenhar_texto(tela, texto_equipamento, 18, cor_texto, pos_equipamento, centro_y + 15)
+        # Texto da arma e munição
+        desenhar_texto(tela, arma_ativa, 18, cor_texto, pos_equipamento, centro_y + 12)
+        desenhar_texto(tela, f"Munição: {municao}", 14, cor_borda, pos_equipamento, centro_y + 28)
     
     # Inimigos restantes
     pygame.draw.rect(tela, (80, 40, 40), (pos_inimigos - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
     pygame.draw.rect(tela, VERMELHO, (pos_inimigos - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 2, 10)
     desenhar_texto(tela, f"Inimigos: {inimigos_restantes}", 28, VERMELHO, pos_inimigos, centro_y)
+
+
+def desenhar_icone_espingarda(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone simplificado de espingarda para o HUD.
+    
+    Args:
+        tela: Superfície onde desenhar
+        x, y: Posição central do ícone
+        tempo_atual: Tempo atual para animações
+    """
+    # Cores da espingarda (menores e simplificadas)
+    cor_metal = (120, 120, 130)
+    cor_cano = (80, 80, 90)
+    cor_madeira = (100, 70, 35)
+    
+    # Desenhar cano
+    pygame.draw.line(tela, cor_cano, (x - 15, y), (x + 15, y), 4)
+    
+    # Corpo central
+    pygame.draw.circle(tela, cor_metal, (x, y), 6)
+    pygame.draw.circle(tela, (40, 40, 50), (x, y), 3)
+    
+    # Coronha
+    pygame.draw.polygon(tela, cor_madeira, [
+        (x - 8, y - 4),
+        (x - 8, y + 4),
+        (x - 20, y + 3),
+        (x - 20, y - 3)
+    ])
+    
+    # Efeito de energia
+    pulso = (math.sin(tempo_atual / 150) + 1) / 2
+    cor_energia = (50 + int(pulso * 100), 50 + int(pulso * 75), 200)
+    pygame.draw.line(tela, cor_energia, (x - 5, y), (x + 15, y), 2)
+
+
+def desenhar_icone_metralhadora(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone simplificado de metralhadora para o HUD.
+    
+    Args:
+        tela: Superfície onde desenhar
+        x, y: Posição central do ícone
+        tempo_atual: Tempo atual para animações
+    """
+    # Cores da metralhadora
+    cor_metal_escuro = (50, 50, 60)
+    cor_metal_claro = (100, 100, 110)
+    cor_laranja = (200, 100, 0)
+    
+    # Cano principal (mais grosso)
+    pygame.draw.line(tela, cor_metal_escuro, (x - 12, y), (x + 18, y), 6)
+    pygame.draw.line(tela, cor_metal_claro, (x - 12, y - 1), (x + 18, y - 1), 2)
+    
+    # Supressor na ponta
+    pygame.draw.circle(tela, cor_metal_escuro, (x + 18, y), 4)
+    pygame.draw.circle(tela, (30, 30, 35), (x + 18, y), 2)
+    
+    # Corpo retangular
+    pygame.draw.rect(tela, cor_metal_escuro, (x - 6, y - 4, 12, 8))
+    pygame.draw.rect(tela, cor_metal_claro, (x - 6, y - 4, 12, 8), 1)
+    
+    # Carregador
+    pygame.draw.rect(tela, cor_metal_escuro, (x - 3, y + 4, 6, 10))
+    pygame.draw.rect(tela, cor_laranja, (x - 3, y + 4, 6, 10), 1)
+    
+    # Coronha
+    pygame.draw.line(tela, cor_metal_claro, (x - 6, y), (x - 18, y + 6), 3)
+    pygame.draw.line(tela, cor_metal_claro, (x - 18, y + 6), (x - 20, y + 6), 2)
+    
+    # Efeito de calor
+    calor_intensidade = (tempo_atual % 1000) / 1000.0
+    cor_calor = (255, int(100 + calor_intensidade * 100), 0)
+    
+    # Pequenos pontos de calor
+    if calor_intensidade > 0.5:
+        pygame.draw.circle(tela, cor_calor, (x + 15, y - 2), 1)
+        pygame.draw.circle(tela, cor_calor, (x + 13, y + 1), 1)
 
 
 def desenhar_icone_granada(tela, x, y):
@@ -158,6 +240,7 @@ def desenhar_icone_granada(tela, x, y):
     # Anel do pino
     pygame.draw.circle(tela, (220, 220, 100), (pin_x, pin_y), 3, 1)
 
+
 def aplicar_fade(tela, fade_in):
     """
     Aplica um efeito de fade na tela.
@@ -171,6 +254,7 @@ def aplicar_fade(tela, fade_in):
         fade.fill((0, 0, 0))
         fade.set_alpha(fade_in)
         tela.blit(fade, (0, 0))
+
 
 def desenhar_transicao_fase(tela, numero_fase, tempo_transicao, fonte_titulo, fonte_normal):
     """
@@ -203,6 +287,7 @@ def desenhar_transicao_fase(tela, numero_fase, tempo_transicao, fonte_titulo, fo
         subtexto.set_alpha(alpha)
         subtexto_rect = subtexto.get_rect(center=(LARGURA // 2, ALTURA_JOGO // 2 + 60))
         tela.blit(subtexto, subtexto_rect)
+
 
 def desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo, 
                      particulas, flashes, estrelas, gradiente_jogo, fase_atual, fade_in, tempo_atual, moeda_manager=None, granadas=None):
@@ -267,8 +352,7 @@ def desenhar_tela_jogo(tela, jogador, inimigos, tiros_jogador, tiros_inimigo,
     for particula in particulas:
         particula.desenhar(tela)
     
-    # Desenhar HUD (pontuação, vidas e fase) na área dedicada
-    # IMPORTANTE: Agora passamos o jogador para mostrar equipamento
+    # Desenhar HUD atualizado com sistema de inventário
     desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager, jogador)
     
     # Aplicar efeito de fade-in (em toda a tela)

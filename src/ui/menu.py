@@ -3,6 +3,7 @@
 
 """
 Funções para gerenciar as telas de menu, início de jogo e fim de jogo.
+Versão corrigida com tela de game over simplificada.
 """
 from src.game.moeda_manager import MoedaManager
 import random
@@ -12,21 +13,32 @@ from src.config import *
 from src.utils.visual import criar_estrelas, desenhar_estrelas, desenhar_texto, criar_botao
 from src.utils.sound import gerar_som_explosao
 from src.entities.particula import criar_explosao, Particula
-from ..utils.progress import ProgressManager
+from src.utils.progress import ProgressManager
 
 import pygame
 
-# Modificar a função tela_inicio para incluir o botão da loja:
+# IMPORTAÇÃO CORRIGIDA: agora do local correto
+from src.game.inventario import tela_inventario
 
 def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     """
     Exibe a tela de início do jogo SquareStorm.
     """
+    print("🏠 tela_inicio() iniciada")  # DEBUG
+    
     # Mostrar cursor
     pygame.mouse.set_visible(True)
+    print("✅ Cursor habilitado")  # DEBUG
     
     # Criar efeitos visuais
-    estrelas = criar_estrelas(NUM_ESTRELAS_MENU)
+    print("🌟 Criando estrelas...")  # DEBUG
+    try:
+        estrelas = criar_estrelas(NUM_ESTRELAS_MENU)
+        print(f"✅ {len(estrelas)} estrelas criadas")  # DEBUG
+    except Exception as e:
+        print(f"❌ Erro ao criar estrelas: {e}")
+        estrelas = []
+    
     particulas = []
     flashes = []
     tempo_ultimo_efeito = 0
@@ -41,26 +53,51 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     nevoa_offset = 0
     
     # Inicializar moeda_manager para mostrar quantidade de moedas
-    moeda_manager = MoedaManager()
+    print("💰 Inicializando MoedaManager...")  # DEBUG
+    try:
+        moeda_manager = MoedaManager()
+        print("✅ MoedaManager criado")  # DEBUG
+    except Exception as e:
+        print(f"❌ Erro ao criar MoedaManager: {e}")
+        return False
     
     # Loop principal
+    print("🔄 Iniciando loop da tela inicial...")  # DEBUG
+    frame_count = 0
     while True:
+        frame_count += 1
+        if frame_count % 60 == 0:  # A cada 1 segundo (60 FPS)
+            print(f"⏱️ Frame {frame_count} - tela_inicio rodando...")
+        
         tempo_atual = pygame.time.get_ticks()
         
         clique_ocorreu = False
         
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_RETURN:
-                    return "jogar"
-                if evento.key == pygame.K_l:
-                    return "loja"
+        try:
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    print("❌ QUIT detectado")  # DEBUG
+                    pygame.quit()
+                    sys.exit()
+                if evento.type == pygame.KEYDOWN:
+                    print(f"⌨️ Tecla pressionada: {evento.key}")  # DEBUG
+                    if evento.key == pygame.K_RETURN:
+                        print("🎮 ENTER pressionado - retornando 'jogar'")  # DEBUG
+                        return "jogar"
+                    if evento.key == pygame.K_l:
+                        print("🛒 L pressionado - retornando 'loja'")  # DEBUG
+                        return "loja"
+                    if evento.key == pygame.K_i:  # NOVO - tecla I para inventário
+                        print("🎒 I pressionado - retornando 'inventario'")  # DEBUG
+                        return "inventario"
 
-            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                clique_ocorreu = True
+                if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                    print(f"🖱️ Mouse clicado em: {pygame.mouse.get_pos()}")  # DEBUG
+                    clique_ocorreu = True
+        except Exception as e:
+            print(f"❌ ERRO no loop de eventos: {e}")
+            import traceback
+            traceback.print_exc()
         
         # Adicionar efeitos visuais aleatórios
         if tempo_atual - tempo_ultimo_efeito > 1500:
@@ -72,9 +109,12 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             flashes.append(flash)
             
             # Som suave
-            som = pygame.mixer.Sound(gerar_som_explosao())
-            som.set_volume(0.3)
-            pygame.mixer.Channel(0).play(som)
+            try:
+                som = pygame.mixer.Sound(gerar_som_explosao())
+                som.set_volume(0.3)
+                pygame.mixer.Channel(0).play(som)
+            except:
+                pass  # Ignorar erros de som
         
         # Atualizar partículas e flashes
         for particula in particulas[:]:
@@ -101,7 +141,11 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         nevoa_offset = (nevoa_offset + 1) % 360
         
         # Desenhar fundo
-        tela.blit(gradiente_menu, (0, 0))
+        try:
+            tela.blit(gradiente_menu, (0, 0))
+        except Exception as e:
+            print(f"❌ Erro ao desenhar gradiente: {e}")
+            tela.fill((30, 0, 60))  # Cor de fallback
         
         # Desenhar névoa colorida ondulante
         for y in range(0, ALTURA, 20):
@@ -155,7 +199,10 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         moeda_size = 12
         pygame.draw.circle(tela, AMARELO, (30, 30), moeda_size)
         pygame.draw.circle(tela, (255, 215, 0), (30, 30), moeda_size - 2)
-        desenhar_texto(tela, f"{moeda_manager.obter_quantidade()}", 24, AMARELO, 60, 30)
+        try:
+            desenhar_texto(tela, f"{moeda_manager.obter_quantidade()}", 24, AMARELO, 60, 30)
+        except:
+            desenhar_texto(tela, "0", 24, AMARELO, 60, 30)
         
         # Controles com design mais clean
         controles_y = ALTURA // 2 + 20
@@ -238,10 +285,20 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                                largura_ajustada_loja, 
                                altura_ajustada_loja)
         
-        # Botão Sair
+        # Botão Inventário
+        x_inventario = LARGURA // 2
+        y_inventario = y_inicial + espacamento * 2  # Posicionar entre Loja e Sair
+        largura_ajustada_inventario = int(largura_botao * escala_y)
+        altura_ajustada_inventario = int(altura_botao * escala_y)
+        rect_inventario = pygame.Rect(x_inventario - largura_ajustada_inventario // 2, 
+                                    y_inventario - altura_ajustada_inventario // 2, 
+                                    largura_ajustada_inventario, 
+                                    altura_ajustada_inventario)
+        
+        # Botão Sair (ajustado para baixo)
         x_sair = LARGURA // 2
-        y_sair = y_inicial + espacamento * 2
-        largura_ajustada_sair = int(largura_botao * 0.7 * escala_y)  # Botão menor
+        y_sair = y_inicial + espacamento * 3  # Em vez de espacamento * 2
+        largura_ajustada_sair = int(largura_botao * 0.7 * escala_y)
         altura_ajustada_sair = int(altura_botao * 0.8 * escala_y)
         rect_sair = pygame.Rect(x_sair - largura_ajustada_sair // 2, 
                                y_sair - altura_ajustada_sair // 2, 
@@ -249,10 +306,10 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                                altura_ajustada_sair)
         
         # Botão de Seleção de Fase
-        largura_selecao = 100  # Aumentado de 60 para 100
-        altura_selecao = 50   # Ajustado de 60 para 50 para ficar mais retangular
-        x_selecao = LARGURA - 80  # Canto direito da tela
-        y_selecao = 80  # Canto superior
+        largura_selecao = 100
+        altura_selecao = 50
+        x_selecao = LARGURA - 80
+        y_selecao = 80
         largura_ajustada_selecao = int(largura_selecao * escala_y)
         altura_ajustada_selecao = int(altura_selecao * escala_y)
         rect_selecao = pygame.Rect(x_selecao - largura_ajustada_selecao // 2, 
@@ -266,6 +323,9 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         
         botao_loja = criar_botao(tela, "SHOP", x_loja, y_loja, largura_botao, altura_botao, 
                                 (150, 100, 0), (255, 180, 0), BRANCO)
+        
+        botao_inventario = criar_botao(tela, "INVENTORY", x_inventario, y_inventario, largura_botao, altura_botao, 
+                                      (100, 50, 150), (150, 80, 200), BRANCO)
         
         botao_sair = criar_botao(tela, "EXIT", x_sair, y_sair, largura_botao * 0.7, altura_botao * 0.8, 
                                (150, 50, 50), (200, 80, 80), BRANCO)
@@ -283,11 +343,10 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         texto_rect = texto_levels.get_rect(center=rect_selecao.center)
         tela.blit(texto_levels, texto_rect)
         
-        # Desenhar ícone de menu (três linhas)
-        
         # Verificar cliques nos botões
         if clique_ocorreu:
             if rect_jogar.collidepoint(mouse_pos):
+                print("🎮 Botão JOGAR clicado")  # DEBUG
                 # Efeito de transição
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
@@ -296,6 +355,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                 return "jogar"
             
             if rect_loja.collidepoint(mouse_pos):
+                print("🛒 Botão LOJA clicado")  # DEBUG
                 # Efeito de transição
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
@@ -303,10 +363,21 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                     pygame.time.delay(20)
                 return "loja"
             
+            if rect_inventario.collidepoint(mouse_pos):
+                print("🎒 Botão INVENTÁRIO clicado")  # DEBUG
+                # Efeito de transição
+                for i in range(30):
+                    tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
+                    pygame.display.flip()
+                    pygame.time.delay(20)
+                return "inventario"
+            
             if rect_sair.collidepoint(mouse_pos):
+                print("👋 Botão SAIR clicado")  # DEBUG
                 return False
             
             if rect_selecao.collidepoint(mouse_pos):
+                print("🎯 Botão SELEÇÃO FASE clicado")  # DEBUG
                 return "selecao_fase"
         
         pygame.display.flip()
@@ -314,18 +385,18 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
 
 def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria, fase_atual):
     """
-    Exibe a tela de fim de jogo (vitória ou derrota).
+    Exibe a tela de fim de jogo (apenas derrota).
     
     Args:
         tela: Superfície principal do jogo
         relogio: Objeto Clock para controle de FPS
-        gradiente_vitoria: Gradiente para tela de vitória
+        gradiente_vitoria: Gradiente para tela de vitória (não usado, mantido por compatibilidade)
         gradiente_derrota: Gradiente para tela de derrota
-        vitoria: True se foi vitória, False se foi derrota
+        vitoria: Parâmetro não usado (mantido por compatibilidade)
         fase_atual: Número da fase em que o jogo terminou
         
     Returns:
-        True para jogar novamente, False para sair
+        True para voltar ao menu, False para sair
     """
     # Mostrar cursor
     pygame.mouse.set_visible(True)
@@ -333,20 +404,33 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
     # Criar efeitos visuais
     estrelas = criar_estrelas(100)
     particulas = []
+    flashes = []
+    tempo_ultimo_efeito = 0
     
-    # Gerar explosões iniciais
-    for _ in range(10):
+    # Gerar explosões iniciais de derrota
+    for _ in range(8):
         x = random.randint(50, LARGURA - 50)
         y = random.randint(50, ALTURA - 50)
-        cor = VERDE if vitoria else VERMELHO
-        criar_explosao(x, y, cor, particulas, 10)
+        cor = random.choice([VERMELHO, (150, 50, 50), (200, 100, 100)])
+        criar_explosao(x, y, cor, particulas, 12)
     
-    # Som de vitória/derrota
-    pygame.mixer.Channel(0).play(pygame.mixer.Sound(gerar_som_explosao()))
+    # Som de derrota
+    som = pygame.mixer.Sound(gerar_som_explosao())
+    som.set_volume(0.7)
+    pygame.mixer.Channel(0).play(som)
     
     # Animação de texto
     escala_texto = 0
-    escala_alvo = 1.2
+    escala_alvo = 1.3
+    alpha_texto = 0
+    shake_offset = 0
+    
+    # Efeito de rachadura na tela
+    rachaduras = []
+    for _ in range(5):
+        x1, y1 = random.randint(0, LARGURA), random.randint(0, ALTURA)
+        x2, y2 = random.randint(0, LARGURA), random.randint(0, ALTURA)
+        rachaduras.append(((x1, y1), (x2, y2)))
     
     while True:
         tempo_atual = pygame.time.get_ticks()
@@ -357,12 +441,24 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
                 pygame.quit()
                 sys.exit()
             if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_RETURN:
-                    return True  # Jogar novamente
+                if evento.key == pygame.K_RETURN or evento.key == pygame.K_ESCAPE:
+                    return True  # Voltar ao menu
 
-            # Verificação explícita de clique do mouse
+            # Verificação de clique do mouse
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 clique_ocorreu = True
+        
+        # Adicionar efeitos visuais aleatórios (menos frequentes)
+        if tempo_atual - tempo_ultimo_efeito > 2000:
+            tempo_ultimo_efeito = tempo_atual
+            x = random.randint(100, LARGURA - 100)
+            y = random.randint(100, ALTURA - 100)
+            cor = random.choice([VERMELHO, (150, 50, 50)])
+            flash = criar_explosao(x, y, cor, particulas, 8)
+            flashes.append({
+                'x': x, 'y': y, 'cor': cor, 
+                'raio': 5, 'vida': 20
+            })
         
         # Atualizar partículas
         for particula in particulas[:]:
@@ -370,74 +466,135 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
             if particula.acabou():
                 particulas.remove(particula)
         
-        # Adicionar novas partículas ocasionalmente
-        if random.random() < 0.05:
-            x = random.randint(0, LARGURA)
-            y = random.randint(0, ALTURA)
-            cor = VERDE if vitoria else VERMELHO
-            criar_explosao(x, y, cor, particulas, 5)
+        # Atualizar flashes
+        for flash in flashes[:]:
+            flash['vida'] -= 1
+            flash['raio'] += 2
+            if flash['vida'] <= 0:
+                flashes.remove(flash)
         
-        # Animar texto
-        escala_texto += (escala_alvo - escala_texto) * 0.05
+        # Adicionar novas partículas de fumaça ocasionalmente
+        if random.random() < 0.03:
+            x = random.randint(0, LARGURA)
+            y = random.randint(ALTURA // 2, ALTURA)
+            cor = random.choice([(80, 80, 80), (60, 60, 60), (100, 50, 50)])
+            criar_explosao(x, y, cor, particulas, 3)
+        
+        # Animar texto com tremor
+        escala_texto += (escala_alvo - escala_texto) * 0.08
+        alpha_texto = min(255, alpha_texto + 5)
+        shake_offset = random.randint(-2, 2) if tempo_atual % 100 < 50 else 0
+        
+        # Pulsar escala
         if escala_texto > escala_alvo - 0.05:
-            escala_alvo = 1.0 if escala_alvo > 1.1 else 1.2
+            escala_alvo = 1.0 if escala_alvo > 1.2 else 1.3
         
         # Desenhar fundo
-        if vitoria:
-            tela.blit(gradiente_vitoria, (0, 0))
-        else:
-            tela.blit(gradiente_derrota, (0, 0))
+        tela.blit(gradiente_derrota, (0, 0))
         
-        # Desenhar estrelas
+        # Desenhar overlay escuro pulsante
+        overlay_alpha = int(30 + 20 * math.sin(tempo_atual / 300))
+        overlay = pygame.Surface((LARGURA, ALTURA), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, overlay_alpha))
+        tela.blit(overlay, (0, 0))
+        
+        # Desenhar estrelas (mais lentas)
+        for estrela in estrelas:
+            estrela[0] -= estrela[4] * 0.5  # Movimento mais lento
+            if estrela[0] < 0:
+                estrela[0] = LARGURA
+                estrela[1] = random.randint(0, ALTURA)
         desenhar_estrelas(tela, estrelas)
+        
+        # Desenhar rachaduras na tela
+        for rachadura in rachaduras:
+            pygame.draw.line(tela, (100, 30, 30), rachadura[0], rachadura[1], 2)
+            # Brilho da rachadura
+            pygame.draw.line(tela, (150, 50, 50), rachadura[0], rachadura[1], 1)
+        
+        # Desenhar flashes
+        for flash in flashes:
+            s = pygame.Surface((flash['raio'] * 2, flash['raio'] * 2), pygame.SRCALPHA)
+            pygame.draw.circle(s, (*flash['cor'], flash['vida'] * 10), 
+                             (flash['raio'], flash['raio']), flash['raio'])
+            tela.blit(s, (flash['x'] - flash['raio'], flash['y'] - flash['raio']))
         
         # Desenhar partículas
         for particula in particulas:
             particula.desenhar(tela)
         
-        # Desenhar texto com efeito pulsante
-        tamanho_texto = int(70 * escala_texto)
-        if vitoria:
-            # Se completou todas as fases
-            desenhar_texto(tela, "VITÓRIA TOTAL!", tamanho_texto, VERDE, LARGURA // 2, ALTURA // 3)
-            desenhar_texto(tela, "Você derrotou todos os inimigos!", 30, BRANCO, LARGURA // 2, ALTURA // 3 + 80)
-            desenhar_texto(tela, f"Todas as {fase_atual} fases concluídas!", 28, AMARELO, LARGURA // 2, ALTURA // 3 + 130)
+        # Desenhar texto GAME OVER com efeito dramático
+        tamanho_texto = int(80 * escala_texto)
+        if tamanho_texto > 10:
+            # Sombra profunda com multiple layers
+            for offset in range(6, 0, -1):
+                cor_sombra = (offset * 10, 0, 0)
+                desenhar_texto(tela, "GAME OVER", tamanho_texto, cor_sombra, 
+                             LARGURA // 2 + offset + shake_offset, 
+                             ALTURA // 3 + offset)
+            
+            # Texto principal com brilho pulsante
+            pulse = (math.sin(tempo_atual / 200) + 1) * 0.5
+            cor_principal = tuple(int(c * (0.7 + 0.3 * pulse)) for c in VERMELHO)
+            texto_surf = pygame.font.SysFont("Arial", tamanho_texto, True).render("GAME OVER", True, cor_principal)
+            texto_surf.set_alpha(alpha_texto)
+            texto_rect = texto_surf.get_rect(center=(LARGURA // 2 + shake_offset, ALTURA // 3))
+            tela.blit(texto_surf, texto_rect)
+            
+
+        
+        # Mensagem de fase com estilo
+        if fase_atual > 1:
+            msg = f"Você chegou até a fase {fase_atual}"
         else:
-            desenhar_texto(tela, "GAME OVER", tamanho_texto, VERMELHO, LARGURA // 2, ALTURA // 3)
-            if fase_atual > 1:
-                desenhar_texto(tela, f"Você chegou até a fase {fase_atual}", 30, BRANCO, LARGURA // 2, ALTURA // 3 + 80)
-            else:
-                desenhar_texto(tela, "O quadrado inimigo te derrotou!", 30, BRANCO, LARGURA // 2, ALTURA // 3 + 80)
+            msg = "O inimigo te derrotou!"
+            
+        msg_surf = pygame.font.SysFont("Arial", 28).render(msg, True, (200, 200, 200))
+        msg_surf.set_alpha(min(200, alpha_texto - 50))
+        msg_rect = msg_surf.get_rect(center=(LARGURA // 2, ALTURA // 3 + 100))
+        tela.blit(msg_surf, msg_rect)
         
         # Ajustar dimensões para a resolução atual
         escala_y = ALTURA / 848
         
-        # Definir posição e tamanho do botão JOGAR NOVAMENTE (centralizado)
-        largura_jogar_novamente = 300
-        altura_jogar_novamente = 60
-        x_jogar_novamente = LARGURA // 2
-        y_jogar_novamente = ALTURA // 2 + 140  # Ajustado para ficar mais centralizado
-        largura_ajustada_jogar = int(largura_jogar_novamente * escala_y)
-        altura_ajustada_jogar = int(altura_jogar_novamente * escala_y)
-        rect_jogar_novamente = pygame.Rect(x_jogar_novamente - largura_ajustada_jogar // 2, 
-                                         y_jogar_novamente - altura_ajustada_jogar // 2, 
-                                         largura_ajustada_jogar, 
-                                         altura_ajustada_jogar)
+        # Definir posição e tamanho do botão VOLTAR AO MENU
+        largura_menu = 320
+        altura_menu = 65
+        x_menu = LARGURA // 2
+        y_menu = ALTURA // 2 + 120
+        largura_ajustada = int(largura_menu * escala_y)
+        altura_ajustada = int(altura_menu * escala_y)
+        rect_menu = pygame.Rect(x_menu - largura_ajustada // 2, 
+                               y_menu - altura_ajustada // 2, 
+                               largura_ajustada, 
+                               altura_ajustada)
         
-        # Desenhar apenas o botão JOGAR NOVAMENTE
-        hover_jogar = criar_botao(tela, "MENU", x_jogar_novamente, y_jogar_novamente, 
-                                 largura_jogar_novamente, altura_jogar_novamente, 
-                                 (60, 120, 60), (80, 180, 80), BRANCO)
+        # Desenhar botão com efeito hover
+        mouse_pos = pygame.mouse.get_pos()
+        hover = rect_menu.collidepoint(mouse_pos)
+        
+        # Botão com gradiente vermelho
+        cor_base = (120, 40, 40) if not hover else (150, 60, 60)
+        cor_borda = (180, 80, 80) if not hover else (220, 100, 100)
+        
+        criar_botao(tela, "VOLTAR AO MENU (ENTER)", x_menu, y_menu, 
+                   largura_menu, altura_menu, cor_base, cor_borda, BRANCO)
         
         # Verificar cliques no botão
         if clique_ocorreu:
-            mouse_pos = pygame.mouse.get_pos()
-            
-            if rect_jogar_novamente.collidepoint(mouse_pos):
+            if rect_menu.collidepoint(mouse_pos):
+                # Efeito de fade out
+                for i in range(20):
+                    fade_surf = pygame.Surface((LARGURA, ALTURA), pygame.SRCALPHA)
+                    fade_surf.fill((0, 0, 0, i * 12))
+                    tela.blit(fade_surf, (0, 0))
+                    pygame.display.flip()
+                    pygame.time.delay(30)
                 return True
         
         pygame.display.flip()
         relogio.tick(FPS)
+
 def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
     """
     Exibe uma tela de vitória após completar uma fase, com opções para continuar ou voltar ao menu.
@@ -447,7 +604,6 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
         relogio: Objeto Clock para controle de FPS
         gradiente_vitoria: Superfície com o gradiente de fundo da vitória
         fase_atual: Número da fase que acabou de ser completada
-        pontuacao: Pontuação atual do jogador
         
     Returns:
         "proximo" para avançar à próxima fase
@@ -458,21 +614,51 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
     pygame.mouse.set_visible(True)
     
     # Criar efeitos visuais
-    estrelas = criar_estrelas(100)
+    estrelas = criar_estrelas(120)
     particulas = []
+    confetes = []
+    tempo_ultimo_efeito = 0
     
-    # Gerar explosões de celebração
-    for _ in range(8):
+    # Gerar explosões de celebração inicial
+    for _ in range(12):
         x = random.randint(50, LARGURA - 50)
         y = random.randint(50, ALTURA - 50)
-        criar_explosao(x, y, VERDE, particulas, 10)
+        cor = random.choice([VERDE, AMARELO, CIANO, (0, 255, 150)])
+        criar_explosao(x, y, cor, particulas, 15)
+    
+    # Criar confetes iniciais
+    for _ in range(50):
+        confetes.append({
+            'x': random.randint(0, LARGURA),
+            'y': random.randint(-100, 0),
+            'vx': random.randint(-2, 2),
+            'vy': random.randint(2, 6),
+            'cor': random.choice([AMARELO, VERDE, CIANO, ROXO, (255, 150, 0)]),
+            'tamanho': random.randint(3, 8),
+            'rotacao': random.randint(0, 360),
+            'vel_rotacao': random.randint(-10, 10)
+        })
     
     # Som de vitória
-    pygame.mixer.Channel(0).play(pygame.mixer.Sound(gerar_som_explosao()))
+    som = pygame.mixer.Sound(gerar_som_explosao())
+    som.set_volume(0.8)
+    pygame.mixer.Channel(0).play(som)
     
     # Animação de texto
     escala_texto = 0
     escala_alvo = 1.2
+    alpha_texto = 0
+    brilho_offset = 0
+    
+    # Efeito de raios de luz
+    raios = []
+    for i in range(8):
+        angulo = i * 45
+        raios.append({
+            'angulo': angulo,
+            'comprimento': 0,
+            'alpha': 255
+        })
     
     while True:
         tempo_atual = pygame.time.get_ticks()
@@ -484,18 +670,38 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
             if evento.type == pygame.KEYDOWN:
                 # Tecla Enter ou Espaço para próxima fase
                 if evento.key == pygame.K_RETURN or evento.key == pygame.K_SPACE:
-                    return "proximo"  # Avançar para próxima fase
+                    return "proximo"
                 
                 # Tecla Backspace ou M para menu
                 if evento.key == pygame.K_BACKSPACE or evento.key == pygame.K_m:
-                    return "menu"  # Voltar ao menu
-                
-                # Tecla ESC para sair
-
+                    return "menu"
                 
             # Verificação de clique do mouse
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 clique_ocorreu = True
+        
+        # Adicionar novos efeitos visuais periodicamente
+        if tempo_atual - tempo_ultimo_efeito > 1200:
+            tempo_ultimo_efeito = tempo_atual
+            
+            # Explosão de celebração
+            x = random.randint(100, LARGURA - 100)
+            y = random.randint(100, ALTURA - 100)
+            cor = random.choice([VERDE, AMARELO, CIANO, (0, 255, 150)])
+            criar_explosao(x, y, cor, particulas, 10)
+            
+            # Novos confetes
+            for _ in range(10):
+                confetes.append({
+                    'x': random.randint(0, LARGURA),
+                    'y': -20,
+                    'vx': random.randint(-3, 3),
+                    'vy': random.randint(3, 7),
+                    'cor': random.choice([AMARELO, VERDE, CIANO, ROXO, (255, 150, 0)]),
+                    'tamanho': random.randint(4, 10),
+                    'rotacao': random.randint(0, 360),
+                    'vel_rotacao': random.randint(-15, 15)
+                })
         
         # Atualizar partículas
         for particula in particulas[:]:
@@ -503,44 +709,134 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
             if particula.acabou():
                 particulas.remove(particula)
         
-        # Adicionar novas partículas ocasionalmente
-        if random.random() < 0.05:
+        # Atualizar confetes
+        for confete in confetes[:]:
+            confete['x'] += confete['vx']
+            confete['y'] += confete['vy']
+            confete['vy'] += 0.2  # Gravidade
+            confete['rotacao'] += confete['vel_rotacao']
+            
+            # Remover confetes que saíram da tela
+            if confete['y'] > ALTURA + 50:
+                confetes.remove(confete)
+        
+        # Adicionar partículas brilhantes ocasionalmente
+        if random.random() < 0.08:
             x = random.randint(0, LARGURA)
-            y = random.randint(0, ALTURA)
-            criar_explosao(x, y, VERDE, particulas, 5)
+            y = random.randint(0, ALTURA // 2)
+            cor = random.choice([AMARELO, (255, 255, 150), CIANO])
+            criar_explosao(x, y, cor, particulas, 4)
         
         # Animar texto
-        escala_texto += (escala_alvo - escala_texto) * 0.05
+        escala_texto += (escala_alvo - escala_texto) * 0.08
+        alpha_texto = min(255, alpha_texto + 6)
+        brilho_offset = math.sin(tempo_atual / 300) * 20
+        
+        # Pulsar escala suavemente
         if escala_texto > escala_alvo - 0.05:
             escala_alvo = 1.0 if escala_alvo > 1.1 else 1.2
+        
+        # Atualizar raios de luz
+        for raio in raios:
+            raio['comprimento'] = min(200, raio['comprimento'] + 3)
+            raio['angulo'] += 0.5
         
         # Desenhar fundo
         tela.blit(gradiente_vitoria, (0, 0))
         
-        # Desenhar estrelas
+        # Desenhar overlay dourado pulsante
+        overlay_alpha = int(15 + 10 * math.sin(tempo_atual / 400))
+        overlay = pygame.Surface((LARGURA, ALTURA), pygame.SRCALPHA)
+        overlay.fill((255, 215, 0, overlay_alpha))
+        tela.blit(overlay, (0, 0))
+        
+        # Desenhar raios de luz atrás do texto
+        centro_x, centro_y = LARGURA // 2, ALTURA // 3
+        for raio in raios:
+            if raio['comprimento'] > 50:
+                end_x = centro_x + math.cos(math.radians(raio['angulo'])) * raio['comprimento']
+                end_y = centro_y + math.sin(math.radians(raio['angulo'])) * raio['comprimento']
+                
+                # Desenhar múltiplas linhas para efeito de brilho
+                for width in range(5, 0, -1):
+                    alpha = raio['alpha'] // width
+                    cor_raio = (*AMARELO, alpha)
+                    linha_surf = pygame.Surface((2, 2), pygame.SRCALPHA)
+                    pygame.draw.line(linha_surf, cor_raio, (centro_x, centro_y), (end_x, end_y), width)
+                    # Nota: pygame.draw.line não aceita RGBA diretamente, então usamos uma abordagem alternativa
+                    pygame.draw.line(tela, AMARELO, (centro_x, centro_y), (end_x, end_y), width)
+        
+        # Desenhar estrelas (movimento mais rápido para celebração)
+        for estrela in estrelas:
+            estrela[0] -= estrela[4] * 1.5
+            if estrela[0] < 0:
+                estrela[0] = LARGURA
+                estrela[1] = random.randint(0, ALTURA)
         desenhar_estrelas(tela, estrelas)
+        
+        # Desenhar confetes
+        for confete in confetes:
+            # Desenhar confete como um pequeno retângulo rotacionado
+            surf = pygame.Surface((confete['tamanho'], confete['tamanho'] // 2), pygame.SRCALPHA)
+            surf.fill(confete['cor'])
+            
+            # Rotacionar
+            surf_rot = pygame.transform.rotate(surf, confete['rotacao'])
+            rect = surf_rot.get_rect(center=(confete['x'], confete['y']))
+            tela.blit(surf_rot, rect)
         
         # Desenhar partículas
         for particula in particulas:
             particula.desenhar(tela)
         
-        # Desenhar texto com efeito pulsante
-        tamanho_texto = int(70 * escala_texto)
-        desenhar_texto(tela, f"FASE {fase_atual} COMPLETA!", tamanho_texto, VERDE, LARGURA // 2, ALTURA // 3)
+        # Desenhar texto principal com efeitos especiais
+        tamanho_texto = int(75 * escala_texto)
+        if tamanho_texto > 10:
+            texto = f"FASE {fase_atual} COMPLETA!"
+            
+            # Sombra colorida em múltiplas camadas
+            for offset in range(8, 0, -1):
+                cor_sombra = (0, offset * 15, 0)
+                desenhar_texto(tela, texto, tamanho_texto, cor_sombra, 
+                             LARGURA // 2 + offset, ALTURA // 3 + offset)
+            
+            # Contorno dourado
+            desenhar_texto(tela, texto, tamanho_texto, AMARELO, 
+                         LARGURA // 2 + 2, ALTURA // 3 + 2)
+            
+            # Texto principal com brilho pulsante
+            pulse = (math.sin(tempo_atual / 250) + 1) * 0.5
+            cor_principal = tuple(int(c * (0.8 + 0.2 * pulse)) for c in VERDE)
+            texto_surf = pygame.font.SysFont("Arial", tamanho_texto, True).render(texto, True, cor_principal)
+            texto_surf.set_alpha(alpha_texto)
+            texto_rect = texto_surf.get_rect(center=(LARGURA // 2, ALTURA // 3))
+            tela.blit(texto_surf, texto_rect)
+            
+            # Brilho ao redor do texto
+            for i in range(3):
+                brilho_surf = pygame.Surface((tamanho_texto * 6, tamanho_texto), pygame.SRCALPHA)
+                brilho_alpha = int(30 - i * 10 + brilho_offset)
+                if brilho_alpha > 0:
+                    pygame.draw.ellipse(brilho_surf, (255, 255, 150, brilho_alpha), 
+                                      (0, 0, tamanho_texto * 6, tamanho_texto))
+                    brilho_rect = brilho_surf.get_rect(center=(LARGURA // 2, ALTURA // 3))
+                    tela.blit(brilho_surf, brilho_rect)
         
-        # Mostrar número de inimigos derrotados e pontuação
-        desenhar_texto(tela, f"Inimigos derrotados: {fase_atual if fase_atual < 3 else 1}", 30, 
-                      BRANCO, LARGURA // 2, ALTURA // 3 + 80)
-        
+        # Mensagem de inimigos derrotados com estilo
+        msg = f"Inimigos derrotados: {fase_atual if fase_atual < 3 else 1}"
+        msg_surf = pygame.font.SysFont("Arial", 26, True).render(msg, True, CIANO)
+        msg_surf.set_alpha(min(220, alpha_texto - 30))
+        msg_rect = msg_surf.get_rect(center=(LARGURA // 2, ALTURA // 3 + 90))
+        tela.blit(msg_surf, msg_rect)
         
         # Ajustar dimensões para a resolução atual
         escala_y = ALTURA / 848
         
         # Desenhar botão para próxima fase
-        largura_proximo = 300
-        altura_proximo = 60
+        largura_proximo = 320
+        altura_proximo = 65
         x_proximo = LARGURA // 2
-        y_proximo = ALTURA // 2 + 50
+        y_proximo = ALTURA // 2 + 60
         largura_ajustada_proximo = int(largura_proximo * escala_y)
         altura_ajustada_proximo = int(altura_proximo * escala_y)
         rect_proximo = pygame.Rect(x_proximo - largura_ajustada_proximo // 2, 
@@ -549,10 +845,10 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
                                   altura_ajustada_proximo)
         
         # Desenhar botão para voltar ao menu
-        largura_menu = 300
-        altura_menu = 60
+        largura_menu = 320
+        altura_menu = 65
         x_menu = LARGURA // 2
-        y_menu = ALTURA // 2 + 130
+        y_menu = ALTURA // 2 + 140
         largura_ajustada_menu = int(largura_menu * escala_y)
         altura_ajustada_menu = int(altura_menu * escala_y)
         rect_menu = pygame.Rect(x_menu - largura_ajustada_menu // 2, 
@@ -560,23 +856,39 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
                                largura_ajustada_menu, 
                                altura_ajustada_menu)
         
-        # Desenhar os botões
-        hover_proximo = criar_botao(tela, "PRÓXIMA FASE (ENTER)", x_proximo, y_proximo, 
-                                  largura_proximo, altura_proximo, 
-                                  (60, 120, 60), (80, 180, 80), BRANCO)
+        # Desenhar os botões com gradientes verdes
+        mouse_pos = pygame.mouse.get_pos()
         
-        hover_menu = criar_botao(tela, "VOLTAR AO MENU (M)", x_menu, y_menu, 
-                              largura_menu, altura_menu, 
-                              (60, 60, 150), (80, 80, 200), BRANCO)
+        hover_proximo = rect_proximo.collidepoint(mouse_pos)
+        cor_base_proximo = (40, 150, 40) if not hover_proximo else (60, 200, 60)
+        cor_borda_proximo = (80, 220, 80) if not hover_proximo else (100, 255, 100)
+        
+        hover_menu = rect_menu.collidepoint(mouse_pos)
+        cor_base_menu = (40, 100, 150) if not hover_menu else (60, 130, 200)
+        cor_borda_menu = (80, 150, 220) if not hover_menu else (100, 180, 255)
+        
+        criar_botao(tela, "PRÓXIMA FASE (ENTER)", x_proximo, y_proximo, 
+                   largura_proximo, altura_proximo, cor_base_proximo, cor_borda_proximo, BRANCO)
+        
+        criar_botao(tela, "VOLTAR AO MENU (M)", x_menu, y_menu, 
+                   largura_menu, altura_menu, cor_base_menu, cor_borda_menu, BRANCO)
         
         # Verificar cliques nos botões
         if clique_ocorreu:
-            mouse_pos = pygame.mouse.get_pos()
-            
             if rect_proximo.collidepoint(mouse_pos):
+                # Efeito de transição dourada
+                for i in range(30):
+                    tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
+                    pygame.display.flip()
+                    pygame.time.delay(20)
                 return "proximo"
             
             if rect_menu.collidepoint(mouse_pos):
+                # Efeito de fade out azul
+                for i in range(30):
+                    tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
+                    pygame.display.flip()
+                    pygame.time.delay(20)
                 return "menu"
         
         pygame.display.flip()

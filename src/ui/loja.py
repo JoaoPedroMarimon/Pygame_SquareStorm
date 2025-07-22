@@ -400,6 +400,8 @@ def tela_loja(tela, relogio, gradiente_loja):
         
 
 # Update in src/ui/loja.py - carregar_upgrades function
+# Substitua a função carregar_upgrades() no arquivo src/ui/loja.py por esta versão:
+
 def carregar_upgrades():
     """
     Carrega os upgrades salvos do arquivo.
@@ -407,7 +409,9 @@ def carregar_upgrades():
     """
     upgrades_padrao = {
         "vida": 1,  # Vida máxima inicial é 1
-        "espingarda": 0  # Tiros de espingarda disponíveis (0 = não tem)
+        "espingarda": 0,  # Tiros de espingarda disponíveis (0 = não tem)
+        "metralhadora": 0,  # Tiros de metralhadora disponíveis (0 = não tem)
+        "granada": 0  # Granadas disponíveis (0 = não tem)
     }
     
     try:

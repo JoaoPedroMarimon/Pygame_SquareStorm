@@ -15,6 +15,8 @@ import os
 import json
 from src.items.granada import carregar_upgrade_granada,desenhar_granada_selecionada
 from src.weapons.espingarda import carregar_upgrade_espingarda,desenhar_espingarda
+from src.weapons.metralhadora import carregar_upgrade_metralhadora, desenhar_metralhadora
+
 
 class Quadrado:
     """
@@ -29,8 +31,16 @@ class Quadrado:
         self.cor_escura = self._gerar_cor_escura(cor)
         self.cor_brilhante = self._gerar_cor_brilhante(cor)
         self.velocidade = velocidade
-        self._init_granada()
-        self._init_espingarda()  # Inicializar granada usando o novo sistema
+        
+        if cor == AZUL:  # Se for o jogador
+            self._inicializar_armas_por_inventario()
+        else:  # Se for inimigo, não precisa de armas especiais
+            self.granada_selecionada = False
+            self.espingarda_ativa = False
+            self.metralhadora_ativa = False
+            self.granadas = 0
+            self.tiros_espingarda = 0
+            self.tiros_metralhadora = 0
 
         
         # Verificar se é o jogador e carregar upgrade de vida
@@ -203,13 +213,16 @@ class Quadrado:
                             (self.x, self.y - 15, vida_atual, altura_barra), 0, 2)
         
         # DELEGAÇÃO: Desenhar espingarda se for o jogador (cor AZUL) e tiver a espingarda ativa
-        if self.cor == AZUL and hasattr(self, 'espingarda_ativa') and self.espingarda_ativa and self.tiros_espingarda > 0:
+        if self.cor == AZUL:  # Se for o jogador
             pos_mouse = pygame.mouse.get_pos()
-            desenhar_espingarda(tela, self, tempo_atual,pos_mouse)
-        
-        # DELEGAÇÃO: Desenhar granada selecionada (se for o jogador e tiver granadas)
-        if self.cor == AZUL and hasattr(self, 'granada_selecionada') and self.granada_selecionada and self.granadas > 0:
-            desenhar_granada_selecionada(tela, self, tempo_atual)
+            
+            # Desenhar apenas a arma atualmente ativa
+            if hasattr(self, 'espingarda_ativa') and self.espingarda_ativa and self.tiros_espingarda > 0:
+                desenhar_espingarda(tela, self, tempo_atual, pos_mouse)
+            elif hasattr(self, 'metralhadora_ativa') and self.metralhadora_ativa and self.tiros_metralhadora > 0:
+                desenhar_metralhadora(tela, self, tempo_atual, pos_mouse)
+            elif hasattr(self, 'granada_selecionada') and self.granada_selecionada and self.granadas > 0:
+                desenhar_granada_selecionada(tela, self, tempo_atual)
 
 
     def mover(self, dx, dy):
@@ -371,12 +384,30 @@ class Quadrado:
                 
             tiros.append(Tiro(centro_x, centro_y, direcao[0], direcao[1], self.cor, 7))
 
-    def _init_espingarda(self):
-        """Inicializa o upgrade de espingarda usando o módulo weapons"""
-        self.tiros_espingarda = carregar_upgrade_espingarda()
+
+        
+    def _inicializar_armas_por_inventario(self):
+        """Inicializa as armas baseado na seleção do inventário."""
+        # Importação tardia para evitar circular import
+        from src.game.inventario import InventarioManager
+        
+        # Sempre inicializar granada (sistema separado - ativada com Q)
+        self.granadas = carregar_upgrade_granada()
+        self.granada_selecionada = False
+        
+        # Sempre permitir tiro normal (não vai no inventário)
+        # Tiro normal é sempre disponível
+        
+        # Inicializar armas do inventário como inativas
         self.espingarda_ativa = False
-
-
+        self.metralhadora_ativa = False
+        self.tiros_espingarda = 0
+        self.tiros_metralhadora = 0
+        
+        # Carregar munição das armas compradas (mas não ativar ainda)
+        # A ativação será feita com a tecla E no jogo
+        self.tiros_espingarda = carregar_upgrade_espingarda()
+        self.tiros_metralhadora = carregar_upgrade_metralhadora()
     def tomar_dano(self):
         """
         Faz o quadrado tomar dano.
@@ -445,9 +476,49 @@ class Quadrado:
                 cor_tiro = (r, g, b)
                 
             tiros.append(Tiro(centro_x, centro_y, dx, dy, cor_tiro, 7))
-    def _init_granada(self):
-        """Inicializa o upgrade de granada usando o módulo items"""
-        self.granadas = carregar_upgrade_granada()
-        self.granada_selecionada = False
-                
 
+                
+# Modificação para src/entities/quadrado.py
+# SUBSTITUIR o método ativar_arma_inventario() por esta versão:
+
+# Modificação para src/entities/quadrado.py
+# SUBSTITUIR o método ativar_arma_inventario() por esta versão:
+
+    def ativar_arma_inventario(self):
+        """
+        Toggle da arma selecionada no inventário (chamado ao pressionar E).
+        Se já estiver equipada, guarda a arma. Se granada estiver selecionada, guarda a granada.
+        Se não estiver nada equipado, equipa a arma do inventário.
+        """
+        from src.game.inventario import InventarioManager
+        
+        inventario = InventarioManager()
+        arma_selecionada = inventario.obter_arma_selecionada()
+        
+        # Verificar se granada está selecionada
+        if self.granada_selecionada:
+            self.granada_selecionada = False
+            return "granada_guardada"  # Granada foi guardada
+        
+        # Verificar se já tem alguma arma equipada
+        arma_ja_equipada = self.espingarda_ativa or self.metralhadora_ativa
+        
+        # Se já tem arma equipada, guardar todas
+        if arma_ja_equipada:
+            self.espingarda_ativa = False
+            self.metralhadora_ativa = False
+            return "guardada"  # Indica que a arma foi guardada
+        
+        # Se não tem arma equipada, tentar equipar a selecionada
+        if arma_selecionada == "espingarda" and self.tiros_espingarda > 0:
+            self.espingarda_ativa = True
+            self.metralhadora_ativa = False  # Garantir que só uma esteja ativa
+            return "espingarda"  # Sucesso - espingarda equipada
+        elif arma_selecionada == "metralhadora" and self.tiros_metralhadora > 0:
+            self.metralhadora_ativa = True
+            self.espingarda_ativa = False  # Garantir que só uma esteja ativa
+            return "metralhadora"  # Sucesso - metralhadora equipada
+        elif arma_selecionada == "nenhuma":
+            return "nenhuma_selecionada"  # Nenhuma arma selecionada no inventário
+        else:
+            return "sem_municao"  # Arma selecionada mas sem munição

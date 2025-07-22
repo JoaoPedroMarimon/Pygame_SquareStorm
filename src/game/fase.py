@@ -3,6 +3,7 @@
 
 """
 Módulo para gerenciar a lógica das fases do jogo.
+Sistema corrigido: E=equipar arma, Q=granada, mouse=tiro com prioridade.
 """
 
 import pygame
@@ -19,16 +20,20 @@ from src.config import ALTURA_JOGO
 from src.utils.visual import desenhar_mira, criar_mira
 from src.utils.visual import desenhar_texto, criar_texto_flutuante, criar_botao
 from src.utils.visual import desenhar_estrelas, criar_estrelas
-from src.ui import desenhar_hud
+from src.ui.hud import desenhar_hud
 
-# Novas importações das pastas reorganizadas
+# Importações das pastas reorganizadas
 from src.entities.inimigo_ia import atualizar_IA_inimigo
 from src.items.granada import Granada, lancar_granada, processar_granadas, inicializar_sistema_granadas, obter_intervalo_lancamento
 from src.weapons.espingarda import atirar_espingarda, carregar_upgrade_espingarda
+from src.weapons.metralhadora import atirar_metralhadora, carregar_upgrade_metralhadora
 
 def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):
     """
-    Executa uma fase específica do jogo.
+    Executa uma fase específica do jogo com sistema corrigido:
+    - E: Equipa arma do inventário
+    - Q: Liga/desliga granada  
+    - Mouse: Tiro com prioridade (granada > arma especial > tiro normal)
     
     Args:
         tela: Superfície principal do jogo
@@ -39,11 +44,12 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         fonte_normal: Fonte para textos normais
         
     Returns:
-        Tupla (resultado, pontuacao):
-            - resultado: True se a fase foi completada, False se o jogador perdeu
-            - pontuacao: Pontuação obtida nessa fase
+        Resultado da fase:
+            - True: fase completada com sucesso
+            - False: jogador perdeu
+            - "menu": voltar ao menu (quando pausado)
     """
-    # Criar jogador
+    # Criar jogador com sistema corrigido
     jogador = Quadrado(100, ALTURA_JOGO // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
     
     # Criar fontes
@@ -95,7 +101,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     tempo_transicao_derrota = None  # Será definido quando o jogador perder
     duracao_transicao_derrota = 120  # 2 segundos a 60 FPS
     
-    # Tempo de congelamento no início da fase (IMPORTANTE: Definir isso ANTES de usar)
+    # Tempo de congelamento no início da fase
     tempo_congelamento = 240  # 4 segundos a 60 FPS
     em_congelamento = False  # Será ativado após a introdução
     
@@ -110,7 +116,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     rect_menu_pausado = None
     ultimo_clique_mouse = 0
 
-# Loop principal da fase
+    # Loop principal da fase
     rodando = True
     while rodando:
         tempo_atual = pygame.time.get_ticks()
@@ -144,6 +150,69 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         pausado = True
                         pygame.mixer.pause()
                         pygame.mouse.set_visible(True)
+
+                    # SISTEMA CORRIGIDO: Tecla E para equipar/guardar arma do inventário
+                    if evento.key == pygame.K_e:
+                        resultado = jogador.ativar_arma_inventario()
+                        
+                        if resultado == "espingarda":
+                            criar_texto_flutuante("ESPINGARDA EQUIPADA!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                AMARELO, particulas, 120, 32)
+                        elif resultado == "metralhadora":
+                            criar_texto_flutuante("METRALHADORA EQUIPADA!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                LARANJA, particulas, 120, 32)
+                        elif resultado == "guardada":
+                            criar_texto_flutuante("ARMA GUARDADA!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                CINZA_ESCURO, particulas, 120, 32)
+                        elif resultado == "granada_guardada":
+                            criar_texto_flutuante("GRANADA GUARDADA!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                CINZA_ESCURO, particulas, 120, 32)
+                        elif resultado == "nenhuma_selecionada":
+                            criar_texto_flutuante("SELECIONE UMA ARMA NO INVENTÁRIO!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                VERMELHO, particulas, 120, 32)
+                        elif resultado == "sem_municao":
+                            criar_texto_flutuante("ARMA SEM MUNIÇÃO!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                VERMELHO, particulas, 120, 32)
+
+                    # SISTEMA CORRIGIDO: Tecla Q para ativar/desativar granada
+                    if evento.key == pygame.K_q:
+                        if jogador.granadas > 0:
+                            # Toggle da granada
+                            jogador.granada_selecionada = not jogador.granada_selecionada
+                            
+                            if jogador.granada_selecionada:
+                                # Ao pegar granada, guardar qualquer arma equipada
+                                arma_guardada = None
+                                if jogador.espingarda_ativa:
+                                    jogador.espingarda_ativa = False
+                                    arma_guardada = "espingarda"
+                                elif jogador.metralhadora_ativa:
+                                    jogador.metralhadora_ativa = False
+                                    arma_guardada = "metralhadora"
+                                
+                                # Feedback baseado no que aconteceu
+                                if arma_guardada:
+                                    criar_texto_flutuante(f"{arma_guardada.upper()} GUARDADA - GRANADA SELECIONADA!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        VERDE, particulas, 120, 32)
+                                else:
+                                    criar_texto_flutuante("GRANADA SELECIONADA!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        VERDE, particulas, 120, 32)
+                            else:
+                                criar_texto_flutuante("GRANADA DESSELECIONADA!", 
+                                                    LARGURA // 2, ALTURA // 4, 
+                                                    CINZA_ESCURO, particulas, 120, 32)
+                        else:
+                            criar_texto_flutuante("SEM GRANADAS!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                VERMELHO, particulas, 120, 32)
                
                 # Parar o movimento quando soltar as teclas
                 if evento.type == pygame.KEYUP:
@@ -156,54 +225,36 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if evento.key == pygame.K_d and movimento_x > 0:
                         movimento_x = 0
 
-# Tecla para ativar/desativar espingarda (E)
-                    if evento.key == pygame.K_e:
-                        # Verificar se o jogador já comprou o upgrade da espingarda
-                        if hasattr(jogador, 'tiros_espingarda'):
-                            if jogador.tiros_espingarda > 0:
-                                jogador.espingarda_ativa = not jogador.espingarda_ativa
-                                print(f"DEBUG: Espingarda ativada: {jogador.espingarda_ativa}, Tiros: {jogador.tiros_espingarda}")
-                                
-                                jogador.granada_selecionada = False  # Desativar granada ao selecionar espingarda
-                                # Adicionar feedback visual
-
-                            elif carregar_upgrade_espingarda() > 0:  # Use a função importada
-                                # Jogador comprou o upgrade, mas já usou todos os tiros desta partida
-                                criar_texto_flutuante("SEM TIROS DE ESPINGARDA RESTANTES!", 
-                                                    LARGURA // 2, ALTURA // 4, 
-                                                    VERMELHO, particulas, 120, 32)
-                    
-                    # Tecla para ativar/desativar granada (Q)
-                    if evento.key == pygame.K_q:
-                        # Alternar modo de granada
-                        if hasattr(jogador, 'granadas'):
-                            if jogador.granadas > 0:
-                                jogador.granada_selecionada = not jogador.granada_selecionada
-                                jogador.espingarda_ativa = False  # Desativar espingarda ao selecionar granada
-                                
-                                # Mostrar mensagem de ativação/desativação
-
-
-# Tiro com o botão esquerdo do mouse (apenas se não estiver morto ou congelado)
+                # SISTEMA CORRIGIDO: Tiro com prioridade (Granada > Arma Especial > Tiro Normal)
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     # Verificar se passou tempo suficiente desde o último clique
                     if tempo_atual - ultimo_clique_mouse >= intervalo_minimo_clique:
                         ultimo_clique_mouse = tempo_atual
                         
+                        # PRIORIDADE 1: Granada (se selecionada)
                         if jogador.granada_selecionada and jogador.granadas > 0:
                             # Verificar intervalo entre lançamentos de granadas
                             if tempo_atual - tempo_ultimo_lancamento_granada >= intervalo_lancamento_granada:
                                 tempo_ultimo_lancamento_granada = tempo_atual
                                 lancar_granada(jogador, granadas, pos_mouse, particulas, flashes)
+                        # PRIORIDADE 2: Espingarda (se ativa)
                         elif jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
                             atirar_espingarda(jogador, tiros_jogador, pos_mouse, particulas, flashes)
                             if jogador.tiros_espingarda <= 0:
-                                jogador.espingarda_ativa = False
-                                criar_texto_flutuante("SEM TIROS DE ESPINGARDA!", 
+                                jogador.espingarda_ativa = False  # Desativar quando acabar munição
+                                criar_texto_flutuante("ESPINGARDA SEM MUNIÇÃO!", 
+                                                    LARGURA // 2, ALTURA // 4, 
+                                                    VERMELHO, particulas, 120, 32)
+                        # PRIORIDADE 3: Metralhadora (se ativa)
+                        elif jogador.metralhadora_ativa and jogador.tiros_metralhadora > 0:
+                            atirar_metralhadora(jogador, tiros_jogador, pos_mouse, particulas, flashes)
+                            if jogador.tiros_metralhadora <= 0:
+                                jogador.metralhadora_ativa = False  # Desativar quando acabar munição
+                                criar_texto_flutuante("METRALHADORA SEM MUNIÇÃO!", 
                                                     LARGURA // 2, ALTURA // 4, 
                                                     VERMELHO, particulas, 120, 32)
                         else:
-                            # Atirar normal (já tem verificação de cooldown na função)
+                            # PRIORIDADE 4: Tiro normal (SEMPRE disponível como fallback)
                             jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
             
             # Handle pause menu controls
@@ -214,14 +265,26 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         pygame.mixer.unpause()
                         pygame.mouse.set_visible(False)
 
-                
                 # Handle mouse clicks while paused
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     mouse_pos = pygame.mouse.get_pos()
                     if rect_menu_pausado and rect_menu_pausado.collidepoint(mouse_pos):
                         return "menu"
+
+        # Tiro contínuo da metralhadora (quando botão esquerdo está pressionado)
+        if not mostrando_inicio and not pausado and not jogador_morto and not em_congelamento:
+            botoes_mouse = pygame.mouse.get_pressed()
+            if botoes_mouse[0]:  # Botão esquerdo pressionado
+                if jogador.metralhadora_ativa and jogador.tiros_metralhadora > 0:
+                    # Atirar continuamente com a metralhadora
+                    atirar_metralhadora(jogador, tiros_jogador, pos_mouse, particulas, flashes)
+                    if jogador.tiros_metralhadora <= 0:
+                        jogador.metralhadora_ativa = False  # Desativar quando acabar
+                        criar_texto_flutuante("METRALHADORA SEM MUNIÇÃO!", 
+                                            LARGURA // 2, ALTURA // 4, 
+                                            VERMELHO, particulas, 120, 32)
                     
-# Atualizar contador de introdução
+        # Atualizar contador de introdução
         if mostrando_inicio:
             contador_inicio -= 1
             if contador_inicio <= 0:
@@ -249,7 +312,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             relogio.tick(FPS)
             continue
 
-# Lógica de congelamento
+        # Lógica de congelamento
         if em_congelamento:
             tempo_congelamento -= 1
             
@@ -289,7 +352,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             relogio.tick(FPS)
             continue
 
-# Efeito de fade in no início da fase
+        # Efeito de fade in no início da fase
         if fade_in > 0:
             fade_in = max(0, fade_in - 10)
         
@@ -332,7 +395,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             relogio.tick(FPS)
             continue
 
-# Só atualiza se não estiver congelado
+        # Só atualiza se não estiver congelado
         if not em_congelamento:
             # Atualizar posição do jogador apenas se não estiver morto
             if not jogador_morto:
@@ -347,7 +410,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             # Atualizar moedas e verificar colisões
             moeda_coletada = moeda_manager.atualizar(jogador)
 
-                
             # Atualizar IA para cada inimigo
             for idx, inimigo in enumerate(inimigos):
                 tempo_movimento_inimigos[idx] = atualizar_IA_inimigo(
@@ -453,7 +515,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     estrela[0] = LARGURA
                     estrela[1] = random.randint(0, ALTURA_JOGO) 
 
-# Verificar se todos os inimigos foram derrotados e tratar transição de vitória
+        # Verificar se todos os inimigos foram derrotados e tratar transição de vitória
         todos_derrotados = all(inimigo.vidas <= 0 for inimigo in inimigos)
         
         # Se todos os inimigos foram derrotados, tornar o jogador invulnerável
@@ -507,7 +569,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             if tempo_transicao_derrota <= 0:
                 return False # Jogador perdeu
             
-# Desenhar fundo
+        # Desenhar fundo
         tela.fill((0, 0, 0))
         tela.blit(gradiente_jogo, (0, 0))
             
@@ -550,8 +612,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         # Desenhar moedas
         moeda_manager.desenhar(tela)
         
-        # Desenhar HUD (pontuação, vidas e fase) na área dedicada
+        # Desenhar HUD atualizado com sistema corrigido
         desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager, jogador)        
+        
         # Aplicar efeito de fade-in (em toda a tela)
         if fade_in > 0:
             fade = pygame.Surface((LARGURA, ALTURA))
@@ -559,7 +622,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             fade.set_alpha(fade_in)
             tela.blit(fade, (0, 0))
 
-# Desenhar mensagem de vitória durante a transição
+        # Desenhar mensagem de vitória durante a transição
         if tempo_transicao_vitoria is not None:
             # Criar um efeito de fade ou texto pulsante
             alpha = int(255 * (duracao_transicao_vitoria - tempo_transicao_vitoria) / duracao_transicao_vitoria)
@@ -597,11 +660,11 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 y = jogador.y + random.randint(-50, 50)
                 criar_explosao(x, y, VERMELHO, particulas, 20)
 
-# Desenhar mira personalizada do mouse apenas se não estiver congelado
+        # Desenhar mira personalizada do mouse apenas se não estiver congelado
         if not em_congelamento:
             desenhar_mira(tela, pos_mouse, (mira_surface, mira_rect))
         
         pygame.display.flip()
         relogio.tick(FPS)
     
-    return False # Padrão: jogador
+    return False  # Padrão: jogador perdeu
