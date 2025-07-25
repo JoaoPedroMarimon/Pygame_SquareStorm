@@ -19,7 +19,7 @@ from src.items.granada import desenhar_granada_selecionada
 def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jogador=None):
     """
     Desenha a interface de usuário durante o jogo.
-    Agora inclui indicador da arma selecionada no sistema de inventário.
+    Agora inclui indicador da arma selecionada no sistema de inventário e ampulheta.
     
     Args:
         tela: Superfície onde desenhar
@@ -59,6 +59,7 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
     pygame.draw.rect(tela, VERDE, (pos_fase - 80, ALTURA_JOGO + 10, 160, ALTURA_HUD - 20), 2, 10)
     desenhar_texto(tela, f"FASE {fase_atual}", 28, VERDE, pos_fase, centro_y)
     
+
     # NOVO: Indicador de arma atual baseado no sistema de inventário
     if jogador and jogador.cor == AZUL:  # Só para o jogador
         arma_ativa = "TIRO NORMAL"
@@ -122,10 +123,17 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
         desenhar_texto(tela, arma_ativa, 18, cor_texto, pos_equipamento, centro_y + 12)
         desenhar_texto(tela, f"Munição: {municao}", 14, cor_borda, pos_equipamento, centro_y + 28)
     
+    # Ajustar posição dos inimigos baseado na presença de ampulheta
+    if (jogador and hasattr(jogador, 'ampulheta_uses') and 
+        (jogador.ampulheta_uses > 0 or jogador.tem_ampulheta_ativa())):
+        pos_inimigos_final = 7.2 * LARGURA // 8  # Mais à direita
+    else:
+        pos_inimigos_final = pos_inimigos  # Posição original
+    
     # Inimigos restantes
-    pygame.draw.rect(tela, (80, 40, 40), (pos_inimigos - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
-    pygame.draw.rect(tela, VERMELHO, (pos_inimigos - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 2, 10)
-    desenhar_texto(tela, f"Inimigos: {inimigos_restantes}", 28, VERMELHO, pos_inimigos, centro_y)
+    pygame.draw.rect(tela, (80, 40, 40), (pos_inimigos_final - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
+    pygame.draw.rect(tela, VERMELHO, (pos_inimigos_final - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 2, 10)
+    desenhar_texto(tela, f"Inimigos: {inimigos_restantes}", 28, VERMELHO, pos_inimigos_final, centro_y)
 
 
 def desenhar_icone_espingarda(tela, x, y, tempo_atual):
@@ -239,6 +247,71 @@ def desenhar_icone_granada(tela, x, y):
     
     # Anel do pino
     pygame.draw.circle(tela, (220, 220, 100), (pin_x, pin_y), 3, 1)
+
+
+def desenhar_icone_ampulheta_hud(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone simplificado de ampulheta para o HUD (versão ativa).
+    
+    Args:
+        tela: Superfície onde desenhar
+        x, y: Posição central do ícone
+        tempo_atual: Tempo atual para animações
+    """
+    # Cores da ampulheta (sempre no estado ativo quando chamada)
+    cor_estrutura = (200, 150, 100)  # Dourado brilhante
+    cor_areia = (255, 255, 100)     # Areia brilhante
+    cor_brilho = (150, 200, 255)    # Brilho azul temporal
+    cor_estrutura_escura = (80, 65, 45)
+    
+    # Tamanhos reduzidos para o HUD
+    largura = 12
+    altura = 16
+    
+    # Corpo da ampulheta (dois triângulos)
+    # Triângulo superior
+    pygame.draw.polygon(tela, cor_estrutura, [
+        (x - largura//2, y - altura//2),  # topo esquerdo
+        (x + largura//2, y - altura//2),  # topo direito
+        (x, y)  # centro
+    ])
+    
+    # Triângulo inferior  
+    pygame.draw.polygon(tela, cor_estrutura, [
+        (x, y),  # centro
+        (x - largura//2, y + altura//2),  # base esquerda
+        (x + largura//2, y + altura//2)   # base direita
+    ])
+    
+    # Bordas
+    pygame.draw.polygon(tela, cor_estrutura_escura, [
+        (x - largura//2, y - altura//2),
+        (x + largura//2, y - altura//2),
+        (x, y)
+    ], 1)
+    
+    pygame.draw.polygon(tela, cor_estrutura_escura, [
+        (x, y),
+        (x - largura//2, y + altura//2),
+        (x + largura//2, y + altura//2)
+    ], 1)
+    
+    # Areia flutuando no meio (efeito ativo)
+    for i in range(2):
+        areia_y = y + (i - 0.5) * 2
+        pygame.draw.circle(tela, cor_areia, (x, int(areia_y)), 1)
+    
+    # Suportes (topo e base)
+    pygame.draw.rect(tela, cor_estrutura_escura, 
+                    (x - largura//2 - 1, y - altura//2 - 2, largura + 2, 2))
+    pygame.draw.rect(tela, cor_estrutura_escura, 
+                    (x - largura//2 - 1, y + altura//2, largura + 2, 2))
+    
+    # Efeito de brilho pulsante
+    pulso = (math.sin(tempo_atual / 150) + 1) / 2
+    if pulso > 0.5:
+        # Brilho ao redor
+        pygame.draw.circle(tela, cor_brilho, (x, y), largura, 1)
 
 
 def aplicar_fade(tela, fade_in):

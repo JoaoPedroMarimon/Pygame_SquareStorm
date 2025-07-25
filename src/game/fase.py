@@ -28,6 +28,55 @@ from src.items.granada import Granada, lancar_granada, processar_granadas, inici
 from src.weapons.espingarda import atirar_espingarda, carregar_upgrade_espingarda
 from src.weapons.metralhadora import atirar_metralhadora, carregar_upgrade_metralhadora
 
+def desenhar_efeito_tempo_desacelerado(tela, ativo, tempo_atual):
+    """
+    Desenha efeitos visuais quando o tempo está desacelerado.
+    
+    Args:
+        tela: Superfície onde desenhar
+        ativo: Se o efeito deve ser desenhado
+        tempo_atual: Tempo atual para animações
+    """
+    if ativo:
+        # Criar overlay azulado sutil
+        overlay = pygame.Surface((LARGURA, ALTURA_JOGO), pygame.SRCALPHA)
+        overlay.fill((100, 150, 255, 30))  # Azul transparente
+        tela.blit(overlay, (0, 0))
+        
+        # Efeito de ondas temporais nas bordas
+        for i in range(3):
+            alpha = int(50 * math.sin(tempo_atual / 200 + i * 2))
+            if alpha > 0:
+                pygame.draw.rect(tela, (150, 200, 255, alpha), 
+                               (0, i * 10, LARGURA, 3), 0)
+                pygame.draw.rect(tela, (150, 200, 255, alpha), 
+                               (0, ALTURA_JOGO - (i + 1) * 10, LARGURA, 3), 0)
+
+def criar_som_ampulheta():
+    """Cria um som místico para a ativação da ampulheta."""
+    duracao = 0.5
+    sample_rate = 22050
+    frames = int(duracao * sample_rate)
+    
+    som_data = []
+    for i in range(frames):
+        t = i / sample_rate
+        freq_base = 523  # C5
+        
+        amplitude = (
+            0.3 * math.sin(2 * math.pi * freq_base * t) +
+            0.2 * math.sin(2 * math.pi * freq_base * 1.5 * t) +
+            0.1 * math.sin(2 * math.pi * freq_base * 2 * t)
+        ) * math.exp(-t * 2)
+        
+        som_data.append(int(amplitude * 32767))
+    
+    som_bytes = bytearray()
+    for sample in som_data:
+        som_bytes.extend(sample.to_bytes(2, byteorder='little', signed=True))
+    
+    return pygame.mixer.Sound(bytes(som_bytes))
+
 def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):
     """
     Executa uma fase específica do jogo com sistema corrigido:
@@ -51,6 +100,12 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     """
     # Criar jogador com sistema corrigido
     jogador = Quadrado(100, ALTURA_JOGO // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
+    
+    # NOVO: Som da ampulheta
+    som_ampulheta = criar_som_ampulheta()
+    
+    # NOVO: Mostrar mensagem de auto-equipamento no início da fase
+
     
     # Criar fontes
     fonte_pequena = pygame.font.SysFont("Arial", 18)  # Fonte pequena para o HUD
@@ -154,7 +209,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     # SISTEMA CORRIGIDO: Tecla E para equipar/guardar arma do inventário
                     if evento.key == pygame.K_e:
                         resultado = jogador.ativar_arma_inventario()
-                        
+                        print(resultado)
                         if resultado == "espingarda":
                             criar_texto_flutuante("ESPINGARDA EQUIPADA!", 
                                                 LARGURA // 2, ALTURA // 4, 
@@ -179,41 +234,44 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                             criar_texto_flutuante("ARMA SEM MUNIÇÃO!", 
                                                 LARGURA // 2, ALTURA // 4, 
                                                 VERMELHO, particulas, 120, 32)
+                            
 
                     # SISTEMA CORRIGIDO: Tecla Q para ativar/desativar granada
                     if evento.key == pygame.K_q:
-                        if jogador.granadas > 0:
-                            # Toggle da granada
-                            jogador.granada_selecionada = not jogador.granada_selecionada
-                            
-                            if jogador.granada_selecionada:
-                                # Ao pegar granada, guardar qualquer arma equipada
-                                arma_guardada = None
-                                if jogador.espingarda_ativa:
-                                    jogador.espingarda_ativa = False
-                                    arma_guardada = "espingarda"
-                                elif jogador.metralhadora_ativa:
-                                    jogador.metralhadora_ativa = False
-                                    arma_guardada = "metralhadora"
-                                
-                                # Feedback baseado no que aconteceu
-                                if arma_guardada:
-                                    criar_texto_flutuante(f"{arma_guardada.upper()} GUARDADA - GRANADA SELECIONADA!", 
-                                                        LARGURA // 2, ALTURA // 4, 
-                                                        VERDE, particulas, 120, 32)
-                                else:
-                                    criar_texto_flutuante("GRANADA SELECIONADA!", 
-                                                        LARGURA // 2, ALTURA // 4, 
-                                                        VERDE, particulas, 120, 32)
-                            else:
-                                criar_texto_flutuante("GRANADA DESSELECIONADA!", 
-                                                    LARGURA // 2, ALTURA // 4, 
-                                                    CINZA_ESCURO, particulas, 120, 32)
-                        else:
+                        resultado = jogador.ativar_items_inventario()
+                        print(resultado)
+                        if resultado == "granada_toggle":
+                            criar_texto_flutuante("GRANADA ATIVADA!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                VERDE, particulas, 120, 32)       
+                        elif resultado == "espingarda":
+                            print('oi')
+                        elif resultado == "granada_guardada":
+                            criar_texto_flutuante("GRANADA GUARDADA!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                CINZA_ESCURO, particulas, 120, 32)
+                        elif resultado == "ampulheta_ativada":
+                            pygame.mixer.Channel(5).play(som_ampulheta)
+                            criar_texto_flutuante("AMPULHETA ATIVADA!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                (150, 200, 255), particulas, 120, 32)
+                        elif resultado == "ampulheta_ja_ativa":
+                            criar_texto_flutuante("AMPULHETA JÁ ESTÁ ATIVA!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                AMARELO, particulas, 120, 32)
+                        elif resultado == "sem_granadas":
                             criar_texto_flutuante("SEM GRANADAS!", 
                                                 LARGURA // 2, ALTURA // 4, 
                                                 VERMELHO, particulas, 120, 32)
-               
+                        elif resultado == "sem_ampulhetas":
+                            criar_texto_flutuante("SEM AMPULHETAS!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                VERMELHO, particulas, 120, 32)
+                        elif resultado == "nenhum_item_selecionado":
+                            criar_texto_flutuante("SELECIONE UM ITEM NO INVENTÁRIO!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                AMARELO, particulas, 120, 32)
+                                
                 # Parar o movimento quando soltar as teclas
                 if evento.type == pygame.KEYUP:
                     if evento.key == pygame.K_w and movimento_y < 0:
@@ -227,13 +285,11 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
 
                 # SISTEMA CORRIGIDO: Tiro com prioridade (Granada > Arma Especial > Tiro Normal)
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                    # Verificar se passou tempo suficiente desde o último clique
                     if tempo_atual - ultimo_clique_mouse >= intervalo_minimo_clique:
                         ultimo_clique_mouse = tempo_atual
                         
-                        # PRIORIDADE 1: Granada (se selecionada)
+                        # PRIORIDADE 1: Granada (se ativa)
                         if jogador.granada_selecionada and jogador.granadas > 0:
-                            # Verificar intervalo entre lançamentos de granadas
                             if tempo_atual - tempo_ultimo_lancamento_granada >= intervalo_lancamento_granada:
                                 tempo_ultimo_lancamento_granada = tempo_atual
                                 lancar_granada(jogador, granadas, pos_mouse, particulas, flashes)
@@ -241,7 +297,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         elif jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
                             atirar_espingarda(jogador, tiros_jogador, pos_mouse, particulas, flashes)
                             if jogador.tiros_espingarda <= 0:
-                                jogador.espingarda_ativa = False  # Desativar quando acabar munição
+                                jogador.espingarda_ativa = False
                                 criar_texto_flutuante("ESPINGARDA SEM MUNIÇÃO!", 
                                                     LARGURA // 2, ALTURA // 4, 
                                                     VERMELHO, particulas, 120, 32)
@@ -249,12 +305,12 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         elif jogador.metralhadora_ativa and jogador.tiros_metralhadora > 0:
                             atirar_metralhadora(jogador, tiros_jogador, pos_mouse, particulas, flashes)
                             if jogador.tiros_metralhadora <= 0:
-                                jogador.metralhadora_ativa = False  # Desativar quando acabar munição
+                                jogador.metralhadora_ativa = False
                                 criar_texto_flutuante("METRALHADORA SEM MUNIÇÃO!", 
                                                     LARGURA // 2, ALTURA // 4, 
                                                     VERMELHO, particulas, 120, 32)
                         else:
-                            # PRIORIDADE 4: Tiro normal (SEMPRE disponível como fallback)
+                            # PRIORIDADE 4: Tiro normal
                             jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
             
             # Handle pause menu controls
@@ -395,6 +451,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             relogio.tick(FPS)
             continue
 
+        # NOVO: Obter fator de tempo do jogador
+        fator_tempo = jogador.obter_fator_tempo()
+
         # Só atualiza se não estiver congelado
         if not em_congelamento:
             # Atualizar posição do jogador apenas se não estiver morto
@@ -410,14 +469,21 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             # Atualizar moedas e verificar colisões
             moeda_coletada = moeda_manager.atualizar(jogador)
 
-            # Atualizar IA para cada inimigo
+            # MODIFICADO: Atualizar IA para cada inimigo com fator tempo
             for idx, inimigo in enumerate(inimigos):
+                # Aplicar fator de tempo ao inimigo
+                inimigo_velocidade_original = inimigo.velocidade
+                inimigo.velocidade *= fator_tempo
+                
                 tempo_movimento_inimigos[idx] = atualizar_IA_inimigo(
                     inimigo, idx, jogador, tiros_jogador, inimigos, tempo_atual, 
                     tempo_movimento_inimigos, intervalo_movimento, numero_fase, 
                     tiros_inimigo, movimento_x, movimento_y,
                     particulas, flashes  # Passando as listas como parâmetros
                 )
+                
+                # Restaurar velocidade original
+                inimigo.velocidade = inimigo_velocidade_original
                 
                 # Garantir que os inimigos não ultrapassem a área de jogo
                 if inimigo.y + inimigo.tamanho > ALTURA_JOGO:
@@ -475,9 +541,16 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 if tiro in tiros_jogador and tiro.fora_da_tela():
                     tiros_jogador.remove(tiro)
             
-            # Atualizar tiros do inimigo
+            # MODIFICADO: Atualizar tiros do inimigo com fator tempo
             for tiro in tiros_inimigo[:]:
+                # Aplicar fator de tempo aos tiros dos inimigos
+                tiro_velocidade_original = tiro.velocidade
+                tiro.velocidade *= fator_tempo
+                
                 tiro.atualizar()
+                
+                # Restaurar velocidade original
+                tiro.velocidade = tiro_velocidade_original
                 
                 # Verificar colisão com o jogador apenas se ele não estiver morto
                 if not jogador_morto and tiro.rect.colliderect(jogador.rect):
@@ -612,8 +685,14 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         # Desenhar moedas
         moeda_manager.desenhar(tela)
         
+        # NOVO: Desenhar efeito de tempo desacelerado
+        desenhar_efeito_tempo_desacelerado(tela, jogador.tem_ampulheta_ativa(), tempo_atual)
+        
         # Desenhar HUD atualizado com sistema corrigido
         desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager, jogador)        
+        
+        # NOVO: Mostrar mensagem de equipamento inicial
+
         
         # Aplicar efeito de fade-in (em toda a tela)
         if fade_in > 0:

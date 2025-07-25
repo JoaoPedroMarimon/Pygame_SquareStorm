@@ -32,25 +32,51 @@ class Quadrado:
         self.cor_brilhante = self._gerar_cor_brilhante(cor)
         self.velocidade = velocidade
         
+        # Verificar se é o jogador e inicializar sistemas
         if cor == AZUL:  # Se for o jogador
-            self._inicializar_armas_por_inventario()
-        else:  # Se for inimigo, não precisa de armas especiais
+            vidas_upgrade = self._carregar_upgrade_vida()
+            self.vidas = vidas_upgrade
+            self.vidas_max = vidas_upgrade
+            
+            # SISTEMA DA AMPULHETA
+            self.ampulheta_uses = self._carregar_upgrade_ampulheta()
+            self.tempo_desacelerado = False
+            self.duracao_desaceleracao = 0
+            self.fator_desaceleracao = 0.2 # 30% da velocidade normal
+            self.duracao_ampulheta = 300  # 5 segundos a 60 FPS
+            
+            # SISTEMA DE ITENS (sempre inativos no início)
+            self.granadas = carregar_upgrade_granada()
+            self.granada_selecionada = False  # Jogador usa Q para ativar
+            
+                    # SISTEMA DE ITENS (carregar quantidades)
+            self.granadas = carregar_upgrade_granada()
+            self.granada_selecionada = False  # Será ativado pelo auto-equipamento
+            
+            # AUTO-EQUIPAR baseado na seleção do inventário
+
+            
+            # SISTEMA DE ARMAS (sempre inativas no início)
+            self.espingarda_ativa = False
+            self.metralhadora_ativa = False
+            self.tiros_espingarda = carregar_upgrade_espingarda()
+            self.tiros_metralhadora = carregar_upgrade_metralhadora()
+            
+        else:  # Se for inimigo
+            self.vidas = 1  # Padrão: 1 vida para inimigos normais
+            self.vidas_max = 1
+            
+            # Inimigos não têm armas especiais nem ampulheta
             self.granada_selecionada = False
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
             self.granadas = 0
             self.tiros_espingarda = 0
             self.tiros_metralhadora = 0
-
-        
-        # Verificar se é o jogador e carregar upgrade de vida
-        if cor == AZUL:  # Se for o jogador
-            vidas_upgrade = self._carregar_upgrade_vida()
-            self.vidas = vidas_upgrade
-            self.vidas_max = vidas_upgrade
-        else:  # Se for inimigo
-            self.vidas = 1  # Padrão: 1 vida para inimigos normais
-            self.vidas_max = 1
+            self.ampulheta_uses = 0
+            self.tempo_desacelerado = False
+            self.duracao_desaceleracao = 0
+            self.fator_desaceleracao = 1.0
         
         self.rect = pygame.Rect(x, y, tamanho, tamanho)
         self.tempo_ultimo_tiro = 0
@@ -81,6 +107,12 @@ class Quadrado:
         
         # Identificador (útil para fases)
         self.id = id(self)
+        
+        # OPCIONAL: Log de debug (remover em produção)
+        if cor == AZUL:
+            print(f"🎮 Jogador iniciado - Granada: {self.granadas}, Ampulheta: {self.ampulheta_uses}, Espingarda: {self.tiros_espingarda}, Metralhadora: {self.tiros_metralhadora}")
+            print("💡 Use Q para alternar itens, E para alternar armas")
+                
     def _carregar_upgrade_vida(self):
         """
         Carrega o upgrade de vida do arquivo de upgrades.
@@ -96,6 +128,77 @@ class Quadrado:
         except Exception as e:
             print(f"Erro ao carregar upgrade de vida: {e}")
             return 1
+
+    def _carregar_upgrade_ampulheta(self):
+        """
+        Carrega o upgrade da ampulheta do arquivo de upgrades.
+        Retorna 0 se não houver upgrade.
+        """
+        try:
+            if os.path.exists("data/upgrades.json"):
+                with open("data/upgrades.json", "r") as f:
+                    upgrades = json.load(f)
+                    return upgrades.get("ampulheta", 0)
+            return 0
+        except Exception as e:
+            print(f"Erro ao carregar upgrade de ampulheta: {e}")
+            return 0
+
+    def usar_ampulheta(self):
+        """
+        Ativa a desaceleração do tempo se possível.
+        Retorna True se foi ativada com sucesso, False caso contrário.
+        """
+        if self.ampulheta_uses > 0 and not self.tempo_desacelerado:
+            self.ampulheta_uses -= 1
+            self.tempo_desacelerado = True
+            self.duracao_desaceleracao = self.duracao_ampulheta
+            return True
+        return False
+
+    def atualizar_ampulheta(self):
+        """
+        Atualiza o estado da ampulheta.
+        Deve ser chamado a cada frame.
+        """
+        if self.tempo_desacelerado:
+            self.duracao_desaceleracao -= 1
+            if self.duracao_desaceleracao <= 0:
+                self.tempo_desacelerado = False
+                self.duracao_desaceleracao = 0
+
+    def obter_fator_tempo(self):
+        """
+        Retorna o fator de tempo atual.
+        1.0 = tempo normal, 0.3 = tempo desacelerado
+        """
+        return self.fator_desaceleracao if self.tempo_desacelerado else 1.0
+
+    def tem_ampulheta_ativa(self):
+        """
+        Retorna True se a ampulheta está atualmente ativa (desacelerando o tempo).
+        """
+        return self.tempo_desacelerado
+
+    def verificar_auto_equipar_itens(self):
+        """
+        Verifica e auto-equipa o item selecionado no inventário.
+        """
+        from src.game.inventario import InventarioManager
+        
+        inventario_manager = InventarioManager()
+        item_selecionado = inventario_manager.obter_item_selecionado()
+        
+        # Auto-equipar granada se selecionada e disponível
+        if item_selecionado == "granada" and self.granadas > 0:
+            self.granada_selecionada = True  # Auto-ativa a granada
+            return f"Granada equipada! ({self.granadas} disponíveis) - Pressione Q para usar"
+        
+        # Ampulheta não precisa de auto-equip, mas informar que está disponível
+        elif item_selecionado == "ampulheta" and hasattr(self, 'ampulheta_uses') and self.ampulheta_uses > 0:
+            return f"Ampulheta disponível! ({self.ampulheta_uses} usos) - Pressione Q para ativar"
+        
+        return None
         
     
     def _gerar_cor_escura(self, cor):
@@ -387,7 +490,7 @@ class Quadrado:
 
         
     def _inicializar_armas_por_inventario(self):
-        """Inicializa as armas baseado na seleção do inventário."""
+        """Inicializa as armas e itens baseado na seleção do inventário."""
         # Importação tardia para evitar circular import
         from src.game.inventario import InventarioManager
         
@@ -408,6 +511,14 @@ class Quadrado:
         # A ativação será feita com a tecla E no jogo
         self.tiros_espingarda = carregar_upgrade_espingarda()
         self.tiros_metralhadora = carregar_upgrade_metralhadora()
+        
+        # NOVO: Carregar item selecionado no inventário
+        inventario_manager = InventarioManager()
+        item_selecionado = inventario_manager.obter_item_selecionado()
+        
+        # Auto-equipar item selecionado se disponível
+
+            
     def tomar_dano(self):
         """
         Faz o quadrado tomar dano.
@@ -428,6 +539,10 @@ class Quadrado:
         # Verificar se o tempo de invulnerabilidade acabou (apenas para o jogador)
         if self.invulneravel and self.duracao_invulneravel != float('inf') and pygame.time.get_ticks() - self.tempo_invulneravel > self.duracao_invulneravel:
             self.invulneravel = False
+        
+        # NOVO: Atualizar sistema de ampulheta (apenas para o jogador)
+        if self.cor == AZUL:
+            self.atualizar_ampulheta()
 
 
     def atirar_com_mouse(self, tiros, pos_mouse):
@@ -508,7 +623,6 @@ class Quadrado:
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
             return "guardada"  # Indica que a arma foi guardada
-        
         # Se não tem arma equipada, tentar equipar a selecionada
         if arma_selecionada == "espingarda" and self.tiros_espingarda > 0:
             self.espingarda_ativa = True
@@ -522,3 +636,91 @@ class Quadrado:
             return "nenhuma_selecionada"  # Nenhuma arma selecionada no inventário
         else:
             return "sem_municao"  # Arma selecionada mas sem munição
+        
+        
+# Adicione este método na classe Quadrado (src/entities/quadrado.py)
+
+    def ativar_items_inventario(self):
+        """
+        Ativa o item selecionado no inventário (chamado ao pressionar Q).
+        - Granada selecionada no inventário → Q toggle granada
+        - Ampulheta selecionada no inventário → Q usa ampulheta
+        - Nenhum selecionado → Q não faz nada
+        """
+        from src.game.inventario import InventarioManager
+        
+        inventario = InventarioManager()
+        item_selecionado = inventario.obter_item_selecionado()
+        
+        if self.espingarda_ativa:
+            self.espingarda_ativa = False
+        # GRANADA: Se selecionada no inventário, Q faz toggle
+        if item_selecionado == "granada":
+            if self.granadas > 0:
+                self.granada_selecionada = not self.granada_selecionada
+                return "granada_toggle" if self.granada_selecionada else "granada_guardada"
+            else:
+                return "sem_granadas"
+        
+        # AMPULHETA: Se selecionada no inventário, Q usa ampulheta
+        elif item_selecionado == "ampulheta":
+            if hasattr(self, 'ampulheta_uses') and self.ampulheta_uses > 0:
+                return self.usar_ampulheta_com_q()
+            else:
+                return "sem_ampulhetas"
+        
+        # NENHUM: Se nenhum item selecionado no inventário
+        else:
+            return "nenhum_item_selecionado"
+
+    def usar_ampulheta_com_q(self):
+        """Usa a ampulheta quando chamada pela tecla Q."""
+        if self.usar_ampulheta():
+            return "ampulheta_ativada"
+        else:
+            if self.tempo_desacelerado:
+                return "ampulheta_ja_ativa"
+            else:
+                return "sem_ampulhetas"
+
+
+    def obter_item_ativo(self):
+        """
+        Retorna qual item está atualmente ativo.
+        """
+        from src.game.inventario import InventarioManager
+        
+        if self.granada_selecionada and self.granadas > 0:
+            return "granada"
+        
+        inventario = InventarioManager()
+        item_selecionado = inventario.obter_item_selecionado()
+        if item_selecionado == "ampulheta" and hasattr(self, 'ampulheta_uses') and self.ampulheta_uses > 0:
+            return "ampulheta"
+        
+        return "nenhum"
+
+    def obter_status_itens(self):
+        """
+        Retorna um dicionário com o status dos itens.
+        """
+        from src.game.inventario import InventarioManager
+        
+        inventario = InventarioManager()
+        item_selecionado = inventario.obter_item_selecionado()
+        
+        return {
+            "granada": {
+                "disponivel": self.granadas > 0,
+                "quantidade": self.granadas,
+                "ativo": self.granada_selecionada,
+                "tecla": "Q"
+            },
+            "ampulheta": {
+                "disponivel": hasattr(self, 'ampulheta_uses') and self.ampulheta_uses > 0,
+                "quantidade": getattr(self, 'ampulheta_uses', 0),
+                "ativo": item_selecionado == "ampulheta",
+                "selecionado_inventario": item_selecionado == "ampulheta",
+                "tecla": "R"
+            }
+        }
