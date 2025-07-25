@@ -24,19 +24,14 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     """
     Exibe a tela de início do jogo SquareStorm.
     """
-    print("🏠 tela_inicio() iniciada")  # DEBUG
     
     # Mostrar cursor
     pygame.mouse.set_visible(True)
-    print("✅ Cursor habilitado")  # DEBUG
     
     # Criar efeitos visuais
-    print("🌟 Criando estrelas...")  # DEBUG
     try:
         estrelas = criar_estrelas(NUM_ESTRELAS_MENU)
-        print(f"✅ {len(estrelas)} estrelas criadas")  # DEBUG
     except Exception as e:
-        print(f"❌ Erro ao criar estrelas: {e}")
         estrelas = []
     
     particulas = []
@@ -53,21 +48,16 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     nevoa_offset = 0
     
     # Inicializar moeda_manager para mostrar quantidade de moedas
-    print("💰 Inicializando MoedaManager...")  # DEBUG
     try:
         moeda_manager = MoedaManager()
-        print("✅ MoedaManager criado")  # DEBUG
     except Exception as e:
-        print(f"❌ Erro ao criar MoedaManager: {e}")
         return False
     
     # Loop principal
-    print("🔄 Iniciando loop da tela inicial...")  # DEBUG
     frame_count = 0
     while True:
         frame_count += 1
-        if frame_count % 60 == 0:  # A cada 1 segundo (60 FPS)
-            print(f"⏱️ Frame {frame_count} - tela_inicio rodando...")
+
         
         tempo_atual = pygame.time.get_ticks()
         
@@ -76,26 +66,19 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         try:
             for evento in pygame.event.get():
                 if evento.type == pygame.QUIT:
-                    print("❌ QUIT detectado")  # DEBUG
                     pygame.quit()
                     sys.exit()
                 if evento.type == pygame.KEYDOWN:
-                    print(f"⌨️ Tecla pressionada: {evento.key}")  # DEBUG
                     if evento.key == pygame.K_RETURN:
-                        print("🎮 ENTER pressionado - retornando 'jogar'")  # DEBUG
                         return "jogar"
                     if evento.key == pygame.K_l:
-                        print("🛒 L pressionado - retornando 'loja'")  # DEBUG
                         return "loja"
                     if evento.key == pygame.K_i:  # NOVO - tecla I para inventário
-                        print("🎒 I pressionado - retornando 'inventario'")  # DEBUG
                         return "inventario"
 
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                    print(f"🖱️ Mouse clicado em: {pygame.mouse.get_pos()}")  # DEBUG
                     clique_ocorreu = True
         except Exception as e:
-            print(f"❌ ERRO no loop de eventos: {e}")
             import traceback
             traceback.print_exc()
         
@@ -144,7 +127,6 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         try:
             tela.blit(gradiente_menu, (0, 0))
         except Exception as e:
-            print(f"❌ Erro ao desenhar gradiente: {e}")
             tela.fill((30, 0, 60))  # Cor de fallback
         
         # Desenhar névoa colorida ondulante
@@ -346,7 +328,6 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         # Verificar cliques nos botões
         if clique_ocorreu:
             if rect_jogar.collidepoint(mouse_pos):
-                print("🎮 Botão JOGAR clicado")  # DEBUG
                 # Efeito de transição
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
@@ -355,7 +336,6 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                 return "jogar"
             
             if rect_loja.collidepoint(mouse_pos):
-                print("🛒 Botão LOJA clicado")  # DEBUG
                 # Efeito de transição
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
@@ -364,7 +344,6 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                 return "loja"
             
             if rect_inventario.collidepoint(mouse_pos):
-                print("🎒 Botão INVENTÁRIO clicado")  # DEBUG
                 # Efeito de transição
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
@@ -373,11 +352,9 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                 return "inventario"
             
             if rect_sair.collidepoint(mouse_pos):
-                print("👋 Botão SAIR clicado")  # DEBUG
                 return False
             
             if rect_selecao.collidepoint(mouse_pos):
-                print("🎯 Botão SELEÇÃO FASE clicado")  # DEBUG
                 return "selecao_fase"
         
         pygame.display.flip()
