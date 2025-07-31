@@ -164,9 +164,114 @@ def desenhar_icone_ampulheta(tela, x, y, tempo_atual):
             (cristal_x - tamanho_cristal, cristal_y)
         ])
 
-def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos, clique_ocorreu, som_compra, som_erro):
+def desenhar_icone_faca(tela, x, y, tempo_atual):
     """
-    Desenha a seção de itens da loja.
+    Desenha um ícone de faca de combate com efeitos visuais.
+    
+    Args:
+        tela: Superfície onde desenhar
+        x, y: Posição central do ícone
+        tempo_atual: Tempo atual para animações
+    """
+    # Cores da faca
+    cor_lamina = (200, 200, 220)  # Aço brilhante
+    cor_lamina_escura = (150, 150, 170)
+    cor_cabo = (139, 69, 19)  # Marrom escuro (cabo de madeira)
+    cor_cabo_escura = (101, 51, 14)
+    cor_guarda = (169, 169, 169)  # Cinza (metal da guarda)
+    
+    # Dimensões da faca
+    comprimento_lamina = 20
+    largura_lamina = 6
+    comprimento_cabo = 12
+    largura_cabo = 4
+    
+    # Calcular ângulo de rotação baseado no tempo (faca girando sutilmente)
+    angulo_rotacao = math.sin(tempo_atual / 1000) * 5  # Oscila entre -5 e 5 graus
+    
+    # Função para rotacionar pontos
+    def rotacionar_ponto(px, py, cx, cy, angulo):
+        rad = math.radians(angulo)
+        cos_ang = math.cos(rad)
+        sin_ang = math.sin(rad)
+        
+        # Transladar para origem
+        px -= cx
+        py -= cy
+        
+        # Rotacionar
+        novo_x = px * cos_ang - py * sin_ang
+        novo_y = px * sin_ang + py * cos_ang
+        
+        # Transladar de volta
+        novo_x += cx
+        novo_y += cy
+        
+        return int(novo_x), int(novo_y)
+    
+    # Pontos da lâmina (triangular com ponta afiada)
+    pontos_lamina = [
+        (x - comprimento_lamina//2, y - largura_lamina//2),  # base esquerda
+        (x - comprimento_lamina//2, y + largura_lamina//2),  # base direita
+        (x + comprimento_lamina//2, y)  # ponta
+    ]
+    
+    # Rotacionar pontos da lâmina
+    pontos_lamina_rot = [rotacionar_ponto(px, py, x, y, angulo_rotacao) for px, py in pontos_lamina]
+    
+    # Desenhar lâmina
+    pygame.draw.polygon(tela, cor_lamina, pontos_lamina_rot)
+    pygame.draw.polygon(tela, cor_lamina_escura, pontos_lamina_rot, 2)
+    
+    # Pontos do cabo
+    cabo_start_x = x - comprimento_lamina//2
+    cabo_end_x = cabo_start_x - comprimento_cabo
+    
+    pontos_cabo = [
+        (cabo_start_x, y - largura_cabo//2),
+        (cabo_start_x, y + largura_cabo//2),
+        (cabo_end_x, y + largura_cabo//2),
+        (cabo_end_x, y - largura_cabo//2)
+    ]
+    
+    # Rotacionar pontos do cabo
+    pontos_cabo_rot = [rotacionar_ponto(px, py, x, y, angulo_rotacao) for px, py in pontos_cabo]
+    
+    # Desenhar cabo
+    pygame.draw.polygon(tela, cor_cabo, pontos_cabo_rot)
+    pygame.draw.polygon(tela, cor_cabo_escura, pontos_cabo_rot, 1)
+    
+    # Desenhar guarda (separação entre lâmina e cabo)
+    guarda_x1, guarda_y1 = rotacionar_ponto(cabo_start_x, y - largura_lamina//2 - 2, x, y, angulo_rotacao)
+    guarda_x2, guarda_y2 = rotacionar_ponto(cabo_start_x, y + largura_lamina//2 + 2, x, y, angulo_rotacao)
+    
+    pygame.draw.line(tela, cor_guarda, (guarda_x1, guarda_y1), (guarda_x2, guarda_y2), 3)
+    
+    # Efeito de brilho na lâmina
+    pulso_brilho = (math.sin(tempo_atual / 400) + 1) / 2
+    if pulso_brilho > 0.6:
+        # Linha de brilho no meio da lâmina
+        meio_lamina_start = rotacionar_ponto(x - comprimento_lamina//2 + 2, y, x, y, angulo_rotacao)
+        meio_lamina_end = rotacionar_ponto(x + comprimento_lamina//2 - 2, y, x, y, angulo_rotacao)
+        
+        cor_brilho = (255, 255, 255, int(150 * (pulso_brilho - 0.6) / 0.4))
+        pygame.draw.line(tela, (255, 255, 255), meio_lamina_start, meio_lamina_end, 1)
+    
+    # Partículas de metal ao redor (efeito de afiação)
+    for i in range(3):
+        angulo_particula = (tempo_atual / 150 + i * 120) % 360
+        raio_particula = 15
+        particula_x = x + int(raio_particula * math.cos(math.radians(angulo_particula)))
+        particula_y = y + int(raio_particula * math.sin(math.radians(angulo_particula)))
+        
+        # Pequenas faíscas metálicas
+        tamanho_particula = 1 + int(pulso_brilho * 2)
+        if tamanho_particula > 1:
+            pygame.draw.circle(tela, (255, 255, 200), (particula_x, particula_y), tamanho_particula)
+
+def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos, clique_ocorreu, som_compra, som_erro, scroll_y=0):
+    """
+    Desenha a seção de itens da loja com sistema de scroll adequado e clipping.
     
     Args:
         tela: Superfície principal do jogo
@@ -177,196 +282,265 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
         clique_ocorreu: Se houve clique neste frame
         som_compra: Som para compra bem-sucedida
         som_erro: Som para erro na compra
+        scroll_y: Posição atual do scroll (padrão: 0)
         
     Returns:
-        Tupla (mensagem, cor) ou None
+        Tupla (mensagem, cor, max_scroll) ou (None, None, max_scroll)
     """
     # Título da seção
-    desenhar_texto(tela, "ITEMS", 36, (120, 220, 120), LARGURA // 2, area_conteudo.y + 40)
+    desenhar_texto(tela, "ITEMS", 36, (120, 220, 120), LARGURA // 2, area_conteudo.y + 30)
     
     # Obter o tempo atual para animações
     tempo_atual = pygame.time.get_ticks()
     
     resultado = None
     
-    # Item 1: Granada
-    item1_y = area_conteudo.y + 100
-    item1_rect = pygame.Rect(area_conteudo.x + 30, item1_y, area_conteudo.width - 60, 100)
-    pygame.draw.rect(tela, (40, 60, 40), item1_rect, 0, 8)
-    pygame.draw.rect(tela, (80, 150, 80), item1_rect, 2, 8)
+    # Configurações dos itens
+    altura_item = 140
+    espaco_entre_itens = 20
+    margem_superior = 60  # Espaço do título
     
-    # Desenhar ícone de granada
-    granada_x = item1_rect.x + 40
-    granada_y = item1_y + 50
-    tamanho_granada = 16
-
-    # Cor base da granada
-    cor_granada = (60, 120, 60)
-    cor_granada_escura = (40, 80, 40)
+    # Lista de itens para facilitar o scroll
+    itens_loja = [
+        {
+            "key": "granada",
+            "nome": "GRENADE",
+            "descricao": "Explosive area damage!",
+            "instrucoes": "Press Q to select, Mouse to throw",
+            "info_extra": "High explosive damage in large area",
+            "custo": 25,
+            "quantidade_compra": 3,
+            "cor_fundo": (40, 60, 40),
+            "cor_borda": (80, 150, 80),
+            "cor_botao": (60, 120, 60),
+            "cor_hover": (80, 160, 80),
+            "cor_texto": (150, 220, 150),
+            "cor_resultado": VERDE,
+            "icone_func": "granada"
+        },
+        {
+            "key": "ampulheta",
+            "nome": "HOURGLASS OF BALANCE",
+            "descricao": "Slows down time for precision!",
+            "instrucoes": "Press Q to activate slow motion",
+            "info_extra": "Slows time to 30% for 5 seconds",
+            "custo": 40,
+            "quantidade_compra": 2,
+            "cor_fundo": (40, 40, 80),
+            "cor_borda": (80, 80, 180),
+            "cor_botao": (60, 60, 150),
+            "cor_hover": (80, 80, 200),
+            "cor_texto": (150, 150, 255),
+            "cor_resultado": AZUL,
+            "icone_func": "ampulheta"
+        },
+        {
+            "key": "faca",
+            "nome": "Killer Doll",
+            "descricao": "",
+            "instrucoes": "Press Q to equip, be careful, he's fast",
+            "info_extra": "Summon a little friend to help you",
+            "custo": 30,
+            "quantidade_compra": 5,
+            "cor_fundo": (60, 40, 40),
+            "cor_borda": (150, 80, 80),
+            "cor_botao": (120, 60, 60),
+            "cor_hover": (160, 80, 80),
+            "cor_texto": (220, 150, 150),
+            "cor_resultado": (220, 150, 150),
+            "icone_func": "faca"
+        }
+    ]
     
-    # Corpo da granada (esfera)
-    pygame.draw.circle(tela, cor_granada, (granada_x, granada_y), tamanho_granada)
+    # Calcular altura total necessária para todos os itens
+    altura_total_conteudo = len(itens_loja) * (altura_item + espaco_entre_itens) + espaco_entre_itens
+    area_scroll_altura = area_conteudo.height - margem_superior
+    max_scroll = max(0, altura_total_conteudo - area_scroll_altura)
     
-    # Detalhes da granada (linhas cruzadas para textura)
-    pygame.draw.line(tela, cor_granada_escura, (granada_x - tamanho_granada + 4, granada_y), 
-                    (granada_x + tamanho_granada - 4, granada_y), 2)
-    pygame.draw.line(tela, cor_granada_escura, (granada_x, granada_y - tamanho_granada + 4), 
-                    (granada_x, granada_y + tamanho_granada - 4), 2)
+    # Criar uma superfície para o conteúdo dos itens com clipping
+    area_scroll_y = area_conteudo.y + margem_superior
+    conteudo_surf = pygame.Surface((area_conteudo.width, area_scroll_altura), pygame.SRCALPHA)
+    conteudo_surf.fill((0, 0, 0, 0))  # Transparente
     
-    # Parte superior (bocal)
-    pygame.draw.rect(tela, (150, 150, 150), (granada_x - 5, granada_y - tamanho_granada - 7, 10, 7), 0, 2)
+    # Desenhar fundo da área de scroll
+    pygame.draw.rect(conteudo_surf, (20, 20, 50, 150), (0, 0, area_conteudo.width, area_scroll_altura), 0, 10)
+    pygame.draw.rect(conteudo_surf, (70, 70, 130), (0, 0, area_conteudo.width, area_scroll_altura), 2, 10)
     
-    # Pino da granada
-    pin_x = granada_x + 8
-    pin_y = granada_y - tamanho_granada - 3
+    # Definir área de clipping para os itens
+    cliprect = pygame.Rect(0, 0, area_conteudo.width, area_scroll_altura)
+    conteudo_surf.set_clip(cliprect)
     
-    # Anel do pino
-    pygame.draw.circle(tela, (220, 220, 100), (pin_x, pin_y), 6, 2)
-    
-    # Animação de pulsação para o efeito de brilho
-    pulso = (math.sin(tempo_atual / 200) + 1) / 2  # Valor entre 0 e 1
-    cor_brilho = (100 + int(pulso * 50), 200 + int(pulso * 55), 100 + int(pulso * 50))
-    
-    # Brilho/reflexo na granada
-    pygame.draw.circle(tela, cor_brilho, (granada_x - tamanho_granada//2, granada_y - tamanho_granada//2), 4)
-    
-    # Nome do item
-    desenhar_texto(tela, "GRENADE", 26, (150, 220, 150), item1_rect.x + 150, item1_y + 25)
-    
-    # Descrição e status do item
-    if 'granada' not in upgrades:
-        granada_status = "Explosive area damage! (Not owned)"
-    else:
-        granada_status = f"Grenades: {upgrades['granada']}"
-    
-    desenhar_texto(tela, granada_status, 18, BRANCO, item1_rect.x + 150, item1_y + 50)
-    desenhar_texto(tela, "Press Q to select, Mouse to throw", 14, (200, 200, 200), 
-                  item1_rect.x + 150, item1_y + 70)
-    
-    # Custo do item
-    custo_granada = 25
-    
-    # Botão de compra
-    botao_compra1_x = item1_rect.x + item1_rect.width - 100
-    botao_compra1_y = item1_y + 50
-    botao_compra1_largura = 120
-    botao_compra1_altura = 40
-    rect_compra1 = pygame.Rect(botao_compra1_x - botao_compra1_largura//2, 
-                              botao_compra1_y - botao_compra1_altura//2,
-                              botao_compra1_largura, botao_compra1_altura)
-    
-    # Verificar se o jogador tem moedas suficientes
-    pode_comprar1 = moeda_manager.obter_quantidade() >= custo_granada
-    
-    # Desenhar botão de compra
-    cor_botao1 = (60, 120, 60) if pode_comprar1 else (40, 80, 40)
-    cor_hover1 = (80, 160, 80) if pode_comprar1 else (50, 90, 50)
-    hover_compra1 = rect_compra1.collidepoint(mouse_pos)
-    
-    pygame.draw.rect(tela, cor_hover1 if hover_compra1 else cor_botao1, rect_compra1, 0, 8)
-    pygame.draw.rect(tela, (120, 220, 120), rect_compra1, 2, 8)
-    
-    # Ícone de moeda e custo
-    moeda_mini1_x = botao_compra1_x - 30
-    moeda_mini1_y = botao_compra1_y
-    pygame.draw.circle(tela, AMARELO, (moeda_mini1_x, moeda_mini1_y), 8)
-    
-    # Texto de custo
-    desenhar_texto(tela, f"{custo_granada}", 20, BRANCO, botao_compra1_x + 10, botao_compra1_y)
-    
-    # Verificar clique no botão de compra da granada
-    if clique_ocorreu and rect_compra1.collidepoint(mouse_pos):
-        if pode_comprar1:
-            # Compra bem-sucedida
-            moeda_manager.quantidade_moedas -= custo_granada
-            moeda_manager.salvar_moedas()
+    # Desenhar cada item na superfície de conteúdo
+    for i, item in enumerate(itens_loja):
+        # Calcular posição Y do item considerando o scroll
+        y_item_relativo = i * (altura_item + espaco_entre_itens) + espaco_entre_itens - scroll_y
+        
+        # Se o item está fora da área visível, não desenhar (otimização)
+        if y_item_relativo + altura_item < 0 or y_item_relativo > area_scroll_altura:
+            continue
+        
+        # Retângulo do item na superfície de conteúdo
+        item_rect = pygame.Rect(15, y_item_relativo, area_conteudo.width - 30, altura_item)
+        
+        # Desenhar fundo do item
+        pygame.draw.rect(conteudo_surf, item["cor_fundo"], item_rect, 0, 8)
+        pygame.draw.rect(conteudo_surf, item["cor_borda"], item_rect, 2, 8)
+        
+        # Desenhar ícone do item
+        icone_x = item_rect.x + 60
+        icone_y = y_item_relativo + altura_item // 2
+        
+        if item["icone_func"] == "granada":
+            # Ícone da granada (maior)
+            tamanho_granada = 24
+            cor_granada = (60, 120, 60)
+            cor_granada_escura = (40, 80, 40)
             
-            if 'granada' in upgrades:
-                upgrades["granada"] += 3  # Adicionar 3 granadas por compra
-            else:
-                upgrades["granada"] = 3  # Começar com 3 granadas
+            # Corpo da granada (esfera)
+            pygame.draw.circle(conteudo_surf, cor_granada, (icone_x, icone_y), tamanho_granada)
             
-            salvar_upgrades(upgrades)
-            pygame.mixer.Channel(4).play(som_compra)
-            resultado = ("Grenades Purchased!", VERDE)
+            # Detalhes da granada (linhas cruzadas para textura)
+            pygame.draw.line(conteudo_surf, cor_granada_escura, 
+                           (icone_x - tamanho_granada + 6, icone_y), 
+                           (icone_x + tamanho_granada - 6, icone_y), 3)
+            pygame.draw.line(conteudo_surf, cor_granada_escura, 
+                           (icone_x, icone_y - tamanho_granada + 6), 
+                           (icone_x, icone_y + tamanho_granada - 6), 3)
+            
+            # Parte superior (bocal) - maior
+            pygame.draw.rect(conteudo_surf, (150, 150, 150), 
+                           (icone_x - 7, icone_y - tamanho_granada - 10, 14, 10), 0, 3)
+            
+            # Pino da granada - maior
+            pin_x = icone_x + 12
+            pin_y = icone_y - tamanho_granada - 5
+            pygame.draw.circle(conteudo_surf, (220, 220, 100), (pin_x, pin_y), 8, 3)
+            
+            # Brilho pulsante - maior
+            pulso = (math.sin(tempo_atual / 200) + 1) / 2
+            cor_brilho = (100 + int(pulso * 50), 200 + int(pulso * 55), 100 + int(pulso * 50))
+            pygame.draw.circle(conteudo_surf, cor_brilho, 
+                             (icone_x - tamanho_granada//2, icone_y - tamanho_granada//2), 6)
+            
+        elif item["icone_func"] == "ampulheta":
+            desenhar_icone_ampulheta(conteudo_surf, icone_x, icone_y, tempo_atual)
+            
+        elif item["icone_func"] == "faca":
+            desenhar_icone_faca(conteudo_surf, icone_x, icone_y, tempo_atual)
+        
+        # Nome do item (fonte maior e melhor posicionado)
+        desenhar_texto(conteudo_surf, item["nome"], 28, item["cor_texto"], 
+                      item_rect.x + 180, y_item_relativo + 30)
+        
+        # Descrição e status do item (melhor espaçamento)
+        if item["key"] not in upgrades or upgrades[item["key"]] == 0:
+            status = f"{item['descricao']} (Not owned)"
         else:
-            # Não tem moedas suficientes
-            pygame.mixer.Channel(4).play(som_erro)
-            resultado = ("Not enough coins!", VERMELHO)
-    
-    # Item 2: Hourglass of Balance
-    item2_y = area_conteudo.y + 220
-    item2_rect = pygame.Rect(area_conteudo.x + 30, item2_y, area_conteudo.width - 60, 100)
-    pygame.draw.rect(tela, (40, 40, 80), item2_rect, 0, 8)
-    pygame.draw.rect(tela, (80, 80, 180), item2_rect, 2, 8)
-    
-    # Desenhar ícone da ampulheta
-    ampulheta_x = item2_rect.x + 40
-    ampulheta_y = item2_y + 50
-    desenhar_icone_ampulheta(tela, ampulheta_x, ampulheta_y, tempo_atual)
-    
-    # Nome do item
-    desenhar_texto(tela, "HOURGLASS OF BALANCE", 26, (150, 150, 255), item2_rect.x + 180, item2_y + 25)
-    
-    # Descrição e status do item
-    if 'ampulheta' not in upgrades:
-        ampulheta_status = "Slows down time for precision! (Not owned)"
-    else:
-        ampulheta_status = f"Time Distortions: {upgrades['ampulheta']}"
-    
-    desenhar_texto(tela, ampulheta_status, 18, BRANCO, item2_rect.x + 180, item2_y + 50)
-    desenhar_texto(tela, "Press Q to activate slow motion", 14, (200, 200, 200), 
-                  item2_rect.x + 180, item2_y + 70)
-    
-    # Custo da ampulheta
-    custo_ampulheta = 40
-    
-    # Botão de compra
-    botao_compra2_x = item2_rect.x + item2_rect.width - 100
-    botao_compra2_y = item2_y + 50
-    botao_compra2_largura = 120
-    botao_compra2_altura = 40
-    rect_compra2 = pygame.Rect(botao_compra2_x - botao_compra2_largura//2, 
-                              botao_compra2_y - botao_compra2_altura//2,
-                              botao_compra2_largura, botao_compra2_altura)
-    
-    # Verificar se o jogador tem moedas suficientes
-    pode_comprar2 = moeda_manager.obter_quantidade() >= custo_ampulheta
-    
-    # Desenhar botão de compra
-    cor_botao2 = (60, 60, 150) if pode_comprar2 else (40, 40, 80)
-    cor_hover2 = (80, 80, 200) if pode_comprar2 else (50, 50, 100)
-    hover_compra2 = rect_compra2.collidepoint(mouse_pos)
-    
-    pygame.draw.rect(tela, cor_hover2 if hover_compra2 else cor_botao2, rect_compra2, 0, 8)
-    pygame.draw.rect(tela, (120, 120, 255), rect_compra2, 2, 8)
-    
-    # Ícone de moeda e custo
-    moeda_mini2_x = botao_compra2_x - 30
-    moeda_mini2_y = botao_compra2_y
-    pygame.draw.circle(tela, AMARELO, (moeda_mini2_x, moeda_mini2_y), 8)
-    
-    # Texto de custo
-    desenhar_texto(tela, f"{custo_ampulheta}", 20, BRANCO, botao_compra2_x + 10, botao_compra2_y)
-    
-    # Verificar clique no botão de compra da ampulheta
-    if clique_ocorreu and rect_compra2.collidepoint(mouse_pos):
-        if pode_comprar2:
-            # Compra bem-sucedida
-            moeda_manager.quantidade_moedas -= custo_ampulheta
-            moeda_manager.salvar_moedas()
-            
-            if 'ampulheta' in upgrades:
-                upgrades["ampulheta"] += 2  # Adicionar 2 usos por compra
+            nome_item = "Grenades" if item["key"] == "granada" else \
+                        "Time Distortions" if item["key"] == "ampulheta" else \
+                        "Combat Knives"
+            status = f"{nome_item}: {upgrades[item['key']]}"
+        
+        desenhar_texto(conteudo_surf, status, 18, BRANCO, 
+                      item_rect.x + 180, y_item_relativo + 65)
+        desenhar_texto(conteudo_surf, item["instrucoes"], 14, (200, 200, 200), 
+                      item_rect.x + 180, y_item_relativo + 90)
+        
+        # Informações adicionais do item
+        desenhar_texto(conteudo_surf, item["info_extra"], 12, (180, 180, 180), 
+                      item_rect.x + 180, y_item_relativo + 110)
+        
+        # Botão de compra (maior)
+        botao_largura = 140
+        botao_altura = 45
+        botao_x_relativo = item_rect.x + item_rect.width - 90
+        botao_y_relativo = y_item_relativo + altura_item // 2
+        
+        rect_compra_relativo = pygame.Rect(botao_x_relativo - botao_largura//2, 
+                                         botao_y_relativo - botao_altura//2,
+                                         botao_largura, botao_altura)
+        
+        # Verificar se o jogador tem moedas suficientes
+        pode_comprar = moeda_manager.obter_quantidade() >= item["custo"]
+        
+        # Calcular posição real do botão na tela para verificar hover e clique
+        botao_x_real = area_conteudo.x + botao_x_relativo
+        botao_y_real = area_scroll_y + botao_y_relativo
+        rect_compra_real = pygame.Rect(botao_x_real - botao_largura//2, 
+                                      botao_y_real - botao_altura//2,
+                                      botao_largura, botao_altura)
+        
+        # Verificar hover (apenas se o botão estiver visível)
+        hover_compra = (rect_compra_real.collidepoint(mouse_pos) and 
+                       area_scroll_y <= botao_y_real <= area_scroll_y + area_scroll_altura and
+                       pode_comprar)
+        
+        # Cores do botão baseadas na capacidade de compra
+        cor_botao = item["cor_botao"] if pode_comprar else \
+                   (item["cor_botao"][0]//2, item["cor_botao"][1]//2, item["cor_botao"][2]//2)
+        cor_hover = item["cor_hover"] if pode_comprar else \
+                   (item["cor_hover"][0]//2, item["cor_hover"][1]//2, item["cor_hover"][2]//2)
+        
+        # Desenhar botão de compra na superfície de conteúdo
+        pygame.draw.rect(conteudo_surf, cor_hover if hover_compra else cor_botao, 
+                        rect_compra_relativo, 0, 8)
+        pygame.draw.rect(conteudo_surf, item["cor_borda"], rect_compra_relativo, 2, 8)
+        
+        # Ícone de moeda e custo (maior)
+        moeda_mini_x = botao_x_relativo - 35
+        moeda_mini_y = botao_y_relativo
+        pygame.draw.circle(conteudo_surf, AMARELO, (moeda_mini_x, moeda_mini_y), 8)
+        
+        # Texto de custo (maior)
+        desenhar_texto(conteudo_surf, f"{item['custo']}", 20, BRANCO, 
+                      botao_x_relativo + 15, botao_y_relativo)
+        
+        # Verificar clique no botão de compra
+        if clique_ocorreu and hover_compra:
+            if pode_comprar:
+                # Compra bem-sucedida
+                moeda_manager.quantidade_moedas -= item["custo"]
+                moeda_manager.salvar_moedas()
+                
+                if item["key"] in upgrades:
+                    upgrades[item["key"]] += item["quantidade_compra"]
+                else:
+                    upgrades[item["key"]] = item["quantidade_compra"]
+                
+                salvar_upgrades(upgrades)
+                pygame.mixer.Channel(4).play(som_compra)
+                
+                nome_resultado = item["nome"].title() + " Purchased!"
+                resultado = (nome_resultado, item["cor_resultado"])
             else:
-                upgrades["ampulheta"] = 2  # Começar com 2 usos
-            
-            salvar_upgrades(upgrades)
-            pygame.mixer.Channel(4).play(som_compra)
-            resultado = ("Hourglass of Balance Purchased!", AZUL)
-        else:
-            # Não tem moedas suficientes
-            pygame.mixer.Channel(4).play(som_erro)
-            resultado = ("Not enough coins!", VERMELHO)
-            
-    return resultado
+                # Não tem moedas suficientes
+                pygame.mixer.Channel(4).play(som_erro)
+                resultado = ("Not enough coins!", VERMELHO)
+    
+    # Resetar clipping
+    conteudo_surf.set_clip(None)
+    
+    # Aplicar a superfície de conteúdo à tela
+    tela.blit(conteudo_surf, (area_conteudo.x, area_scroll_y))
+    
+    # Desenhar barra de scroll se necessário (mais visível)
+    if max_scroll > 0:
+        barra_largura = 12
+        barra_x = area_conteudo.x + area_conteudo.width - barra_largura - 8
+        barra_y = area_scroll_y
+        barra_altura = area_scroll_altura
+        
+        # Fundo da barra de scroll
+        pygame.draw.rect(tela, (50, 50, 50), (barra_x, barra_y, barra_largura, barra_altura), 0, 6)
+        
+        # Calcular posição e tamanho do indicador
+        handle_ratio = min(1.0, area_scroll_altura / altura_total_conteudo)
+        indicador_altura = max(30, int(barra_altura * handle_ratio))
+        scroll_ratio = scroll_y / max_scroll if max_scroll > 0 else 0
+        indicador_y = barra_y + int((barra_altura - indicador_altura) * scroll_ratio)
+        
+        pygame.draw.rect(tela, (180, 180, 180), (barra_x, indicador_y, barra_largura, indicador_altura), 0, 6)
+    
+    return (resultado[0] if resultado else None, 
+            resultado[1] if resultado else None, 
+            max_scroll)

@@ -122,6 +122,14 @@ class InventarioManager:
                 "descricao": "Desacelera o tempo por 5 segundos",
                 "tipo": "item",
                 "tecla": "Q"
+            },
+            "faca": {
+                "nome": "Combat Knife", 
+                "quantidade": 0, 
+                "cor": (220, 150, 150), 
+                "descricao": "Arma branca para combate corpo a corpo",
+                "tipo": "item",
+                "tecla": "Q"
             }
         }
         
@@ -132,6 +140,7 @@ class InventarioManager:
                     upgrades = json.load(f)
                     itens["granada"]["quantidade"] = upgrades.get("granada", 0)
                     itens["ampulheta"]["quantidade"] = upgrades.get("ampulheta", 0)
+                    itens["faca"]["quantidade"] = upgrades.get("faca", 0)
         except Exception as e:
             print(f"Erro ao carregar upgrades para inventário: {e}")
         
@@ -208,6 +217,84 @@ def desenhar_icone_granada_inventario(tela, x, y, tempo_atual):
     pulso = (math.sin(tempo_atual / 200) + 1) / 2
     cor_brilho = (100 + int(pulso * 50), 200 + int(pulso * 55), 100 + int(pulso * 50))
     pygame.draw.circle(tela, cor_brilho, (x - tamanho_granada//2, y - tamanho_granada//2), 4)
+
+def desenhar_icone_faca_inventario(tela, x, y, tempo_atual):
+    """Desenha ícone da faca no inventário."""
+    # Cores da faca
+    cor_lamina = (200, 200, 220)  # Aço brilhante
+    cor_lamina_escura = (150, 150, 170)
+    cor_cabo = (139, 69, 19)  # Marrom escuro (cabo de madeira)
+    cor_cabo_escura = (101, 51, 14)
+    cor_guarda = (169, 169, 169)  # Cinza (metal da guarda)
+    
+    # Dimensões da faca (menores para o inventário)
+    comprimento_lamina = 16
+    largura_lamina = 4
+    comprimento_cabo = 10
+    largura_cabo = 3
+    
+    # Calcular ângulo de rotação baseado no tempo
+    angulo_rotacao = math.sin(tempo_atual / 1000) * 3  # Oscila entre -3 e 3 graus
+    
+    # Função para rotacionar pontos
+    def rotacionar_ponto(px, py, cx, cy, angulo):
+        rad = math.radians(angulo)
+        cos_ang = math.cos(rad)
+        sin_ang = math.sin(rad)
+        
+        px -= cx
+        py -= cy
+        
+        novo_x = px * cos_ang - py * sin_ang
+        novo_y = px * sin_ang + py * cos_ang
+        
+        novo_x += cx
+        novo_y += cy
+        
+        return int(novo_x), int(novo_y)
+    
+    # Pontos da lâmina
+    pontos_lamina = [
+        (x - comprimento_lamina//2, y - largura_lamina//2),
+        (x - comprimento_lamina//2, y + largura_lamina//2),
+        (x + comprimento_lamina//2, y)
+    ]
+    
+    pontos_lamina_rot = [rotacionar_ponto(px, py, x, y, angulo_rotacao) for px, py in pontos_lamina]
+    
+    # Desenhar lâmina
+    pygame.draw.polygon(tela, cor_lamina, pontos_lamina_rot)
+    pygame.draw.polygon(tela, cor_lamina_escura, pontos_lamina_rot, 1)
+    
+    # Pontos do cabo
+    cabo_start_x = x - comprimento_lamina//2
+    cabo_end_x = cabo_start_x - comprimento_cabo
+    
+    pontos_cabo = [
+        (cabo_start_x, y - largura_cabo//2),
+        (cabo_start_x, y + largura_cabo//2),
+        (cabo_end_x, y + largura_cabo//2),
+        (cabo_end_x, y - largura_cabo//2)
+    ]
+    
+    pontos_cabo_rot = [rotacionar_ponto(px, py, x, y, angulo_rotacao) for px, py in pontos_cabo]
+    
+    # Desenhar cabo
+    pygame.draw.polygon(tela, cor_cabo, pontos_cabo_rot)
+    pygame.draw.polygon(tela, cor_cabo_escura, pontos_cabo_rot, 1)
+    
+    # Desenhar guarda
+    guarda_x1, guarda_y1 = rotacionar_ponto(cabo_start_x, y - largura_lamina//2 - 1, x, y, angulo_rotacao)
+    guarda_x2, guarda_y2 = rotacionar_ponto(cabo_start_x, y + largura_lamina//2 + 1, x, y, angulo_rotacao)
+    
+    pygame.draw.line(tela, cor_guarda, (guarda_x1, guarda_y1), (guarda_x2, guarda_y2), 2)
+    
+    # Efeito de brilho
+    pulso_brilho = (math.sin(tempo_atual / 400) + 1) / 2
+    if pulso_brilho > 0.6:
+        meio_lamina_start = rotacionar_ponto(x - comprimento_lamina//2 + 2, y, x, y, angulo_rotacao)
+        meio_lamina_end = rotacionar_ponto(x + comprimento_lamina//2 - 2, y, x, y, angulo_rotacao)
+        pygame.draw.line(tela, (255, 255, 255), meio_lamina_start, meio_lamina_end, 1)
 
 def tela_inventario(tela, relogio, gradiente_inventario, fonte_titulo, fonte_normal):
     """
@@ -459,6 +546,8 @@ def tela_inventario(tela, relogio, gradiente_inventario, fonte_titulo, fonte_nor
                     desenhar_icone_ampulheta_inventario(tela, LARGURA // 2 - 265, y_item, tempo_atual)
                 elif item_key == "granada":
                     desenhar_icone_granada_inventario(tela, LARGURA // 2 - 265, y_item, tempo_atual)
+                elif item_key == "faca":
+                    desenhar_icone_faca_inventario(tela, LARGURA // 2 - 265, y_item, tempo_atual)
                 
                 # Informações do item
                 cor_texto = BRANCO if item_data["quantidade"] > 0 else (150, 150, 150)
@@ -502,5 +591,3 @@ def tela_inventario(tela, relogio, gradiente_inventario, fonte_titulo, fonte_nor
         
         pygame.display.flip()
         relogio.tick(FPS)
-
-
