@@ -37,6 +37,8 @@ class Quadrado:
             vidas_upgrade = self._carregar_upgrade_vida()
             self.vidas = vidas_upgrade
             self.vidas_max = vidas_upgrade
+            self.facas = self._carregar_upgrade_faca()
+            self.amuleto_ativo = False  # Estado do amuleto (inativo por padrão)
             
             # SISTEMA DA AMPULHETA
             self.ampulheta_uses = self._carregar_upgrade_ampulheta()
@@ -77,6 +79,8 @@ class Quadrado:
             self.tempo_desacelerado = False
             self.duracao_desaceleracao = 0
             self.fator_desaceleracao = 1.0
+            self.facas = 0
+            self.amuleto_ativo = False
         
         self.rect = pygame.Rect(x, y, tamanho, tamanho)
         self.tempo_ultimo_tiro = 0
@@ -128,6 +132,21 @@ class Quadrado:
         except Exception as e:
             print(f"Erro ao carregar upgrade de vida: {e}")
             return 1
+        
+    def _carregar_upgrade_faca(self):
+        """
+        Carrega o upgrade da faca do arquivo de upgrades.
+        Retorna 0 se não houver upgrade.
+        """
+        try:
+            if os.path.exists("data/upgrades.json"):
+                with open("data/upgrades.json", "r") as f:
+                    upgrades = json.load(f)
+                    return upgrades.get("faca", 0)
+            return 0
+        except Exception as e:
+            print(f"Erro ao carregar upgrade de faca: {e}")
+            return 0
 
     def _carregar_upgrade_ampulheta(self):
         """
@@ -326,6 +345,9 @@ class Quadrado:
                 desenhar_metralhadora(tela, self, tempo_atual, pos_mouse)
             elif hasattr(self, 'granada_selecionada') and self.granada_selecionada and self.granadas > 0:
                 desenhar_granada_selecionada(tela, self, tempo_atual)
+            elif hasattr(self, 'amuleto_ativo') and self.amuleto_ativo and hasattr(self, 'facas') and self.facas > 0:
+                from src.items.amuleto import desenhar_amuleto_segurado
+                desenhar_amuleto_segurado(tela, self, tempo_atual)
 
 
     def mover(self, dx, dy):
@@ -645,6 +667,7 @@ class Quadrado:
         Ativa o item selecionado no inventário (chamado ao pressionar Q).
         - Granada selecionada no inventário → Q toggle granada
         - Ampulheta selecionada no inventário → Q usa ampulheta
+        - Combat Knife selecionada no inventário → Q ativa amuleto
         - Nenhum selecionado → Q não faz nada
         """
         from src.game.inventario import InventarioManager
@@ -654,6 +677,7 @@ class Quadrado:
         
         if self.espingarda_ativa:
             self.espingarda_ativa = False
+        
         # GRANADA: Se selecionada no inventário, Q faz toggle
         if item_selecionado == "granada":
             if self.granadas > 0:
@@ -668,6 +692,18 @@ class Quadrado:
                 return self.usar_ampulheta_com_q()
             else:
                 return "sem_ampulhetas"
+        
+        # NOVO: COMBAT KNIFE: Se selecionada no inventário, Q ativa amuleto
+        elif item_selecionado == "faca":
+            if hasattr(self, 'facas') and self.facas > 0:
+                # Toggle do amuleto
+                if not hasattr(self, 'amuleto_ativo'):
+                    self.amuleto_ativo = False
+                
+                self.amuleto_ativo = not self.amuleto_ativo
+                return "amuleto_toggle" if self.amuleto_ativo else "amuleto_guardado"
+            else:
+                return "sem_facas"
         
         # NENHUM: Se nenhum item selecionado no inventário
         else:

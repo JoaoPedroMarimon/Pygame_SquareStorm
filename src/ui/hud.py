@@ -4,6 +4,7 @@
 """
 Versão atualizada do arquivo src/ui/hud.py para incluir o sistema de inventário.
 Agora mostra a arma selecionada no inventário e sua munição restante.
+Inclui suporte completo ao sistema de amuleto da Combat Knife.
 """
 
 import pygame
@@ -19,7 +20,7 @@ from src.items.granada import desenhar_granada_selecionada
 def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jogador=None):
     """
     Desenha a interface de usuário durante o jogo.
-    Agora inclui indicador da arma selecionada no sistema de inventário e ampulheta.
+    Agora inclui indicador da arma selecionada no sistema de inventário, ampulheta e amuleto.
     
     Args:
         tela: Superfície onde desenhar
@@ -90,6 +91,15 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             cor_borda = VERMELHO
             municao = str(jogador.granadas)
             tem_arma_especial = True
+            
+        # NOVO: Suporte ao amuleto da Combat Knife
+        elif (hasattr(jogador, 'amuleto_ativo') and jogador.amuleto_ativo and 
+              hasattr(jogador, 'facas') and jogador.facas > 0):
+            arma_ativa = "AMULETO MÍSTICO"
+            cor_fundo = (50, 30, 80)
+            cor_borda = (200, 150, 255)
+            municao = str(jogador.facas)
+            tem_arma_especial = True
         
         # Desenhar fundo do indicador de arma
         pygame.draw.rect(tela, cor_fundo, (pos_equipamento - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
@@ -111,6 +121,11 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             elif hasattr(jogador, 'granada_selecionada') and jogador.granada_selecionada:
                 # Desenhar ícone da granada
                 desenhar_icone_granada(icone_surface, 30, 20)
+                
+            # NOVO: Ícone do amuleto
+            elif hasattr(jogador, 'amuleto_ativo') and jogador.amuleto_ativo:
+                # Desenhar ícone do amuleto
+                desenhar_icone_amuleto_hud(icone_surface, 30, 20, tempo_atual)
             
             # Aplicar o ícone na posição correta do HUD
             tela.blit(icone_surface, (pos_equipamento - 30, centro_y - 20))
@@ -247,6 +262,51 @@ def desenhar_icone_granada(tela, x, y):
     
     # Anel do pino
     pygame.draw.circle(tela, (220, 220, 100), (pin_x, pin_y), 3, 1)
+
+
+def desenhar_icone_amuleto_hud(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone simplificado do amuleto para o HUD.
+    
+    Args:
+        tela: Superfície onde desenhar
+        x, y: Posição central do ícone
+        tempo_atual: Tempo atual para animações
+    """
+    # Cores místicas
+    cor_base = (100, 50, 150)
+    cor_brilho = (200, 150, 255)
+    cor_centro = (255, 200, 100)
+    
+    # Animação de brilho
+    intensidade = (math.sin(tempo_atual / 200) + 1) / 2
+    
+    # Desenhar hexágono pequeno
+    pontos_hex = []
+    raio = 8
+    for i in range(6):
+        angulo = i * math.pi / 3 + tempo_atual / 1000
+        px = x + math.cos(angulo) * raio
+        py = y + math.sin(angulo) * raio
+        pontos_hex.append((px, py))
+    
+    pygame.draw.polygon(tela, cor_base, pontos_hex)
+    pygame.draw.polygon(tela, cor_brilho, pontos_hex, 1)
+    
+    # Centro dourado
+    pygame.draw.circle(tela, cor_centro, (int(x), int(y)), 4)
+    pygame.draw.circle(tela, (255, 255, 200), (int(x), int(y)), 2)
+    
+    # Brilho pulsante
+    if intensidade > 0.7:
+        pygame.draw.circle(tela, cor_brilho, (int(x), int(y)), int(raio + 3), 1)
+        
+    # Partículas pequenas orbitando
+    for i in range(2):
+        part_angle = tempo_atual / 300 + i * math.pi
+        part_x = x + math.cos(part_angle) * 12
+        part_y = y + math.sin(part_angle) * 12
+        pygame.draw.circle(tela, cor_brilho, (int(part_x), int(part_y)), 1)
 
 
 def desenhar_icone_ampulheta_hud(tela, x, y, tempo_atual):

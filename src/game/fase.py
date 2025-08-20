@@ -27,6 +27,8 @@ from src.entities.inimigo_ia import atualizar_IA_inimigo
 from src.items.granada import Granada, lancar_granada, processar_granadas, inicializar_sistema_granadas, obter_intervalo_lancamento
 from src.weapons.espingarda import atirar_espingarda, carregar_upgrade_espingarda
 from src.weapons.metralhadora import atirar_metralhadora, carregar_upgrade_metralhadora
+from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos, desenhar_invocacoes, tem_invocacao_ativa, limpar_invocacoes
+from src.items.amuleto import usar_amuleto_para_invocacao
 
 def desenhar_efeito_tempo_desacelerado(tela, ativo, tempo_atual):
     """
@@ -259,6 +261,19 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                             criar_texto_flutuante("AMPULHETA JÁ ESTÁ ATIVA!", 
                                                 LARGURA // 2, ALTURA // 4, 
                                                 AMARELO, particulas, 120, 32)
+                        # NOVOS CASOS PARA O AMULETO:
+                        elif resultado == "amuleto_toggle":
+                            criar_texto_flutuante("AMULETO MÍSTICO ATIVADO!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                (200, 150, 255), particulas, 120, 32)
+                        elif resultado == "amuleto_guardado":
+                            criar_texto_flutuante("AMULETO GUARDADO!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                CINZA_ESCURO, particulas, 120, 32)
+                        elif resultado == "sem_facas":
+                            criar_texto_flutuante("SEM COMBAT KNIFE!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                VERMELHO, particulas, 120, 32)
                         elif resultado == "sem_granadas":
                             criar_texto_flutuante("SEM GRANADAS!", 
                                                 LARGURA // 2, ALTURA // 4, 
@@ -270,7 +285,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         elif resultado == "nenhum_item_selecionado":
                             criar_texto_flutuante("SELECIONE UM ITEM NO INVENTÁRIO!", 
                                                 LARGURA // 2, ALTURA // 4, 
-                                                AMARELO, particulas, 120, 32)
+                                                AMARELO, particulas, 120, 32) 
                                 
                 # Parar o movimento quando soltar as teclas
                 if evento.type == pygame.KEYUP:
@@ -288,12 +303,30 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if tempo_atual - ultimo_clique_mouse >= intervalo_minimo_clique:
                         ultimo_clique_mouse = tempo_atual
                         
-                        # PRIORIDADE 1: Granada (se ativa)
-                        if jogador.granada_selecionada and jogador.granadas > 0:
+                        # PRIORIDADE 1: Invocação do Chucky (amuleto ativo)
+                        if (hasattr(jogador, 'amuleto_ativo') and jogador.amuleto_ativo and 
+                            hasattr(jogador, 'facas') and jogador.facas > 0):
+                            
+                            if usar_amuleto_para_invocacao(pos_mouse, jogador):
+                                criar_texto_flutuante("CHUCKY INVOCADO!", 
+                                                    LARGURA // 2, ALTURA // 4, 
+                                                    (255, 50, 50), particulas, 180, 36)
+                                if jogador.facas <= 0:
+                                    criar_texto_flutuante("AMULETO SEM ENERGIA!", 
+                                                        LARGURA // 2, ALTURA // 4 + 50, 
+                                                        VERMELHO, particulas, 120, 28)
+                            else:
+                                criar_texto_flutuante("JÁ EXISTE UMA INVOCAÇÃO ATIVA!", 
+                                                    LARGURA // 2, ALTURA // 4, 
+                                                    AMARELO, particulas, 120, 24)
+                        
+                        # PRIORIDADE 2: Granada
+                        elif jogador.granada_selecionada and jogador.granadas > 0:
                             if tempo_atual - tempo_ultimo_lancamento_granada >= intervalo_lancamento_granada:
                                 tempo_ultimo_lancamento_granada = tempo_atual
                                 lancar_granada(jogador, granadas, pos_mouse, particulas, flashes)
-                        # PRIORIDADE 2: Espingarda (se ativa)
+                        
+                        # PRIORIDADE 3: Espingarda
                         elif jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
                             atirar_espingarda(jogador, tiros_jogador, pos_mouse, particulas, flashes)
                             if jogador.tiros_espingarda <= 0:
@@ -301,7 +334,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                 criar_texto_flutuante("ESPINGARDA SEM MUNIÇÃO!", 
                                                     LARGURA // 2, ALTURA // 4, 
                                                     VERMELHO, particulas, 120, 32)
-                        # PRIORIDADE 3: Metralhadora (se ativa)
+                        
+                        # PRIORIDADE 4: Metralhadora
                         elif jogador.metralhadora_ativa and jogador.tiros_metralhadora > 0:
                             atirar_metralhadora(jogador, tiros_jogador, pos_mouse, particulas, flashes)
                             if jogador.tiros_metralhadora <= 0:
@@ -310,7 +344,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                                     LARGURA // 2, ALTURA // 4, 
                                                     VERMELHO, particulas, 120, 32)
                         else:
-                            # PRIORIDADE 4: Tiro normal
+                            # PRIORIDADE 5: Tiro normal
                             jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
             
             # Handle pause menu controls
@@ -325,6 +359,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     mouse_pos = pygame.mouse.get_pos()
                     if rect_menu_pausado and rect_menu_pausado.collidepoint(mouse_pos):
+                        limpar_invocacoes()
                         return "menu"
 
         # Tiro contínuo da metralhadora (quando botão esquerdo está pressionado)
@@ -460,7 +495,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             if not jogador_morto:
                 jogador.mover(movimento_x, movimento_y)
                 jogador.atualizar()
-                
+                atualizar_invocacoes_com_inimigos(inimigos, particulas, flashes)
+
                 # Garantir que o jogador não ultrapasse a área de jogo
                 if jogador.y + jogador.tamanho > ALTURA_JOGO:
                     jogador.y = ALTURA_JOGO - jogador.tamanho
@@ -607,6 +643,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             
             # Quando a contagem chegar a zero, concluir a fase
             if tempo_transicao_vitoria <= 0:
+                limpar_invocacoes()
                 return True  # Fase concluída com sucesso
         
         # Verificar condições de fim de fase
@@ -640,6 +677,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             
             # Quando a contagem chegar a zero, ir para a tela de game over
             if tempo_transicao_derrota <= 0:
+                limpar_invocacoes()
                 return False # Jogador perdeu
             
         # Desenhar fundo
@@ -679,6 +717,9 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         for granada in granadas:
             granada.desenhar(tela)
         
+        
+        desenhar_invocacoes(tela)
+
         for particula in particulas:
             particula.desenhar(tela)
         
@@ -745,5 +786,5 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         
         pygame.display.flip()
         relogio.tick(FPS)
-    
+    limpar_invocacoes()
     return False  # Padrão: jogador perdeu
