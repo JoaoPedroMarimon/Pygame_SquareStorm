@@ -13,6 +13,9 @@ import random
 import math
 from src.config import *
 from src.utils.visual import criar_estrelas, desenhar_estrelas, desenhar_texto, criar_botao
+from src.utils.display_manager import present_frame,convert_mouse_position
+from src.utils.visual import desenhar_grid_consistente
+
 # MoedaManager será importado dentro da função para evitar circular import
 
 class InventarioManager:
@@ -342,7 +345,7 @@ def tela_inventario(tela, relogio, gradiente_inventario, fonte_titulo, fonte_nor
             
             if evento.type == pygame.MOUSEBUTTONDOWN:
                 if evento.button == 1:  # Clique esquerdo
-                    mouse_pos = pygame.mouse.get_pos()
+                    mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
                     
                     # Verificar cliques nas abas
                     aba_largura = 200
@@ -397,7 +400,7 @@ def tela_inventario(tela, relogio, gradiente_inventario, fonte_titulo, fonte_nor
                     # Verificar clique no botão voltar
                     rect_voltar = pygame.Rect(50, ALTURA - 80, 150, 60)
                     if rect_voltar.collidepoint(mouse_pos):
-                        return None
+                        return "menu"
                 
                 elif evento.button == 4:  # Scroll up
                     scroll_y = max(0, scroll_y - 30)
@@ -416,10 +419,8 @@ def tela_inventario(tela, relogio, gradiente_inventario, fonte_titulo, fonte_nor
         desenhar_estrelas(tela, estrelas)
         
         # Desenhar grid sutil
-        for i in range(0, LARGURA, 60):
-            pygame.draw.line(tela, (30, 30, 60), (i, 0), (i, ALTURA), 1)
-        for i in range(0, ALTURA, 60):
-            pygame.draw.line(tela, (30, 30, 60), (0, i), (LARGURA, i), 1)
+        #desenhar_grid_consistente(tela)
+
         
         # Título
         desenhar_texto(tela, "INVENTÁRIO", 50, BRANCO, LARGURA // 2, 70)
@@ -589,5 +590,5 @@ def tela_inventario(tela, relogio, gradiente_inventario, fonte_titulo, fonte_nor
         # Botão voltar
         criar_botao(tela, "VOLTAR", 125, ALTURA - 50, 150, 60, (80, 50, 50), (120, 70, 70), BRANCO)
         
-        pygame.display.flip()
+        present_frame()
         relogio.tick(FPS)

@@ -17,6 +17,7 @@ import sys
 from src.ui.weapons_shop import desenhar_weapons_shop
 from src.ui.upgrades_shop import desenhar_upgrades_shop
 from src.ui.items_shop import desenhar_items_shop
+from src.utils.display_manager import present_frame,convert_mouse_position
 
 
 
@@ -92,7 +93,7 @@ def tela_loja(tela, relogio, gradiente_loja):
                         fade.fill((0, 0, 0))
                         fade.set_alpha(i * 8)
                         tela.blit(fade, (0, 0))
-                        pygame.display.flip()
+                        present_frame()
                         pygame.time.delay(5)
                     return "menu"
                 # Teclas numéricas para trocar de categoria
@@ -174,7 +175,7 @@ def tela_loja(tela, relogio, gradiente_loja):
         rect_aba3 = pygame.Rect(aba3_x - aba_largura//2, altura_aba_y - aba_altura//2, aba_largura, aba_altura)
         
         # Verificar hover para as abas
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
         hover_aba1 = rect_aba1.collidepoint(mouse_pos)
         hover_aba2 = rect_aba2.collidepoint(mouse_pos)
         hover_aba3 = rect_aba3.collidepoint(mouse_pos)
@@ -339,7 +340,7 @@ def tela_loja(tela, relogio, gradiente_loja):
                 fade.fill((0, 0, 0))
                 fade.set_alpha(i * 8)
                 tela.blit(fade, (0, 0))
-                pygame.display.flip()
+                present_frame()
                 pygame.time.delay(5)
             return "menu"
         
@@ -361,7 +362,7 @@ def tela_loja(tela, relogio, gradiente_loja):
             fade.set_alpha(fade_in)
             tela.blit(fade, (0, 0))
         
-        pygame.display.flip()
+        present_frame()
         relogio.tick(FPS)
     
     return "menu"

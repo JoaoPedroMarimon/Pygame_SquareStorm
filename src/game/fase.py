@@ -21,7 +21,7 @@ from src.utils.visual import desenhar_mira, criar_mira
 from src.utils.visual import desenhar_texto, criar_texto_flutuante, criar_botao
 from src.utils.visual import desenhar_estrelas, criar_estrelas
 from src.ui.hud import desenhar_hud
-
+from src.utils.display_manager import present_frame, convert_mouse_position
 # Importações das pastas reorganizadas
 from src.entities.inimigo_ia import atualizar_IA_inimigo
 from src.items.granada import Granada, lancar_granada, processar_granadas, inicializar_sistema_granadas, obter_intervalo_lancamento
@@ -29,6 +29,7 @@ from src.weapons.espingarda import atirar_espingarda, carregar_upgrade_espingard
 from src.weapons.metralhadora import atirar_metralhadora, carregar_upgrade_metralhadora
 from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos, desenhar_invocacoes, tem_invocacao_ativa, limpar_invocacoes
 from src.items.amuleto import usar_amuleto_para_invocacao
+from src.utils.visual import desenhar_grid_consistente
 
 def desenhar_efeito_tempo_desacelerado(tela, ativo, tempo_atual):
     """
@@ -185,7 +186,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             pygame.mouse.set_visible(True)   # Mostrar nos menus/pausa/início
         
         # Obter a posição atual do mouse para o sistema de mira
-        pos_mouse = pygame.mouse.get_pos()
+        pos_mouse = convert_mouse_position(pygame.mouse.get_pos())
         
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
@@ -357,7 +358,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
 
                 # Handle mouse clicks while paused
                 if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                    mouse_pos = pygame.mouse.get_pos()
+                    mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
                     if rect_menu_pausado and rect_menu_pausado.collidepoint(mouse_pos):
                         limpar_invocacoes()
                         return "menu"
@@ -399,7 +400,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             desenhar_texto(tela, f"{len(inimigos)} inimigo{'s' if len(inimigos) > 1 else ''} para derrotar", 36, 
                         AMARELO, LARGURA // 2, ALTURA_JOGO // 2)
             desenhar_texto(tela, "Preparado?", 30, BRANCO, LARGURA // 2, ALTURA_JOGO * 2 // 3)            
-            pygame.display.flip()
+            present_frame()
             relogio.tick(FPS)
             continue
 
@@ -439,7 +440,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             if tempo_congelamento <= 0:
                 em_congelamento = False
             
-            pygame.display.flip()
+            present_frame()
             relogio.tick(FPS)
             continue
 
@@ -482,7 +483,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                     largura_menu, altura_menu, 
                                     (120, 60, 60), (180, 80, 80), BRANCO)
             
-            pygame.display.flip()
+            present_frame()
             relogio.tick(FPS)
             continue
 
@@ -688,10 +689,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         desenhar_estrelas(tela, estrelas)
         
         # Desenhar grid de fundo
-        for i in range(0, LARGURA, 50):
-            pygame.draw.line(tela, (30, 30, 60), (i, 0), (i, ALTURA_JOGO), 1)
-        for i in range(0, ALTURA_JOGO, 50):
-            pygame.draw.line(tela, (30, 30, 60), (0, i), (LARGURA, i), 1)
+        desenhar_grid_consistente(tela)
         
         # Desenhar flashes
         for flash in flashes:
@@ -784,7 +782,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         if not em_congelamento:
             desenhar_mira(tela, pos_mouse, (mira_surface, mira_rect))
         
-        pygame.display.flip()
+        present_frame()
         relogio.tick(FPS)
     limpar_invocacoes()
     return False  # Padrão: jogador perdeu

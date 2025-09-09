@@ -14,7 +14,7 @@ import json
 from src.config import *
 from src.entities.particula import criar_explosao
 from src.utils.visual import criar_texto_flutuante
-
+from src.utils.display_manager import convert_mouse_position
 class Granada:
     """
     Classe para representar a granada que o jogador pode lançar.
@@ -439,7 +439,7 @@ def desenhar_granada_selecionada(tela, jogador, tempo_atual):
         tempo_atual: Tempo atual em ms para efeitos de animação
     """
     # Obter a posição do mouse para orientar a direção de lançamento
-    pos_mouse = pygame.mouse.get_pos()
+    pos_mouse = convert_mouse_position(pygame.mouse.get_pos())
     
     # Calcular o centro do jogador
     centro_x = jogador.x + jogador.tamanho // 2

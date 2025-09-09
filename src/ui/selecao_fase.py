@@ -5,7 +5,7 @@ from ..utils.visual import criar_botao, desenhar_texto, criar_estrelas, desenhar
 from ..utils.progress import ProgressManager
 import random
 import math
-
+from src.utils.display_manager import convert_mouse_position,present_frame
 class ScrollBar:
     """Classe para criar e gerenciar uma barra de rolagem."""
     
@@ -173,7 +173,7 @@ def tela_selecao_fase(tela, relogio, gradiente_selecao, fonte_titulo, fonte_norm
                 mouse_wheel = evento.y
                 
             # Verificar se o mouse está sobre a área da grade para rolagem
-            mouse_pos = pygame.mouse.get_pos()
+            mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
             mouse_na_grade = (area_botoes_x <= mouse_pos[0] <= area_botoes_x + area_botoes_largura and
                              area_botoes_y <= mouse_pos[1] <= area_botoes_y + area_botoes_altura)
             
@@ -183,7 +183,7 @@ def tela_selecao_fase(tela, relogio, gradiente_selecao, fonte_titulo, fonte_norm
                 scrollbar.scroll_pos = max(0.0, min(1.0, scrollbar.scroll_pos + scroll_amount))
         
         # Obter posição do mouse e estado dos botões
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
         mouse_pressed = pygame.mouse.get_pressed()[0]  # Botão esquerdo
         
         # Atualizar scrollbar se existir
@@ -301,5 +301,5 @@ def tela_selecao_fase(tela, relogio, gradiente_selecao, fonte_titulo, fonte_norm
         if fase_selecionada is not None:
             return fase_selecionada
         
-        pygame.display.flip()
+        present_frame()
         relogio.tick(FPS)

@@ -9,7 +9,7 @@ import pygame
 import random
 from src.config import LARGURA, ALTURA, BRANCO, AMARELO, VERMELHO
 from src.config import LARGURA_JOGO, ALTURA_JOGO
-
+from src.utils.display_manager import convert_mouse_position
 def criar_gradiente(cor1, cor2, largura=None, altura=None):
     """
     Cria uma superfície com um gradiente vertical.
@@ -129,7 +129,7 @@ def criar_botao(tela, texto, x, y, largura, altura, cor_normal, cor_hover, cor_t
     # Criar o retângulo de colisão com as mesmas dimensões ajustadas
     rect = pygame.Rect(x - largura_ajustada // 2, y - altura_ajustada // 2, largura_ajustada, altura_ajustada)
     
-    mouse_pos = pygame.mouse.get_pos()
+    mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
     hover = rect.collidepoint(mouse_pos)
     
     # Desenhar o botão usando o mesmo retângulo
@@ -148,6 +148,43 @@ def criar_botao(tela, texto, x, y, largura, altura, cor_normal, cor_hover, cor_t
     tela.blit(texto_surf, texto_rect)
     
     return hover
+
+def desenhar_grid_consistente(tela, tamanho_celula_desejado=50):
+    """
+    Desenha um grid que mantém o mesmo tamanho físico em qualquer monitor.
+    
+    Args:
+        tela: Superfície onde desenhar
+        tamanho_celula_desejado: Tamanho desejado da célula em pixels na resolução base
+    """
+    from src.utils.display_manager import get_display_manager
+    
+    manager = get_display_manager()
+    
+    if manager.is_fullscreen():
+        # Em tela cheia, calcular o tamanho do grid baseado na escala real
+        escala_atual = min(manager.scale_x, manager.scale_y)
+        tamanho_celula_real = int(tamanho_celula_desejado * escala_atual)
+        
+        # Desenhar o grid na resolução real da tela
+        largura_real = manager.BASE_WIDTH
+        altura_real = manager.BASE_HEIGHT
+    else:
+        # Em modo janela, usar tamanho normal
+        tamanho_celula_real = tamanho_celula_desejado
+        largura_real = manager.BASE_WIDTH
+        altura_real = manager.BASE_HEIGHT
+    
+    # Cor do grid
+    cor_grid = (30, 30, 60)
+    
+    # Desenhar linhas verticais
+    for i in range(0, largura_real, tamanho_celula_desejado):
+        pygame.draw.line(tela, cor_grid, (i, 0), (i, altura_real), 1)
+    
+    # Desenhar linhas horizontais
+    for i in range(0, altura_real, tamanho_celula_desejado):
+        pygame.draw.line(tela, cor_grid, (0, i), (largura_real, i), 1)
 
 def criar_mira(tamanho=12, cor=BRANCO, cor_interna=AMARELO):
     """

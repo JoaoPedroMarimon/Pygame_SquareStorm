@@ -14,8 +14,9 @@ from src.utils.visual import criar_estrelas, desenhar_estrelas, desenhar_texto, 
 from src.utils.sound import gerar_som_explosao
 from src.entities.particula import criar_explosao, Particula
 from src.utils.progress import ProgressManager
-
+from src.utils.display_manager import present_frame,convert_mouse_position
 import pygame
+from src.utils.visual import desenhar_grid_consistente
 
 # IMPORTAÇÃO CORRIGIDA: agora do local correto
 from src.game.inventario import tela_inventario
@@ -313,7 +314,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                                (150, 50, 50), (200, 80, 80), BRANCO)
         
         # Desenhar botão de seleção de fase com ícone de menu
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
         hover_selecao = rect_selecao.collidepoint(mouse_pos)
         cor_botao_selecao = (70, 70, 200) if hover_selecao else (50, 50, 150)
         pygame.draw.rect(tela, cor_botao_selecao, rect_selecao, 0, 10)
@@ -331,7 +332,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                 # Efeito de transição
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
-                    pygame.display.flip()
+                    present_frame()
                     pygame.time.delay(20)
                 return "jogar"
             
@@ -339,7 +340,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                 # Efeito de transição
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
-                    pygame.display.flip()
+                    present_frame()
                     pygame.time.delay(20)
                 return "loja"
             
@@ -347,7 +348,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                 # Efeito de transição
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
-                    pygame.display.flip()
+                    present_frame()
                     pygame.time.delay(20)
                 return "inventario"
             
@@ -357,7 +358,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             if rect_selecao.collidepoint(mouse_pos):
                 return "selecao_fase"
         
-        pygame.display.flip()
+        present_frame()
         relogio.tick(FPS)
 
 def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria, fase_atual):
@@ -547,7 +548,7 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
                                altura_ajustada)
         
         # Desenhar botão com efeito hover
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
         hover = rect_menu.collidepoint(mouse_pos)
         
         # Botão com gradiente vermelho
@@ -565,11 +566,11 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
                     fade_surf = pygame.Surface((LARGURA, ALTURA), pygame.SRCALPHA)
                     fade_surf.fill((0, 0, 0, i * 12))
                     tela.blit(fade_surf, (0, 0))
-                    pygame.display.flip()
+                    present_frame()
                     pygame.time.delay(30)
                 return True
         
-        pygame.display.flip()
+        present_frame()
         relogio.tick(FPS)
 
 def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
@@ -834,7 +835,7 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
                                altura_ajustada_menu)
         
         # Desenhar os botões com gradientes verdes
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
         
         hover_proximo = rect_proximo.collidepoint(mouse_pos)
         cor_base_proximo = (40, 150, 40) if not hover_proximo else (60, 200, 60)
@@ -856,7 +857,7 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
                 # Efeito de transição dourada
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
-                    pygame.display.flip()
+                    present_frame()
                     pygame.time.delay(20)
                 return "proximo"
             
@@ -864,9 +865,9 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
                 # Efeito de fade out azul
                 for i in range(30):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
-                    pygame.display.flip()
+                    present_frame()
                     pygame.time.delay(20)
                 return "menu"
         
-        pygame.display.flip()
+        present_frame()
         relogio.tick(FPS)

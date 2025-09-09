@@ -2,166 +2,278 @@
 # -*- coding: utf-8 -*-
 
 """
-Módulo principal do jogo, gerencia o loop de jogo e a progressão das fases.
-Atualizado para incluir o sistema de inventário completo.
+Módulo principal do jogo SquareStorm.
+Versão atualizada com suporte a tela cheia e escalonamento.
 """
 
 import pygame
 import sys
 from src.config import *
+from src.utils.visual import criar_gradiente, criar_estrelas
 from src.ui.menu import tela_inicio, tela_game_over, tela_vitoria_fase
-from src.game.fase import jogar_fase
-from src.utils.visual import criar_gradiente
 from src.ui.loja import tela_loja
-from src.game.inventario import tela_inventario  # CORRIGIDO: importação do local correto
+from src.game.fase import jogar_fase
 from src.ui.selecao_fase import tela_selecao_fase
 from src.utils.progress import ProgressManager
-import os
-import json
+from src.game.inventario import tela_inventario
 
-def main_game():
+# NOVO: Importações para o sistema de tela cheia
+from src.utils.display_manager import (
+    present_frame, 
+    toggle_fullscreen,
+    convert_mouse_position,
+    get_display_manager
+)
+
+def main_game(game_surface=None):
     """
-    Função principal de controle do jogo.
-    Gerencia o loop de jogo, menus, loja, inventário e progressão de fases.
-    Ajustada para incluir o sistema completo de inventário.
-    """
+    Função principal do jogo com suporte a tela cheia.
     
-    os.environ['SDL_VIDEO_CENTERED'] = '1'
-    tela = pygame.display.set_mode((LARGURA, ALTURA))
-
-    pygame.display.set_caption(TITULO)
+    Args:
+        game_surface: Superfície onde desenhar o jogo (fornecida pelo display manager)
+    """
+    print("🎮 Iniciando main_game...")
+    
+    # Se não foi fornecida uma superfície, criar uma padrão (compatibilidade)
+    if game_surface is None:
+        print("⚠️ Usando modo compatibilidade - criando superfície padrão")
+        tela = pygame.display.set_mode((LARGURA, ALTURA))
+        pygame.display.set_caption(TITULO)
+    else:
+        print("✅ Usando superfície do display manager")
+        tela = game_surface
+    
+    # Inicializar o relógio
     relogio = pygame.time.Clock()
-
-    # Adicionar um ícone para a janela
-    icon_surf = pygame.Surface((32, 32))
-    icon_surf.fill(PRETO)
-    pygame.draw.rect(icon_surf, AZUL, (5, 5, 22, 22))
-    pygame.display.set_icon(icon_surf)
-
-    # Carregar ou criar fontes
-    try:
-        fonte_titulo = pygame.font.Font(None, 60)  # None usa a fonte padrão
-        fonte_normal = pygame.font.Font(None, 36)
-        fonte_pequena = pygame.font.Font(None, 24)
-    except:
-        fonte_titulo = pygame.font.SysFont("Arial", 60, True)
-        fonte_normal = pygame.font.SysFont("Arial", 36, True)
-        fonte_pequena = pygame.font.SysFont("Arial", 24)
-
-    # Criar gradientes para diferentes telas
-    try:
-        gradiente_jogo = criar_gradiente((0, 0, 30), (0, 0, 60))
-        gradiente_menu = criar_gradiente((30, 0, 60), (10, 0, 30))
-        gradiente_vitoria = criar_gradiente((0, 50, 0), (0, 20, 40))
-        gradiente_derrota = criar_gradiente((50, 0, 0), (20, 0, 40))
-        gradiente_loja = criar_gradiente(ROXO_CLARO, ROXO_ESCURO)
-        gradiente_inventario = criar_gradiente((50, 20, 100), (20, 10, 60))  # Novo gradiente para inventário
-        gradiente_selecao = criar_gradiente((20, 20, 50), (10, 10, 30))  # Gradiente para seleção de fase
-    except Exception as e:
-        return
-
-    # Adicionar ProgressManager
-    try:
-        progress_manager = ProgressManager()
-    except Exception as e:
-        return
     
-    # Carregar upgrades se existirem
+    # Criar gradientes para diferentes telas
+    print("🎨 Criando gradientes...")
+    gradiente_menu = criar_gradiente((20, 0, 40), (0, 20, 60))
+    gradiente_jogo = criar_gradiente((10, 0, 30), (0, 10, 40))
+    gradiente_loja = criar_gradiente((30, 10, 0), (60, 30, 0))
+    gradiente_vitoria = criar_gradiente((0, 30, 0), (0, 60, 20))
+    gradiente_derrota = criar_gradiente((30, 0, 0), (60, 20, 0))
+    gradiente_selecao = criar_gradiente((15, 0, 25), (30, 10, 50))
+    
+    # Criar fontes
+    print("📝 Criando fontes...")
     try:
-        if os.path.exists("data/upgrades.json"):
-            with open("data/upgrades.json", "r") as f:
-                upgrades = json.load(f)
-                # Get value but don't reset it in the save file yet
-                shotgun_ammo = upgrades.get("espingarda", 0)
-                machinegun_ammo = upgrades.get("metralhadora", 0)
+        fonte_titulo = pygame.font.SysFont("Arial", 72, True)
+        fonte_normal = pygame.font.SysFont("Arial", 24)
     except Exception as e:
-        print(f"⚠️ Aviso ao carregar upgrades: {e}")
+        print(f"⚠️ Erro ao criar fontes: {e}")
+        fonte_titulo = pygame.font.Font(None, 72)
+        fonte_normal = pygame.font.Font(None, 24)
+    
+    # Inicializar gerenciador de progresso
+    progress_manager = ProgressManager()
+    
+    # Variáveis de estado do jogo
+    estado_atual = "menu"  # menu, jogar, loja, inventario, selecao_fase, game_over
+    fase_atual = 1
+    
+    print("🚀 Entrando no loop principal...")
     
     # Loop principal do jogo
     while True:
         try:
-            # Mostrar tela de início
-            opcao_menu = tela_inicio(tela, relogio, gradiente_menu, fonte_titulo)
-            
-            # Variável para armazenar fase selecionada
-            fase_atual = None
-            
-            if opcao_menu == "loja":
-                # O jogador escolheu ir para a loja
-                tela_loja(tela, relogio, gradiente_loja)
-                continue  # Volta para o menu principal
-            elif opcao_menu == "inventario":
-                # O jogador escolheu ir para o inventário
-                tela_inventario(tela, relogio, gradiente_inventario, fonte_titulo, fonte_normal)
-                continue  # Volta para o menu principal
-            elif opcao_menu == "selecao_fase":
-                # O jogador escolheu selecionar fase
-                fase_selecionada = tela_selecao_fase(tela, relogio, gradiente_selecao, fonte_titulo, fonte_normal)
-                if fase_selecionada is not None:
-                    fase_atual = fase_selecionada
-                    # Continuar para jogar a fase selecionada
-                    opcao_menu = "jogar"
-                else:
-                    continue  # Volta para o menu principal
-            
-            if opcao_menu == False:  # Sair do jogo
-                return
-            
-            # Se não foi para a loja, inventário nem saiu, então o jogador quer jogar
-            
-            # Variáveis de fase
-            if fase_atual is None:  # Se não selecionou uma fase específica
-                fase_atual = progress_manager.obter_fase_maxima()
-            else:
-                print(f" Fase selecionada pelo jogador: {fase_atual}")  # Debug
-            
-            # Loop de fases
-            while fase_atual <= MAX_FASES:
+            if estado_atual == "menu":
+                print("📋 Exibindo menu principal...")
+                resultado = tela_inicio(tela, relogio, gradiente_menu, fonte_titulo)
                 
-                # Jogar a fase atual
+                if resultado == "jogar":
+                    estado_atual = "jogar"
+                    fase_atual = 1  # Sempre começar da fase 1 quando escolher "jogar"
+                elif resultado == "loja":
+                    estado_atual = "loja"
+                elif resultado == "inventario":
+                    estado_atual = "inventario"
+                elif resultado == "selecao_fase":
+                    estado_atual = "selecao_fase"
+                elif resultado == False:
+                    print("👋 Saindo do jogo...")
+                    break
+                
+            elif estado_atual == "jogar":
+                print(f"🎯 Iniciando fase {fase_atual}...")
                 resultado = jogar_fase(tela, relogio, fase_atual, gradiente_jogo, fonte_titulo, fonte_normal)
-
-                # Adicionar esta verificação para retorno ao menu
-                if resultado == "menu":
-                    # Voltar diretamente para o menu quando pausado
-                    break  # Sai do loop de fases e volta para o menu principal
                 
-                if not resultado:
-                    # Se o jogador perdeu
-                    opcao = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, False, fase_atual)
-                    if opcao:  # True = jogar de novo
-                        break  # Sai do loop de fases para reiniciar do menu
-                    else:
-                        return  # False = sair do jogo
-                
-                # Jogador completou a fase
-                if fase_atual < MAX_FASES:
+                if resultado == True:
+                    # Fase completada com sucesso
+                    print(f"✅ Fase {fase_atual} completada!")
+                    
                     # Atualizar progresso
                     progress_manager.atualizar_progresso(fase_atual + 1)
                     
-                    # Se não for a última fase, mostra tela de vitória intermediária
-                    opcao = tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual)
+                    # Verificar se chegou ao final do jogo
+                    if fase_atual >= MAX_FASES:
+                        print("🎉 Jogo completado!")
+                        resultado_vitoria = tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual)
+                        if resultado_vitoria == "menu":
+                            estado_atual = "menu"
+                        else:
+                            estado_atual = "menu"  # Voltar ao menu de qualquer forma
+                    else:
+                        # Mostrar tela de vitória da fase
+                        resultado_vitoria = tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual)
+                        
+                        if resultado_vitoria == "proximo":
+                            fase_atual += 1  # Avançar para a próxima fase
+                            # Continuar no estado "jogar"
+                        elif resultado_vitoria == "menu":
+                            estado_atual = "menu"
+                        else:
+                            break  # Sair do jogo
+                
+                elif resultado == False:
+                    # Jogador perdeu
+                    print(f"💀 Jogador derrotado na fase {fase_atual}")
+                    resultado_derrota = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, False, fase_atual)
                     
-                    if opcao == "proximo":
-                        # Avançar para próxima fase
-                        fase_atual += 1
-                    elif opcao == "menu":
-                        # Voltar ao menu principal
-                        break
-                    else:  # "sair"
-                        # Sair do jogo
-                        return
+                    if resultado_derrota:
+                        estado_atual = "menu"
+                    else:
+                        break  # Sair do jogo
+                
+                elif resultado == "menu":
+                    # Voltar ao menu (pausado)
+                    estado_atual = "menu"
+                
+            elif estado_atual == "loja":
+                print("🏪 Exibindo loja...")
+                resultado = tela_loja(tela, relogio, gradiente_loja)
+                
+                if resultado == "menu":
+                    estado_atual = "menu"
+                
+            elif estado_atual == "inventario":
+                print("🎒 Exibindo inventário...")
+                resultado = tela_inventario(tela, relogio, gradiente_loja, fonte_titulo, fonte_normal)
+                    
+                if resultado == "menu":
+                    estado_atual = "menu"
+                
+            elif estado_atual == "selecao_fase":
+                print("🎯 Exibindo seleção de fase...")
+                fase_selecionada = tela_selecao_fase(tela, relogio, gradiente_selecao, fonte_titulo, fonte_normal)
+                
+                if fase_selecionada is not None:
+                    # Verificar se a fase está desbloqueada
+                    if progress_manager.pode_jogar_fase(fase_selecionada):
+                        fase_atual = fase_selecionada
+                        estado_atual = "jogar"
+                    else:
+                        print(f"🔒 Fase {fase_selecionada} ainda não foi desbloqueada!")
+                        estado_atual = "menu"  # Voltar ao menu
                 else:
-                    # Atualizar progresso para indicar que completou todas as fases
-                    progress_manager.atualizar_progresso(MAX_FASES)
-                    
-                    # Jogador completou a última fase
-                    opcao = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, True, MAX_FASES)
-                    if not opcao:  # False = sair do jogo
-                        return
-                    break  # Sai do loop de fases para reiniciar do menu
-                    
+                    estado_atual = "menu"  # Cancelou a seleção
+                
+            elif estado_atual == "game_over":
+                print("💀 Exibindo tela de game over...")
+                resultado = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, False, fase_atual)
+                
+                if resultado:
+                    estado_atual = "menu"
+                else:
+                    break  # Sair do jogo
+            
+            else:
+                print(f"⚠️ Estado desconhecido: {estado_atual}")
+                estado_atual = "menu"  # Voltar ao menu por segurança
+                
+        except KeyboardInterrupt:
+            print("\n👋 Interrompido pelo usuário...")
+            break
         except Exception as e:
+            print(f"❌ Erro no loop principal: {e}")
             import traceback
             traceback.print_exc()
-            return
+            # Tentar continuar voltando ao menu
+            estado_atual = "menu"
+    
+    print("🔚 main_game finalizado")
+
+
+# Função auxiliar para debugging
+def debug_display_info():
+    """Exibe informações sobre o display atual."""
+    manager = get_display_manager()
+    print(f"🖥️ Informações do Display:")
+    print(f"   Modo: {'Tela Cheia' if manager.is_fullscreen() else 'Janela'}")
+    print(f"   Resolução da tela: {manager.screen_width}x{manager.screen_height}")
+    print(f"   Resolução do jogo: {manager.BASE_WIDTH}x{manager.BASE_HEIGHT}")
+    print(f"   Escala: {manager.scale_x:.2f}x{manager.scale_y:.2f}")
+    print(f"   Offset: {manager.offset_x}, {manager.offset_y}")
+
+
+# Função para tratar eventos globais de tela cheia
+def handle_fullscreen_events(evento):
+    """
+    Trata eventos relacionados à tela cheia.
+    Deve ser chamada em todos os loops de eventos.
+    
+    Args:
+        evento: Evento do pygame
+        
+    Returns:
+        True se o evento foi tratado, False caso contrário
+    """
+    if evento.type == pygame.KEYDOWN:
+        if evento.key == pygame.K_F11:
+            toggle_fullscreen()
+            debug_display_info()  # Mostrar info após alternar
+            return True
+        elif evento.key == pygame.K_ESCAPE and get_display_manager().is_fullscreen():
+            toggle_fullscreen()
+            debug_display_info()  # Mostrar info após alternar
+            return True
+    
+    return False
+
+
+# Função para obter posição do mouse de forma segura
+def get_game_mouse_pos():
+    """
+    Obtém a posição do mouse convertida para coordenadas do jogo.
+    
+    Returns:
+        Tupla (x, y) com coordenadas do mouse no espaço do jogo
+    """
+    return convert_mouse_position(pygame.mouse.get_pos())
+
+
+# Função para verificar se um ponto está dentro da área do jogo
+def is_point_in_game_area(x, y):
+    """
+    Verifica se um ponto está dentro da área jogável.
+    
+    Args:
+        x, y: Coordenadas a verificar
+        
+    Returns:
+        True se o ponto está na área do jogo
+    """
+    return 0 <= x <= LARGURA and 0 <= y <= ALTURA
+
+
+# Função para debug de mouse
+def debug_mouse_position():
+    """Exibe informações sobre a posição do mouse (para debug)."""
+    raw_pos = pygame.mouse.get_pos()
+    game_pos = get_game_mouse_pos()
+    print(f"🖱️ Mouse - Tela: {raw_pos}, Jogo: {game_pos}")
+
+
+if __name__ == "__main__":
+    # Se executar diretamente este arquivo (para testes)
+    print("⚠️ Executando jogo.py diretamente - use main.py para execução normal")
+    
+    # Inicializar pygame básico
+    pygame.init()
+    pygame.display.set_caption("SquareStorm - Modo Debug")
+    
+    # Criar superfície básica
+    tela_debug = pygame.display.set_mode((LARGURA, ALTURA))
+    
+    # Executar jogo em modo debug
+    main_game(tela_debug)

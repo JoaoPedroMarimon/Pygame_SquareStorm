@@ -16,7 +16,7 @@ import json
 from src.items.granada import carregar_upgrade_granada,desenhar_granada_selecionada
 from src.weapons.espingarda import carregar_upgrade_espingarda,desenhar_espingarda
 from src.weapons.metralhadora import carregar_upgrade_metralhadora, desenhar_metralhadora
-
+from src.utils.display_manager import convert_mouse_position
 
 class Quadrado:
     """
@@ -336,7 +336,7 @@ class Quadrado:
         
         # DELEGAÇÃO: Desenhar espingarda se for o jogador (cor AZUL) e tiver a espingarda ativa
         if self.cor == AZUL:  # Se for o jogador
-            pos_mouse = pygame.mouse.get_pos()
+            pos_mouse = convert_mouse_position(pygame.mouse.get_pos())
             
             # Desenhar apenas a arma atualmente ativa
             if hasattr(self, 'espingarda_ativa') and self.espingarda_ativa and self.tiros_espingarda > 0:
