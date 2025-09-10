@@ -123,8 +123,8 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
                               botao1_largura, botao1_altura)
     
     pode_comprar1 = moeda_manager.obter_quantidade() >= custo_espingarda
-    cor_botao1 = (180, 100, 50) if pode_comprar1 else (100, 50, 50)
-    cor_hover1 = (220, 140, 60) if pode_comprar1 else (130, 60, 60)
+    cor_botao1 = (180, 100, 50) 
+    cor_hover1 = (220, 140, 60) 
     hover_compra1 = rect_compra1.collidepoint(mouse_pos)
     
     pygame.draw.rect(tela, cor_hover1 if hover_compra1 else cor_botao1, rect_compra1, 0, 6)
@@ -238,8 +238,8 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
                               botao2_largura, botao2_altura)
     
     pode_comprar2 = moeda_manager.obter_quantidade() >= custo_metralhadora
-    cor_botao2 = (180, 120, 30) if pode_comprar2 else (100, 60, 20)
-    cor_hover2 = (220, 150, 50) if pode_comprar2 else (130, 80, 30)
+    cor_botao2 = (180, 120, 30)
+    cor_hover2 = (220, 150, 50)
     hover_compra2 = rect_compra2.collidepoint(mouse_pos)
     
     pygame.draw.rect(tela, cor_hover2 if hover_compra2 else cor_botao2, rect_compra2, 0, 6)

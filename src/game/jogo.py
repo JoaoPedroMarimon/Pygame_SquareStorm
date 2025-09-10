@@ -4,6 +4,7 @@
 """
 Módulo principal do jogo SquareStorm.
 Versão atualizada com suporte a tela cheia e escalonamento.
+Modificado para continuar da última fase alcançada.
 """
 
 import pygame
@@ -28,6 +29,7 @@ from src.utils.display_manager import (
 def main_game(game_surface=None):
     """
     Função principal do jogo com suporte a tela cheia.
+    Modificada para suportar continuar da última fase alcançada.
     
     Args:
         game_surface: Superfície onde desenhar o jogo (fornecida pelo display manager)
@@ -81,9 +83,15 @@ def main_game(game_surface=None):
                 print("📋 Exibindo menu principal...")
                 resultado = tela_inicio(tela, relogio, gradiente_menu, fonte_titulo)
                 
-                if resultado == "jogar":
+                # MODIFICADO: Tratar o novo formato de retorno
+                if isinstance(resultado, tuple) and resultado[0] == "jogar":
                     estado_atual = "jogar"
-                    fase_atual = 1  # Sempre começar da fase 1 quando escolher "jogar"
+                    fase_atual = resultado[1]  # Usar a fase retornada pelo menu
+                    print(f"🎯 Iniciando na fase {fase_atual}...")
+                elif resultado == "jogar":
+                    # Compatibilidade com retorno antigo (caso não seja tupla)
+                    estado_atual = "jogar"
+                    fase_atual = 1
                 elif resultado == "loja":
                     estado_atual = "loja"
                 elif resultado == "inventario":
@@ -162,6 +170,7 @@ def main_game(game_surface=None):
                     if progress_manager.pode_jogar_fase(fase_selecionada):
                         fase_atual = fase_selecionada
                         estado_atual = "jogar"
+                        print(f"🎯 Fase {fase_selecionada} selecionada pelo jogador...")
                     else:
                         print(f"🔒 Fase {fase_selecionada} ainda não foi desbloqueada!")
                         estado_atual = "menu"  # Voltar ao menu

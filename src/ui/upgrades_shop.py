@@ -103,8 +103,8 @@ def desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_p
     pode_comprar = moeda_manager.obter_quantidade() >= custo_vida
     
     # Desenhar botão de compra
-    cor_botao = (50, 120, 80) if pode_comprar else (50, 70, 50)
-    cor_hover = (70, 180, 100) if pode_comprar else (60, 80, 60)
+    cor_botao = (50, 120, 80)
+    cor_hover = (70, 180, 100) 
     hover_compra = rect_compra.collidepoint(mouse_pos)
     
     pygame.draw.rect(tela, cor_hover if hover_compra else cor_botao, rect_compra, 0, 8)

@@ -470,16 +470,13 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
                                       botao_y_real - botao_altura//2,
                                       botao_largura, botao_altura)
         
-        # Verificar hover (apenas se o botão estiver visível)
+        # Verificar hover (sem condição de moedas suficientes)
         hover_compra = (rect_compra_real.collidepoint(mouse_pos) and 
-                       area_scroll_y <= botao_y_real <= area_scroll_y + area_scroll_altura and
-                       pode_comprar)
+                       area_scroll_y <= botao_y_real <= area_scroll_y + area_scroll_altura)
         
         # Cores do botão baseadas na capacidade de compra
-        cor_botao = item["cor_botao"] if pode_comprar else \
-                   (item["cor_botao"][0]//2, item["cor_botao"][1]//2, item["cor_botao"][2]//2)
-        cor_hover = item["cor_hover"] if pode_comprar else \
-                   (item["cor_hover"][0]//2, item["cor_hover"][1]//2, item["cor_hover"][2]//2)
+        cor_botao = (item["cor_botao"][0]//2, item["cor_botao"][1]//2, item["cor_botao"][2]//2)
+        cor_hover = (item["cor_hover"][0]//2, item["cor_hover"][1]//2, item["cor_hover"][2]//2)
         
         # Desenhar botão de compra na superfície de conteúdo
         pygame.draw.rect(conteudo_surf, cor_hover if hover_compra else cor_botao, 
@@ -487,7 +484,7 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
         pygame.draw.rect(conteudo_surf, item["cor_borda"], rect_compra_relativo, 2, 8)
         
         # Ícone de moeda e custo (maior)
-        moeda_mini_x = botao_x_relativo - 35
+        moeda_mini_x = botao_x_relativo - 35    
         moeda_mini_y = botao_y_relativo
         pygame.draw.circle(conteudo_surf, AMARELO, (moeda_mini_x, moeda_mini_y), 8)
         
@@ -495,7 +492,7 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
         desenhar_texto(conteudo_surf, f"{item['custo']}", 20, BRANCO, 
                       botao_x_relativo + 15, botao_y_relativo)
         
-        # Verificar clique no botão de compra
+        # Verificar clique no botão de compra (sem condição de moedas na verificação)
         if clique_ocorreu and hover_compra:
             if pode_comprar:
                 # Compra bem-sucedida

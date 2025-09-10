@@ -3,7 +3,7 @@
 
 """
 Funções para gerenciar as telas de menu, início de jogo e fim de jogo.
-Versão corrigida com tela de game over simplificada.
+Versão corrigida para continuar da última fase alcançada.
 """
 from src.game.moeda_manager import MoedaManager
 import random
@@ -28,6 +28,10 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     
     # Mostrar cursor
     pygame.mouse.set_visible(True)
+    
+    # NOVO: Inicializar ProgressManager para obter a fase atual
+    progress_manager = ProgressManager()
+    fase_maxima = progress_manager.obter_fase_maxima()
     
     # Criar efeitos visuais
     try:
@@ -71,7 +75,8 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                     sys.exit()
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_RETURN:
-                        return "jogar"
+                        # MODIFICADO: Retornar a fase máxima em vez de sempre "jogar"
+                        return ("jogar", fase_maxima)
                     if evento.key == pygame.K_l:
                         return "loja"
                     if evento.key == pygame.K_i:  # NOVO - tecla I para inventário
@@ -334,7 +339,8 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                     tela.fill((0, 0, 0, 10), special_flags=pygame.BLEND_RGBA_MULT)
                     present_frame()
                     pygame.time.delay(20)
-                return "jogar"
+                # MODIFICADO: Retornar tupla com a ação e a fase
+                return ("jogar", fase_maxima)
             
             if rect_loja.collidepoint(mouse_pos):
                 # Efeito de transição
