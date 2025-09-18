@@ -388,42 +388,8 @@ class ChuckyInvocation:
                         tela.blit(onda_surface, rect_onda)
             
             # Raios de energia emergindo do centro
-            num_raios = int(progresso * 12)
-            for i in range(num_raios):
-                angulo = (i * 360 / 12) + (tempo * 0.1)
-                rad = math.radians(angulo)
-                
-                # Raio principal
-                inicio_x = self.centro_x + 20 * math.cos(rad)
-                inicio_y = self.centro_y + 20 * math.sin(rad)
-                fim_x = self.centro_x + (progresso * 150 + 50) * math.cos(rad)
-                fim_y = self.centro_y + (progresso * 150 + 50) * math.sin(rad)
-                
-                # Efeito de raio com múltiplas camadas
-                for espessura in range(8, 0, -2):
-                    cor_raio = (min(255, 100 + espessura * 15), espessura * 5, 0)
-                    pygame.draw.line(tela, cor_raio, (inicio_x, inicio_y), (fim_x, fim_y), espessura)
             
             # Partículas de fogo dançando ao redor
-            num_particulas = int(progresso * 30)
-            for i in range(num_particulas):
-                angulo_particula = (i * 360 / 30) + (tempo * 0.05)
-                distancia_base = progresso * 80 + 60
-                
-                # Movimento ondulatório das partículas
-                onda_particula = math.sin(tempo * 0.01 + i * 0.5) * 20
-                distancia = distancia_base + onda_particula
-                
-                part_x = self.centro_x + distancia * math.cos(math.radians(angulo_particula))
-                part_y = self.centro_y + distancia * math.sin(math.radians(angulo_particula))
-                
-                # Partícula com efeito de chama
-                tamanho_particula = random.randint(3, 8)
-                cores_particula = [(255, 100, 0), (255, 50, 0), (200, 20, 0)]
-                
-                for j, cor in enumerate(cores_particula):
-                    if tamanho_particula - j > 0:
-                        pygame.draw.circle(tela, cor, (int(part_x), int(part_y)), tamanho_particula - j)
             
             # Texto místico aparecendo gradualmente
             if progresso > 0.3:
@@ -494,11 +460,6 @@ class ChuckyInvocation:
             alpha_pentagrama = min(255, alpha_base + tremulacao)
         
         # Durante a fase do Chucky, criar efeito sinistro mais sutil
-        if self.fase_chucky:
-            alpha_pentagrama = min(self.alpha_pentagrama + 20, 180)
-            # Efeito de "respiração" mais suave
-            respiracao = math.sin(tempo * 0.008) * 15
-            alpha_pentagrama = max(80, alpha_pentagrama + respiracao)
         
         # Criar superfície maior para comportar o pentagrama aumentado
         tamanho_surface = raio_atual * 2 + 200  # Maior para comportar efeitos
@@ -508,20 +469,7 @@ class ChuckyInvocation:
         centro_surface = tamanho_surface // 2
         
         # Aura mais intensa durante crescimento
-        num_auras = 12 if crescendo else 8
-        for i in range(num_auras, 0, -1):
-            aura_alpha = max(10, alpha_pentagrama // (i * 2))
-            if crescendo:
-                # Aura pulsante durante crescimento
-                pulso_aura = math.sin(tempo * 0.03 + i * 0.5) * 5
-                raio_aura = raio_atual + i * 8 + pulso_aura
-            else:
-                raio_aura = raio_atual + i * 8
-                
-            aura_surface = pygame.Surface((tamanho_surface, tamanho_surface), pygame.SRCALPHA)
-            pygame.draw.circle(aura_surface, (80, 0, 0), (centro_surface, centro_surface), int(raio_aura), 2)
-            aura_surface.set_alpha(int(aura_alpha))
-            pentagrama_surface.blit(aura_surface, (0, 0))
+ 
         
         desenhar_pentagrama(pentagrama_surface, 
                         centro_surface, 
@@ -533,37 +481,6 @@ class ChuckyInvocation:
                         progresso if crescendo else 1.0)
         
         # NOVO: Efeito de chamas espectrais nas bordas (mais intenso durante crescimento)
-        num_chamas = 36 if crescendo else 24
-        for angulo in range(0, 360, 360 // num_chamas):
-            rad = math.radians(angulo)
-            chama_x = centro_surface + (raio_atual + 15) * math.cos(rad)
-            chama_y = centro_surface + (raio_atual + 15) * math.sin(rad)
-            
-            # Chamas que dançam
-            if crescendo:
-                danca_chama = math.sin(tempo * 0.02 + angulo * 0.1) * 12
-                intensidade_chama = progresso
-            else:
-                danca_chama = math.sin(tempo * 0.01 + angulo * 0.1) * 8
-                intensidade_chama = 0.7
-                
-            chama_y += danca_chama
-            
-            altura_chama = int(random.randint(12, 25) * intensidade_chama)
-            largura_chama = int(random.randint(4, 12) * intensidade_chama)
-            
-            if altura_chama > 0 and largura_chama > 0:
-                chama_surface = pygame.Surface((largura_chama * 2, altura_chama * 2), pygame.SRCALPHA)
-                cores_chama = [(255, 120, 0), (255, 80, 0), (220, 40, 0), (180, 20, 0)]
-                
-                for j, cor_chama in enumerate(cores_chama):
-                    if altura_chama - j * 3 > 0 and largura_chama - j > 0:
-                        pygame.draw.ellipse(chama_surface, cor_chama, 
-                                        (j, j * 2, largura_chama - j, altura_chama - j * 2))
-                
-                alpha_chama = int((alpha_pentagrama // 2) * intensidade_chama)
-                chama_surface.set_alpha(alpha_chama)
-                pentagrama_surface.blit(chama_surface, (chama_x - largura_chama, chama_y - altura_chama))
         
         # Aplicar transparência com efeito pulsante
         pentagrama_surface.set_alpha(int(alpha_pentagrama))
