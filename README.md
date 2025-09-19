@@ -2,7 +2,7 @@
 
 A fast-paced 2D geometry-based shooter game where you battle waves of enemy squares in an epic arena. Built with Python and Pygame.
 
-![Game Version](https://img.shields.io/badge/version-1.5.0-blue.svg)
+![Game Version](https://img.shields.io/badge/version-1.5.5-blue.svg)
 ![Python Version](https://img.shields.io/badge/python-3.8+-green.svg)
 
 ## 🎮 About The Game
@@ -23,6 +23,8 @@ SquareStorm is an action-packed arcade shooter where you control a blue square f
 - **Mouse Left Click** - Shoot in the direction of the mouse cursor
 - **P** - Pause/Resume game
 - **ESC** - Exit to menu
+- **Q** - Use items
+- **R** - Use weapons
 
 ## 🚀 Installation
 

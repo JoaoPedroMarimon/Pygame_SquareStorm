@@ -288,19 +288,18 @@ def tela_loja(tela, relogio, gradiente_loja):
         pygame.draw.rect(tela, (20, 20, 50, 150), area_conteudo, 0, 10)
         pygame.draw.rect(tela, (70, 70, 130), area_conteudo, 2, 10)
         
-        # Desenhar itens baseados na aba ativa
         if aba_ativa == 0:  # Armas
-            resultado = desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, 
-                                          mouse_pos, clique_ocorreu, som_compra, som_erro)
-            if resultado:
-                mensagem, mensagem_cor = resultado
+            mensagem, mensagem_cor, _ = desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, 
+                                                mouse_pos, clique_ocorreu, som_compra, som_erro)
+            if mensagem:
                 mensagem_tempo = 0
+
         elif aba_ativa == 1:  # Upgrades
-            resultado = desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, 
-                                          mouse_pos, clique_ocorreu, som_compra, som_erro)
-            if resultado:
-                mensagem, mensagem_cor = resultado
+            mensagem, mensagem_cor, _ = desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, 
+                                                mouse_pos, clique_ocorreu, som_compra, som_erro)
+            if mensagem:
                 mensagem_tempo = 0
+
         else:  # Items (aba 2)
             resultado = desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, 
                                           mouse_pos, clique_ocorreu, som_compra, som_erro, scroll_items)
@@ -328,7 +327,7 @@ def tela_loja(tela, relogio, gradiente_loja):
         pygame.draw.rect(tela, BRANCO, rect_voltar, 2, 10)
         
         # Texto do botão voltar
-        texto_voltar = pygame.font.SysFont("Arial", 26).render("BACK TO MENU (ESC)", True, BRANCO)
+        texto_voltar = pygame.font.SysFont("Arial", 26).render("BACK TO MENU", True, BRANCO)
         texto_rect_voltar = texto_voltar.get_rect(center=(botao_voltar_x, botao_voltar_y))
         tela.blit(texto_voltar, texto_rect_voltar)
         

@@ -114,8 +114,26 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     fonte_pequena = pygame.font.SysFont("Arial", 18)  # Fonte pequena para o HUD
     
     # Criar inimigos
-    inimigos = NivelFactory.criar_fase(numero_fase)    
+    inimigos = NivelFactory.criar_fase(numero_fase)
+
+    # --- Defensive checks: garantir que 'inimigos' seja um iterável/lista válida ---
+    if inimigos is None:
+        print(f"[ERROR] NivelFactory.criar_fase({numero_fase}) retornou None. Abortando fase e voltando ao menu.")
+        limpar_invocacoes()  # limpa invocações pendentes, como você já usa em outros retornos
+        return "menu"
+
+    # Se a fábrica retornou um iterável que não é lista (ex.: generator), converte para lista
+    if not isinstance(inimigos, (list, tuple)):
+        try:
+            inimigos = list(inimigos)
+        except Exception:
+            print(f"[ERROR] NivelFactory.criar_fase({numero_fase}) retornou um tipo inválido: {type(inimigos)}. Voltando ao menu.")
+            limpar_invocacoes()
+            return "menu"
+    # ------------------------------------------------------------------------------
+
     moeda_manager = MoedaManager()
+
 
     # Listas para tiros, granadas e partículas
     tiros_jogador = []

@@ -306,7 +306,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                                 altura_ajustada_selecao)
                 
         # Desenhar botões com novo estilo
-        botao_jogar = criar_botao(tela, "PLAY GAME", x_jogar, y_jogar, largura_botao, altura_botao, 
+        botao_jogar = criar_botao(tela, "PLAY", x_jogar, y_jogar, largura_botao, altura_botao, 
                                  (0, 100, 200), (0, 150, 255), BRANCO)
         
         botao_loja = criar_botao(tela, "SHOP", x_loja, y_loja, largura_botao, altura_botao, 

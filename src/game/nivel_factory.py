@@ -37,9 +37,7 @@ class NivelFactory:
         
         if metodo_fase:
             return metodo_fase()
-        else:
-            # Fase genérica: número da fase = número de inimigos
-            return NivelFactory.criar_fase_generica(numero_fase)
+
     
     @staticmethod
     def criar_fase_1():
