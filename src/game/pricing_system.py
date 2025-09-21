@@ -35,6 +35,13 @@ class PricingManager:
                 "multiplicador": 1.4, # Preço aumenta 40% a cada compra
                 "quantidade_por_compra": 50
             },
+            "sabre_luz": {
+                "preco_base": 50,
+                "compras_realizadas": 0,
+                "limite_maximo": 1,   # Máximo 5 compras (arma épica)
+                "multiplicador": 1.8, # Preço aumenta 80% a cada compra
+                "quantidade_por_compra": 20
+            },
             
             # UPGRADES SHOP
             "vida": {
@@ -235,7 +242,7 @@ if __name__ == "__main__":
     print(f"Estatísticas: {pricing.obter_estatisticas()}")
     
     # Testar alguns itens
-    for item in ["espingarda", "granada", "ampulheta"]:
+    for item in ["espingarda", "granada", "ampulheta", "sabre_luz"]:
         info = pricing.obter_info_item(item)
         print(f"\n{item.upper()}:")
         print(f"  Preço atual: {info['preco_atual']} moedas")

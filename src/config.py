@@ -50,6 +50,17 @@ MOEDA_INTERVALO_MAX = 3000  # Tempo máximo entre geração de moedas (ms)
 MOEDA_DURACAO_MIN = 5000    # Tempo mínimo que uma moeda fica na tela (ms)
 MOEDA_DURACAO_MAX = 30000   # Tempo máximo que uma moeda fica na tela (ms)
 
+
+# Adicione estas linhas ao final do arquivo src/config.py
+
+# Configurações do Sabre de Luz
+SABRE_COMPRIMENTO_MAX = 60
+SABRE_VELOCIDADE_ATIVACAO = 5
+SABRE_COR_AZUL = (150, 150, 255)
+SABRE_COR_VERDE = (100, 255, 100)  # Cor para modo defesa
+SABRE_COR_CABO = (150, 150, 150)
+SABRE_RAIO_DEFLEXAO = 8
+
 # Cores para a loja
 ROXO_CLARO = (100, 50, 150)
 ROXO_ESCURO = (40, 0, 80)

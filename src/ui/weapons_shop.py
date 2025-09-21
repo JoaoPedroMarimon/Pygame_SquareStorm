@@ -3,7 +3,7 @@
 
 """
 Módulo para a seção de armas da loja do jogo.
-Com sistema de preços dinâmicos integrado.
+Com sistema de preços dinâmicos integrado e scroll funcional.
 """
 
 import pygame
@@ -139,6 +139,101 @@ def desenhar_icone_metralhadora(tela, x, y, tempo_atual):
     # Brilho no cano
     pygame.draw.line(tela, cor_laranja, (x, y), (ponta_metra_x, ponta_metra_y), 1)
 
+def desenhar_icone_sabre_luz(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone de sabre de luz com efeitos visuais épicos.
+    """
+    # Cores do sabre de luz
+    cor_cabo_metal = (150, 150, 160)
+    cor_cabo_detalhes = (100, 100, 110)
+    cor_ativador = (200, 50, 50)
+    
+    # Cores da lâmina (azul brilhante estilo Jedi)
+    cor_lamina_core = (200, 230, 255)  # Centro da lâmina
+    cor_lamina_edge = (50, 150, 255)   # Borda da lâmina
+    cor_lamina_glow = (100, 200, 255)  # Brilho externo
+    
+    # Animação de pulsação
+    pulso = (math.sin(tempo_atual / 200) + 1) / 2
+    vibração = math.sin(tempo_atual / 50) * 0.5
+    
+    # Cabo do sabre
+    cabo_comprimento = 25
+    cabo_largura = 6
+    cabo_x = x - cabo_comprimento // 2
+    cabo_y = y
+    
+    # Desenhar cabo principal
+    cabo_rect = pygame.Rect(cabo_x, cabo_y - cabo_largura//2, cabo_comprimento, cabo_largura)
+    pygame.draw.rect(tela, cor_cabo_metal, cabo_rect, 0, 3)
+    pygame.draw.rect(tela, cor_cabo_detalhes, cabo_rect, 1, 3)
+    
+    # Detalhes do cabo
+    for i in range(3):
+        detalhe_x = cabo_x + 5 + i * 5
+        pygame.draw.line(tela, cor_cabo_detalhes, 
+                        (detalhe_x, cabo_y - 2), 
+                        (detalhe_x, cabo_y + 2), 1)
+    
+    # Botão ativador
+    ativador_x = cabo_x + cabo_comprimento // 2
+    ativador_y = cabo_y + 4
+    pygame.draw.circle(tela, cor_ativador, (ativador_x, ativador_y), 3)
+    pygame.draw.circle(tela, (255, 100, 100), (ativador_x, ativador_y), 2)
+    
+    # Emissor da lâmina
+    emissor_x = cabo_x + cabo_comprimento
+    emissor_y = cabo_y
+    pygame.draw.circle(tela, (200, 200, 220), (emissor_x, emissor_y), 4)
+    pygame.draw.circle(tela, (100, 100, 120), (emissor_x, emissor_y), 2)
+    
+    # Lâmina de energia
+    lamina_comprimento = 35
+    lamina_end_x = emissor_x + lamina_comprimento
+    lamina_end_y = emissor_y + vibração
+    
+    # Brilho externo da lâmina (múltiplas camadas para efeito de glow)
+    for i in range(5, 0, -1):
+        alpha = int(50 * (1 - i/5) * (0.5 + pulso * 0.5))
+        glow_surf = pygame.Surface((lamina_comprimento + 20, 20), pygame.SRCALPHA)
+        glow_color = tuple(list(cor_lamina_glow) + [alpha])
+        
+        # Desenhar linha de brilho
+        start_pos = (10, 10)
+        end_pos = (lamina_comprimento + 10, 10 + vibração)
+        
+        for j in range(i):
+            pygame.draw.line(glow_surf, glow_color, start_pos, end_pos, i * 2)
+        
+        tela.blit(glow_surf, (emissor_x - 10, emissor_y - 10))
+    
+    # Núcleo da lâmina
+    pygame.draw.line(tela, cor_lamina_edge, 
+                    (emissor_x, emissor_y), 
+                    (lamina_end_x, lamina_end_y), 4)
+    
+    pygame.draw.line(tela, cor_lamina_core, 
+                    (emissor_x, emissor_y), 
+                    (lamina_end_x, lamina_end_y), 2)
+    
+    # Efeito de faíscas na ponta
+    if pulso > 0.7:
+        for i in range(3):
+            spark_x = lamina_end_x + random.uniform(-2, 2)
+            spark_y = lamina_end_y + random.uniform(-2, 2)
+            pygame.draw.circle(tela, cor_lamina_core, (int(spark_x), int(spark_y)), 1)
+    
+    # Partículas de energia ao longo da lâmina
+    for i in range(3):
+        particle_progress = (i + 1) / 4
+        particle_x = emissor_x + int(lamina_comprimento * particle_progress)
+        particle_y = emissor_y + vibração * particle_progress
+        particle_alpha = int(150 * pulso)
+        
+        if particle_alpha > 50:
+            pygame.draw.circle(tela, cor_lamina_glow, 
+                             (int(particle_x), int(particle_y)), 2)
+
 def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos, clique_ocorreu, som_compra, som_erro, scroll_y=0):
     """
     Desenha a seção de armas da loja com sistema de preços dinâmicos e scroll.
@@ -204,8 +299,21 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_texto": (255, 180, 70),
             "cor_resultado": VERDE,
             "icone_func": "metralhadora"
+        },
+        {
+            "key": "sabre_luz",
+            "nome": "LIGHTSABER",
+            "descricao": "",
+            "instrucoes": "Press R to switch weapon type",
+            "info_extra": "Elegant weapon for a more civilized age",
+            "cor_fundo": (30, 30, 60),
+            "cor_borda": (100, 150, 255),
+            "cor_botao": (50, 100, 200),
+            "cor_hover": (80, 150, 255),
+            "cor_texto": (150, 200, 255),
+            "cor_resultado": CIANO,
+            "icone_func": "sabre_luz"
         }
-        
     ]
     
     # Aplicar sistema de pricing às armas
@@ -272,6 +380,8 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             desenhar_icone_espingarda(conteudo_surf, icone_x, icone_y, tempo_atual)
         elif arma["icone_func"] == "metralhadora":
             desenhar_icone_metralhadora(conteudo_surf, icone_x, icone_y, tempo_atual)
+        elif arma["icone_func"] == "sabre_luz":
+            desenhar_icone_sabre_luz(conteudo_surf, icone_x, icone_y, tempo_atual)
         
         # Nome da arma
         cor_texto = arma["cor_texto"] if arma.get("pode_comprar", True) else (100, 100, 100)
@@ -280,9 +390,15 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
         
         # Descrição e status da arma
         if arma["key"] not in upgrades or upgrades[arma["key"]] == 0:
-            status = f"{arma['descricao']} (No ammo)"
+            if arma["key"] == "sabre_luz":
+                status = f"{arma['descricao']} (Not owned)"
+            else:
+                status = f"{arma['descricao']} (No ammo)"
         else:
-            status = f"Ammunition: {upgrades[arma['key']]}"
+            if arma["key"] == "sabre_luz":
+                status = f"Energy cells"
+            else:
+                status = f"Ammunition: {upgrades[arma['key']]}"
         
         desenhar_texto(conteudo_surf, status, 15, BRANCO if arma.get("pode_comprar", True) else (120, 120, 120), 
                       item_rect.x + 170, y_item_relativo + 40)
@@ -378,7 +494,10 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
                 salvar_upgrades(upgrades)
                 pygame.mixer.Channel(4).play(som_compra)
                 
-                nome_resultado = f"{arma['nome']} +{quantidade_compra} ammo purchased!"
+                if arma["key"] == "sabre_luz":
+                    nome_resultado = f"{arma['nome']} +{quantidade_compra} energy cells purchased!"
+                else:
+                    nome_resultado = f"{arma['nome']} +{quantidade_compra} ammo purchased!"
                 resultado = (nome_resultado, arma["cor_resultado"])
             else:
                 # Não tem moedas suficientes
@@ -411,7 +530,7 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
     
     # Adicionar instruções na parte inferior
     instrucoes_y = area_conteudo.y + area_conteudo.height - 30
-    desenhar_texto(tela, "Click buttons to buy ammunition for weapons", 16, (180, 180, 180), 
+    desenhar_texto(tela, "Use mouse wheel to scroll • Click buttons to buy ammunition", 16, (180, 180, 180), 
                   area_conteudo.x + area_conteudo.width//2, instrucoes_y)
     
     return (resultado[0] if resultado else None, 

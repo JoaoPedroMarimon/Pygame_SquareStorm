@@ -17,6 +17,7 @@ from src.items.granada import carregar_upgrade_granada,desenhar_granada_selecion
 from src.weapons.espingarda import carregar_upgrade_espingarda,desenhar_espingarda
 from src.weapons.metralhadora import carregar_upgrade_metralhadora, desenhar_metralhadora
 from src.utils.display_manager import convert_mouse_position
+from src.weapons.sabre_luz import carregar_upgrade_sabre, desenhar_sabre
 
 class Quadrado:
     """
@@ -81,6 +82,18 @@ class Quadrado:
             self.fator_desaceleracao = 1.0
             self.facas = 0
             self.amuleto_ativo = False
+        self.sabre_equipado = False
+        self.sabre_uses = self._carregar_upgrade_sabre()
+        self.sabre_info = {
+            'ativo': False,
+            'animacao_ativacao': 0,
+            'modo_defesa': False,
+            'pos_cabo': (0, 0),
+            'pos_ponta': (0, 0),
+            'angulo': 0,
+            'comprimento_atual': 0,
+            'tempo_ultimo_hum': 0
+}
         
         self.rect = pygame.Rect(x, y, tamanho, tamanho)
         self.tempo_ultimo_tiro = 0
@@ -348,6 +361,9 @@ class Quadrado:
             elif hasattr(self, 'amuleto_ativo') and self.amuleto_ativo and hasattr(self, 'facas') and self.facas > 0:
                 from src.items.amuleto import desenhar_amuleto_segurado
                 desenhar_amuleto_segurado(tela, self, tempo_atual)
+            elif hasattr(self, 'sabre_equipado') and self.sabre_equipado and self.sabre_uses > 0:
+                from src.weapons.sabre_luz import desenhar_sabre
+                desenhar_sabre(tela, self, tempo_atual, pos_mouse)
 
 
     def mover(self, dx, dy):
@@ -624,8 +640,7 @@ class Quadrado:
     def ativar_arma_inventario(self):
         """
         Toggle da arma selecionada no inventário (chamado ao pressionar E).
-        Se já estiver equipada, guarda a arma. Se granada estiver selecionada, guarda a granada.
-        Se não estiver nada equipado, equipa a arma do inventário.
+        Agora inclui suporte ao sabre de luz.
         """
         from src.game.inventario import InventarioManager
         
@@ -635,29 +650,44 @@ class Quadrado:
         # Verificar se granada está selecionada
         if self.granada_selecionada:
             self.granada_selecionada = False
-            return "granada_guardada"  # Granada foi guardada
+            return "granada_guardada"
         
         # Verificar se já tem alguma arma equipada
-        arma_ja_equipada = self.espingarda_ativa or self.metralhadora_ativa
+        arma_ja_equipada = (self.espingarda_ativa or 
+                        self.metralhadora_ativa or 
+                        self.sabre_equipado)
         
         # Se já tem arma equipada, guardar todas
         if arma_ja_equipada:
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
-            return "guardada"  # Indica que a arma foi guardada
+            self.sabre_equipado = False
+            # Desativar sabre se estiver ativo
+            if hasattr(self, 'sabre_info') and self.sabre_info['ativo']:
+                self.sabre_info['ativo'] = False
+                self.sabre_info['modo_defesa'] = False
+            return "guardada"
+        
         # Se não tem arma equipada, tentar equipar a selecionada
         if arma_selecionada == "espingarda" and self.tiros_espingarda > 0:
             self.espingarda_ativa = True
-            self.metralhadora_ativa = False  # Garantir que só uma esteja ativa
-            return "espingarda"  # Sucesso - espingarda equipada
+            self.metralhadora_ativa = False
+            self.sabre_equipado = False
+            return "espingarda"
         elif arma_selecionada == "metralhadora" and self.tiros_metralhadora > 0:
             self.metralhadora_ativa = True
-            self.espingarda_ativa = False  # Garantir que só uma esteja ativa
-            return "metralhadora"  # Sucesso - metralhadora equipada
+            self.espingarda_ativa = False
+            self.sabre_equipado = False
+            return "metralhadora"
+        elif arma_selecionada == "sabre_luz" and self.sabre_uses > 0:
+            self.sabre_equipado = True
+            self.espingarda_ativa = False
+            self.metralhadora_ativa = False
+            return "sabre_luz"
         elif arma_selecionada == "nenhuma":
-            return "nenhuma_selecionada"  # Nenhuma arma selecionada no inventário
+            return "nenhuma_selecionada"
         else:
-            return "sem_municao"  # Arma selecionada mas sem munição
+            return "sem_municao"
         
         
 # Adicione este método na classe Quadrado (src/entities/quadrado.py)
@@ -759,4 +789,52 @@ class Quadrado:
                 "selecionado_inventario": item_selecionado == "ampulheta",
                 "tecla": "R"
             }
+        }
+    def _carregar_upgrade_sabre(self):
+        """
+        Carrega o upgrade do sabre de luz do arquivo de upgrades.
+        Retorna 0 se não houver upgrade.
+        """
+        try:
+            if os.path.exists("data/upgrades.json"):
+                with open("data/upgrades.json", "r") as f:
+                    upgrades = json.load(f)
+                    return upgrades.get("sabre_luz", 0)
+            return 0
+        except Exception as e:
+            print(f"Erro ao carregar upgrade de sabre de luz: {e}")
+            return 0
+
+    def ativar_sabre_luz(self):
+        """
+        Ativa ou desativa o sabre de luz (chamado pelo clique esquerdo quando equipado).
+        """
+        if not self.sabre_equipado or self.sabre_uses <= 0:
+            return "sabre_nao_equipado"
+        
+        from src.weapons.sabre_luz import ativar_sabre
+        return ativar_sabre(self)
+    
+    def alternar_modo_defesa_sabre(self):
+        """
+        Alterna o modo de defesa do sabre (chamado pelo clique direito).
+        """
+        if not self.sabre_equipado or self.sabre_uses <= 0:
+            return "sabre_nao_equipado"
+        
+        from src.weapons.sabre_luz import alternar_modo_defesa
+        return alternar_modo_defesa(self)
+    
+    def obter_info_sabre(self):
+        """
+        Retorna informações sobre o estado atual do sabre.
+        """
+        if not hasattr(self, 'sabre_info'):
+            return None
+        
+        return {
+            'equipado': self.sabre_equipado,
+            'ativo': self.sabre_info.get('ativo', False),
+            'modo_defesa': self.sabre_info.get('modo_defesa', False),
+            'uses': self.sabre_uses
         }

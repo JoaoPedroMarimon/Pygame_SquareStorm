@@ -71,8 +71,12 @@ def tela_loja(tela, relogio, gradiente_loja):
     aba_ativa = 0
     
     # Variáveis de scroll para cada aba
-    scroll_items = 0
-    max_scroll_items = 0
+    scroll_weapons = 0      # NOVO: scroll para aba de armas
+    scroll_upgrades = 0     # scroll para aba de upgrades (se necessário)
+    scroll_items = 0        # scroll para aba de items
+    max_scroll_weapons = 0  # NOVO: máximo scroll para armas
+    max_scroll_upgrades = 0 # máximo scroll para upgrades
+    max_scroll_items = 0    # máximo scroll para items
     
     # Loop principal da loja
     rodando = True
@@ -106,12 +110,22 @@ def tela_loja(tela, relogio, gradiente_loja):
             # Verificação de clique do mouse
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 clique_ocorreu = True
-            # Scroll do mouse apenas na aba de items
-            if evento.type == pygame.MOUSEBUTTONDOWN and aba_ativa == 2:
+            # Scroll do mouse - ATUALIZADO para funcionar em todas as abas
+            if evento.type == pygame.MOUSEBUTTONDOWN:
                 if evento.button == 4:  # Scroll up
-                    scroll_items = max(0, scroll_items - 30)
+                    if aba_ativa == 0:  # Armas
+                        scroll_weapons = max(0, scroll_weapons - 30)
+                    elif aba_ativa == 1:  # Upgrades
+                        scroll_upgrades = max(0, scroll_upgrades - 30)
+                    elif aba_ativa == 2:  # Items
+                        scroll_items = max(0, scroll_items - 30)
                 elif evento.button == 5:  # Scroll down
-                    scroll_items = min(max_scroll_items, scroll_items + 30)
+                    if aba_ativa == 0:  # Armas
+                        scroll_weapons = min(max_scroll_weapons, scroll_weapons + 30)
+                    elif aba_ativa == 1:  # Upgrades
+                        scroll_upgrades = min(max_scroll_upgrades, scroll_upgrades + 30)
+                    elif aba_ativa == 2:  # Items
+                        scroll_items = min(max_scroll_items, scroll_items + 30)
         
         # Atualizar mensagem de feedback
         if mensagem:
@@ -275,29 +289,30 @@ def tela_loja(tela, relogio, gradiente_loja):
         if clique_ocorreu:
             if rect_aba1.collidepoint(mouse_pos):
                 aba_ativa = 0  # Armas
-                scroll_items = 0  # Reset scroll ao trocar de aba
             elif rect_aba2.collidepoint(mouse_pos):
                 aba_ativa = 1  # Upgrades
-                scroll_items = 0  # Reset scroll ao trocar de aba
             elif rect_aba3.collidepoint(mouse_pos):
                 aba_ativa = 2  # Items
-                scroll_items = 0  # Reset scroll ao trocar de aba
         
         # Área de conteúdo da aba ativa - movida para cima
         area_conteudo = pygame.Rect(150, 330, LARGURA - 300, ALTURA - 450)
         pygame.draw.rect(tela, (20, 20, 50, 150), area_conteudo, 0, 10)
         pygame.draw.rect(tela, (70, 70, 130), area_conteudo, 2, 10)
         
-        if aba_ativa == 0:  # Armas
-            mensagem, mensagem_cor, _ = desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, 
-                                                mouse_pos, clique_ocorreu, som_compra, som_erro)
-            if mensagem:
+        if aba_ativa == 0:  # Armas - ATUALIZADO para usar scroll
+            resultado = desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, 
+                                            mouse_pos, clique_ocorreu, som_compra, som_erro, scroll_weapons)
+            if resultado and resultado[0]:  # Se há mensagem
+                mensagem, mensagem_cor, max_scroll_weapons = resultado
                 mensagem_tempo = 0
+            elif resultado:  # Só atualizar max_scroll se não houver mensagem
+                _, _, max_scroll_weapons = resultado
 
         elif aba_ativa == 1:  # Upgrades
-            mensagem, mensagem_cor, _ = desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, 
-                                                mouse_pos, clique_ocorreu, som_compra, som_erro)
-            if mensagem:
+            resultado = desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, 
+                                             mouse_pos, clique_ocorreu, som_compra, som_erro)
+            if resultado and resultado[0]:  # Se há mensagem
+                mensagem, mensagem_cor, _ = resultado
                 mensagem_tempo = 0
 
         else:  # Items (aba 2)
@@ -379,6 +394,7 @@ def carregar_upgrades():
         "vida": 1,  # Vida máxima inicial é 1
         "espingarda": 0,  # Tiros de espingarda disponíveis (0 = não tem)
         "metralhadora": 0,  # Tiros de metralhadora disponíveis (0 = não tem)
+        "sabre_luz": 0,  # Células de energia do sabre de luz disponíveis (0 = não tem)
         "granada": 0,  # Granadas disponíveis (0 = não tem)
         "ampulheta": 0,  # Usos da ampulheta disponíveis (0 = não tem)
         "faca": 0  # Facas de combate disponíveis (0 = não tem)

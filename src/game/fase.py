@@ -4,6 +4,7 @@
 """
 Módulo para gerenciar a lógica das fases do jogo.
 Sistema corrigido: E=equipar arma, Q=granada, mouse=tiro com prioridade.
+ATUALIZADO: Agora inclui suporte completo ao sabre de luz.
 """
 
 import pygame
@@ -27,6 +28,7 @@ from src.entities.inimigo_ia import atualizar_IA_inimigo
 from src.items.granada import Granada, lancar_granada, processar_granadas, inicializar_sistema_granadas, obter_intervalo_lancamento
 from src.weapons.espingarda import atirar_espingarda, carregar_upgrade_espingarda
 from src.weapons.metralhadora import atirar_metralhadora, carregar_upgrade_metralhadora
+from src.weapons.sabre_luz import processar_deflexao_tiros, atualizar_sabre, processar_dano_sabre
 from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos, desenhar_invocacoes, tem_invocacao_ativa, limpar_invocacoes
 from src.items.amuleto import usar_amuleto_para_invocacao
 from src.utils.visual import desenhar_grid_consistente
@@ -83,9 +85,10 @@ def criar_som_ampulheta():
 def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):
     """
     Executa uma fase específica do jogo com sistema corrigido:
-    - E: Equipa arma do inventário
+    - E: Equipa arma do inventário (incluindo sabre de luz)
     - Q: Liga/desliga granada  
-    - Mouse: Tiro com prioridade (granada > arma especial > tiro normal)
+    - Mouse: Tiro com prioridade (granada > arma especial > sabre > tiro normal)
+    - Clique direito: Modo defesa do sabre (quando equipado)
     
     Args:
         tela: Superfície principal do jogo
@@ -106,9 +109,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     
     # NOVO: Som da ampulheta
     som_ampulheta = criar_som_ampulheta()
-    
-    # NOVO: Mostrar mensagem de auto-equipamento no início da fase
-
     
     # Criar fontes
     fonte_pequena = pygame.font.SysFont("Arial", 18)  # Fonte pequena para o HUD
@@ -133,7 +133,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     # ------------------------------------------------------------------------------
 
     moeda_manager = MoedaManager()
-
 
     # Listas para tiros, granadas e partículas
     tiros_jogador = []
@@ -227,7 +226,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                         pygame.mixer.pause()
                         pygame.mouse.set_visible(True)
 
-                    # SISTEMA CORRIGIDO: Tecla E para equipar/guardar arma do inventário
+                    # SISTEMA CORRIGIDO: Tecla E para equipar/guardar arma do inventário (incluindo sabre)
                     if evento.key == pygame.K_e:
                         resultado = jogador.ativar_arma_inventario()
                         print(resultado)
@@ -239,6 +238,10 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                             criar_texto_flutuante("METRALHADORA EQUIPADA!", 
                                                 LARGURA // 2, ALTURA // 4, 
                                                 LARANJA, particulas, 120, 32)
+                        elif resultado == "sabre_luz":
+                            criar_texto_flutuante("SABRE DE LUZ EQUIPADO!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                (150, 150, 255), particulas, 120, 32)
                         elif resultado == "guardada":
                             criar_texto_flutuante("ARMA GUARDADA!", 
                                                 LARGURA // 2, ALTURA // 4, 
@@ -317,54 +320,79 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if evento.key == pygame.K_d and movimento_x > 0:
                         movimento_x = 0
 
-                # SISTEMA CORRIGIDO: Tiro com prioridade (Granada > Arma Especial > Tiro Normal)
-                if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                # SISTEMA CORRIGIDO: Tiro com prioridade (Granada > Arma Especial > Sabre > Tiro Normal)
+                if evento.type == pygame.MOUSEBUTTONDOWN:
                     if tempo_atual - ultimo_clique_mouse >= intervalo_minimo_clique:
                         ultimo_clique_mouse = tempo_atual
                         
-                        # PRIORIDADE 1: Invocação do Chucky (amuleto ativo)
-                        if (hasattr(jogador, 'amuleto_ativo') and jogador.amuleto_ativo and 
-                            hasattr(jogador, 'facas') and jogador.facas > 0):
+                        if evento.button == 1:  # Clique esquerdo
+                            # PRIORIDADE 1: Invocação do Chucky (amuleto ativo)
+                            if (hasattr(jogador, 'amuleto_ativo') and jogador.amuleto_ativo and 
+                                hasattr(jogador, 'facas') and jogador.facas > 0):
+                                
+                                if usar_amuleto_para_invocacao(pos_mouse, jogador):
+                                    criar_texto_flutuante("CHUCKY INVOCADO!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        (255, 50, 50), particulas, 180, 36)
+                                    if jogador.facas <= 0:
+                                        criar_texto_flutuante("AMULETO SEM ENERGIA!", 
+                                                            LARGURA // 2, ALTURA // 4 + 50, 
+                                                            VERMELHO, particulas, 120, 28)
+                                else:
+                                    criar_texto_flutuante("JÁ EXISTE UMA INVOCAÇÃO ATIVA!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        AMARELO, particulas, 120, 24)
                             
-                            if usar_amuleto_para_invocacao(pos_mouse, jogador):
-                                criar_texto_flutuante("CHUCKY INVOCADO!", 
-                                                    LARGURA // 2, ALTURA // 4, 
-                                                    (255, 50, 50), particulas, 180, 36)
-                                if jogador.facas <= 0:
-                                    criar_texto_flutuante("AMULETO SEM ENERGIA!", 
-                                                        LARGURA // 2, ALTURA // 4 + 50, 
-                                                        VERMELHO, particulas, 120, 28)
+                            # PRIORIDADE 2: Granada
+                            elif jogador.granada_selecionada and jogador.granadas > 0:
+                                if tempo_atual - tempo_ultimo_lancamento_granada >= intervalo_lancamento_granada:
+                                    tempo_ultimo_lancamento_granada = tempo_atual
+                                    lancar_granada(jogador, granadas, pos_mouse, particulas, flashes)
+                            
+                            # PRIORIDADE 3: Sabre de Luz (ativar/desativar)
+                            elif hasattr(jogador, 'sabre_equipado') and jogador.sabre_equipado:
+                                resultado_sabre = jogador.ativar_sabre_luz()
+                                if resultado_sabre == "sabre_ativado":
+                                    criar_texto_flutuante("SABRE ATIVADO!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        (150, 150, 255), particulas, 120, 32)
+                                elif resultado_sabre == "sabre_desativado":
+                                    criar_texto_flutuante("SABRE DESATIVADO!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        (100, 100, 150), particulas, 120, 32)
+                            
+                            # PRIORIDADE 4: Espingarda
+                            elif jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
+                                atirar_espingarda(jogador, tiros_jogador, pos_mouse, particulas, flashes)
+                                if jogador.tiros_espingarda <= 0:
+                                    jogador.espingarda_ativa = False
+                                    criar_texto_flutuante("ESPINGARDA SEM MUNIÇÃO!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        VERMELHO, particulas, 120, 32)
+                            
+                            # PRIORIDADE 5: Metralhadora
+                            elif jogador.metralhadora_ativa and jogador.tiros_metralhadora > 0:
+                                atirar_metralhadora(jogador, tiros_jogador, pos_mouse, particulas, flashes)
+                                if jogador.tiros_metralhadora <= 0:
+                                    jogador.metralhadora_ativa = False
+                                    criar_texto_flutuante("METRALHADORA SEM MUNIÇÃO!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        VERMELHO, particulas, 120, 32)
                             else:
-                                criar_texto_flutuante("JÁ EXISTE UMA INVOCAÇÃO ATIVA!", 
-                                                    LARGURA // 2, ALTURA // 4, 
-                                                    AMARELO, particulas, 120, 24)
+                                # PRIORIDADE 6: Tiro normal
+                                jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
                         
-                        # PRIORIDADE 2: Granada
-                        elif jogador.granada_selecionada and jogador.granadas > 0:
-                            if tempo_atual - tempo_ultimo_lancamento_granada >= intervalo_lancamento_granada:
-                                tempo_ultimo_lancamento_granada = tempo_atual
-                                lancar_granada(jogador, granadas, pos_mouse, particulas, flashes)
-                        
-                        # PRIORIDADE 3: Espingarda
-                        elif jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
-                            atirar_espingarda(jogador, tiros_jogador, pos_mouse, particulas, flashes)
-                            if jogador.tiros_espingarda <= 0:
-                                jogador.espingarda_ativa = False
-                                criar_texto_flutuante("ESPINGARDA SEM MUNIÇÃO!", 
-                                                    LARGURA // 2, ALTURA // 4, 
-                                                    VERMELHO, particulas, 120, 32)
-                        
-                        # PRIORIDADE 4: Metralhadora
-                        elif jogador.metralhadora_ativa and jogador.tiros_metralhadora > 0:
-                            atirar_metralhadora(jogador, tiros_jogador, pos_mouse, particulas, flashes)
-                            if jogador.tiros_metralhadora <= 0:
-                                jogador.metralhadora_ativa = False
-                                criar_texto_flutuante("METRALHADORA SEM MUNIÇÃO!", 
-                                                    LARGURA // 2, ALTURA // 4, 
-                                                    VERMELHO, particulas, 120, 32)
-                        else:
-                            # PRIORIDADE 5: Tiro normal
-                            jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
+                        elif evento.button == 3:  # Clique direito - Modo defesa do sabre
+                            if hasattr(jogador, 'sabre_equipado') and jogador.sabre_equipado:
+                                resultado_defesa = jogador.alternar_modo_defesa_sabre()
+                                if resultado_defesa == "modo_defesa_ativado":
+                                    criar_texto_flutuante("MODO DEFESA ATIVADO!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        (100, 255, 100), particulas, 120, 32)
+                                elif resultado_defesa == "modo_defesa_desativado":
+                                    criar_texto_flutuante("MODO DEFESA DESATIVADO!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        (150, 150, 255), particulas, 120, 32)
             
             # Handle pause menu controls
             elif pausado:
@@ -520,6 +548,10 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 if jogador.y + jogador.tamanho > ALTURA_JOGO:
                     jogador.y = ALTURA_JOGO - jogador.tamanho
                     jogador.rect.y = jogador.y
+
+                # NOVO: Atualizar sistema do sabre de luz
+                if hasattr(jogador, 'sabre_equipado') and jogador.sabre_equipado:
+                    atualizar_sabre(jogador, pos_mouse, tempo_atual)
             
             # Atualizar moedas e verificar colisões
             moeda_coletada = moeda_manager.atualizar(jogador)
@@ -619,6 +651,36 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                 # Remover tiros que saíram da tela
                 if tiro.fora_da_tela():
                     tiros_inimigo.remove(tiro)
+
+            # NOVO: Processar deflexão de tiros pelo sabre de luz
+            if hasattr(jogador, 'sabre_equipado') and jogador.sabre_equipado:
+                tiros_refletidos = processar_deflexao_tiros(jogador, tiros_inimigo, particulas, flashes)
+                # Adicionar tiros refletidos à lista de tiros do jogador
+                tiros_jogador.extend(tiros_refletidos)
+                
+                # NOVO: Processar dano do sabre nos inimigos
+                inimigos_cortados = processar_dano_sabre(jogador, inimigos, particulas, flashes)
+                
+                # Adicionar moedas pelos inimigos mortos pelo sabre
+                for inimigo in inimigos_cortados:
+                    if inimigo.vidas <= 0:
+                        # Determinar quantidade de moedas
+                        moedas_bonus = 1
+                        if inimigo.cor == ROXO:
+                            moedas_bonus = 5
+                        elif inimigo.cor == CIANO:
+                            moedas_bonus = 8
+                        elif inimigo.vidas_max > 1:
+                            moedas_bonus = 2
+                        
+                        # Adicionar moedas
+                        moeda_manager.quantidade_moedas += moedas_bonus
+                        moeda_manager.salvar_moedas()
+                        
+                        # Animação de pontuação
+                        criar_texto_flutuante(f"+{moedas_bonus}", 
+                                            inimigo.x + inimigo.tamanho//2, 
+                                            inimigo.y, AMARELO, particulas)
 
             # Processar granadas usando a função centralizada
             processar_granadas(granadas, particulas, flashes, inimigos, moeda_manager)
@@ -747,9 +809,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         
         # Desenhar HUD atualizado com sistema corrigido
         desenhar_hud(tela, numero_fase, inimigos, tempo_atual, moeda_manager, jogador)        
-        
-        # NOVO: Mostrar mensagem de equipamento inicial
-
         
         # Aplicar efeito de fade-in (em toda a tela)
         if fade_in > 0:

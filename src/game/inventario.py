@@ -94,6 +94,17 @@ class InventarioManager:
                 "raridade": "Rare",
                 "dano": "★★★☆☆",
                 "alcance": "★★★☆☆"
+            },
+            "sabre_luz": {
+                "nome": "Lightsaber", 
+                "quantidade": 0, 
+                "cor": (150, 150, 255), 
+                "descricao": "Elegant weapon for a more civilized age",
+                "tipo": "arma",
+                "key": "sabre_luz",
+                "raridade": "Legendary",
+                "dano": "★★★★★",
+                "alcance": "★★★★☆"
             }
         }
         
@@ -250,6 +261,53 @@ def desenhar_icone_ampulheta_moderno(tela, x, y, tempo_atual, tamanho=30):
     
     tela.blit(ampulheta_surf, (x - largura//2 - 10, y - altura//2 - 10))
 
+
+def desenhar_icone_sabre_moderno(tela, x, y, tempo_atual, tamanho=30):
+    """Desenha ícone moderno do sabre de luz para o inventário."""
+    cor_cabo = (120, 120, 130)
+    cor_cabo_detalhes = (80, 80, 150)
+    cor_lamina = (150, 150, 255)
+    cor_brilho = (255, 255, 255)
+    
+    # Cabo principal (vertical)
+    cabo_height = tamanho // 2
+    cabo_width = 8
+    cabo_rect = pygame.Rect(x - cabo_width//2, y, cabo_width, cabo_height)
+    pygame.draw.rect(tela, cor_cabo, cabo_rect, 0, 3)
+    pygame.draw.rect(tela, cor_cabo_detalhes, cabo_rect, 2, 3)
+    
+    # Detalhes do cabo
+    for i in range(3):
+        det_y = y + (i + 1) * (cabo_height // 4)
+        pygame.draw.line(tela, cor_cabo_detalhes, 
+                        (x - cabo_width//2 + 1, det_y), 
+                        (x + cabo_width//2 - 1, det_y), 1)
+    
+    # Lâmina com efeito pulsante
+    pulso = (math.sin(tempo_atual / 200) + 1) / 2
+    lamina_length = int((tamanho * 1.2) + pulso * 5)
+    
+    # Brilho da lâmina (múltiplas linhas para efeito glow)
+    for i in range(5, 0, -1):
+        alpha = int(100 + (6-i) * 30)
+        cor_atual = cor_lamina if i <= 2 else cor_brilho
+        
+        # Criar superfície temporária para alpha
+        temp_surf = pygame.Surface((cabo_width + 6, lamina_length + 10), pygame.SRCALPHA)
+        pygame.draw.line(temp_surf, (*cor_atual, alpha),
+                        (3 + cabo_width//2, lamina_length + 5),
+                        (3 + cabo_width//2, 5), i)
+        
+        tela.blit(temp_surf, (x - cabo_width//2 - 3, y - lamina_length - 5))
+    
+    # Núcleo brilhante
+    pygame.draw.line(tela, cor_brilho, (x, y), (x, y - lamina_length), 1)
+    
+    # Emitter na base da lâmina
+    pygame.draw.circle(tela, cor_brilho, (x, y), 3)
+    pygame.draw.circle(tela, cor_lamina, (x, y), 2)
+
+
 def desenhar_icone_granada_moderno(tela, x, y, tempo_atual, tamanho=25):
     """Desenha ícone moderno da granada com efeitos explosivos."""
     cor_granada = (60, 120, 60)
@@ -367,37 +425,66 @@ def desenhar_icone_espingarda_moderno(tela, x, y, tempo_atual, tamanho=30):
                         (x + tamanho//2, y), 3)
 
 def desenhar_icone_metralhadora_moderno(tela, x, y, tempo_atual, tamanho=35):
-    """Desenha ícone moderno da metralhadora."""
+    """
+    Desenha um ícone de metralhadora com efeitos visuais.
+    """
+    # Cores da metralhadora
     cor_metal_escuro = (60, 60, 70)
     cor_metal_claro = (120, 120, 130)
+    cor_cano_metra = (40, 40, 45)
     cor_laranja = (255, 140, 0)
+
+    # Desenhar metralhadora
+    comprimento_metra = 35
     
-    # Cano principal
-    cano_rect = pygame.Rect(x - tamanho//2, y - 4, tamanho, 8)
-    pygame.draw.rect(tela, cor_metal_escuro, cano_rect, 0, 2)
-    pygame.draw.rect(tela, cor_metal_claro, cano_rect, 2, 2)
-    
-    # Boca do cano
-    pygame.draw.circle(tela, cor_metal_escuro, (x + tamanho//2, y), 6)
-    pygame.draw.circle(tela, (40, 40, 45), (x + tamanho//2, y), 3)
-    
+    # Cano principal (mais grosso, múltiplas linhas)
+    for i in range(6):
+        offset = (i - 2.5) * 0.6
+        espessura = 3 if abs(i - 2.5) < 1 else 2
+        cor_linha = cor_cano_metra if abs(i - 2.5) < 1 else cor_metal_escuro
+        pygame.draw.line(tela, cor_linha,
+                    (x, y + offset),
+                    (x + comprimento_metra, y + offset), espessura)
+
+    # Boca do cano com supressor
+    ponta_metra_x = x + comprimento_metra
+    ponta_metra_y = y
+    pygame.draw.circle(tela, cor_metal_escuro, (int(ponta_metra_x), int(ponta_metra_y)), 6)
+    pygame.draw.circle(tela, cor_cano_metra, (int(ponta_metra_x), int(ponta_metra_y)), 3)
+
     # Corpo principal
-    corpo_rect = pygame.Rect(x - 8, y - 5, 16, 10)
-    pygame.draw.rect(tela, cor_metal_escuro, corpo_rect, 0, 2)
-    pygame.draw.rect(tela, cor_metal_claro, corpo_rect, 1, 2)
-    
+    corpo_metra_x = x + 10
+    corpo_metra_y = y
+    corpo_rect = pygame.Rect(corpo_metra_x - 6, corpo_metra_y - 4, 12, 8)
+    pygame.draw.rect(tela, cor_metal_escuro, corpo_rect)
+    pygame.draw.rect(tela, cor_metal_claro, corpo_rect, 1)
+
     # Carregador
-    carregador_rect = pygame.Rect(x - 4, y + 6, 8, 12)
-    pygame.draw.rect(tela, cor_metal_escuro, carregador_rect, 0, 1)
-    pygame.draw.rect(tela, cor_laranja, carregador_rect, 2, 1)
+    carregador_x = corpo_metra_x - 2
+    carregador_y = corpo_metra_y + 6
+    carregador_rect = pygame.Rect(carregador_x - 3, carregador_y, 6, 12)
+    pygame.draw.rect(tela, cor_metal_escuro, carregador_rect)
+    pygame.draw.rect(tela, cor_laranja, carregador_rect, 1)
+
+    # Coronha retrátil
+    punho_x = x - 6
+    punho_y = y
+    pygame.draw.line(tela, cor_metal_claro, (corpo_metra_x, corpo_metra_y), (punho_x, punho_y + 8), 4)
+    pygame.draw.line(tela, cor_metal_claro, (punho_x, punho_y), (punho_x - 10, punho_y), 3)
+
+    # Efeito de aquecimento/energia
+    calor_intensidade = (tempo_atual % 1000) / 1000.0
+    cor_calor = (255, int(100 + calor_intensidade * 155), 0)
     
-    # Efeito de aquecimento
-    calor = (tempo_atual % 1000) / 1000.0
+    # Linhas de calor saindo do cano
     for i in range(3):
-        heat_x = x + tamanho//2 - (5 + i * 3) + random.uniform(-1, 1)
-        heat_y = y + random.uniform(-1, 1)
-        heat_color = (255, int(100 + calor * 155), 0)
-        pygame.draw.circle(tela, heat_color, (int(heat_x), int(heat_y)), 2)
+        heat_x = ponta_metra_x - (5 + i * 3) + random.uniform(-1, 1)
+        heat_y = ponta_metra_y + random.uniform(-1, 1)
+        pygame.draw.circle(tela, cor_calor, (int(heat_x), int(heat_y)), 1)
+
+    # Brilho no cano
+    pygame.draw.line(tela, cor_laranja, (x, y), (ponta_metra_x, ponta_metra_y), 1)
+
 
 def desenhar_card_item_moderno(tela, item_data, item_key, x, y, largura, altura, selecionado, tempo_atual, hover=False):
     """Desenha um card moderno para um item do inventário."""
@@ -474,6 +561,8 @@ def desenhar_card_item_moderno(tela, item_data, item_key, x, y, largura, altura,
         desenhar_icone_espingarda_moderno(tela, icone_x, icone_y, tempo_atual)
     elif item_key == "metralhadora":
         desenhar_icone_metralhadora_moderno(tela, icone_x, icone_y, tempo_atual)
+    elif item_key == "sabre_luz":
+        desenhar_icone_sabre_moderno(tela, icone_x, icone_y, tempo_atual)
     
     # Nome do item
     cor_texto = BRANCO if tem_estoque else (100, 100, 100)
@@ -481,7 +570,10 @@ def desenhar_card_item_moderno(tela, item_data, item_key, x, y, largura, altura,
     
     # Quantidade/munição
     if item_data["tipo"] == "arma":
-        desenhar_texto(tela, f"Ammo: {item_data['quantidade']}", 18, cor_texto, x + 150, y + 50)
+        if item_key == "sabre_luz":
+            desenhar_texto(tela, f"Energy", 18, cor_texto, x + 150, y + 50)
+        else:
+            desenhar_texto(tela, f"Ammo: {item_data['quantidade']}", 18, cor_texto, x + 150, y + 50)
     else:
         desenhar_texto(tela, f"Uses: {item_data['quantidade']}", 18, cor_texto, x + 150, y + 50)
     

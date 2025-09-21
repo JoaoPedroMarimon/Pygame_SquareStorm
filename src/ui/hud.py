@@ -15,6 +15,7 @@ from src.utils.visual import desenhar_texto
 from src.weapons.espingarda import desenhar_espingarda
 from src.weapons.metralhadora import desenhar_metralhadora
 from src.items.granada import desenhar_granada_selecionada
+from src.weapons.sabre_luz import desenhar_icone_sabre_hud
 
 
 def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jogador=None):
@@ -100,7 +101,27 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             cor_borda = (200, 150, 255)
             municao = str(jogador.facas)
             tem_arma_especial = True
-        
+            
+        elif hasattr(jogador, 'sabre_equipado') and jogador.sabre_equipado and jogador.sabre_uses > 0:
+            info_sabre = jogador.obter_info_sabre()
+            if info_sabre:
+                if info_sabre['ativo']:
+                    if info_sabre['modo_defesa']:
+                        arma_ativa = "SABRE - DEFESA"
+                        cor_fundo = (40, 80, 40)
+                        cor_borda = (100, 255, 100)
+                    else:
+                        arma_ativa = "SABRE - ATIVO"
+                        cor_fundo = (40, 40, 80)
+                        cor_borda = (150, 150, 255)
+                else:
+                    arma_ativa = "SABRE - EQUIPADO"
+                    cor_fundo = (60, 60, 60)
+                    cor_borda = (120, 120, 150)
+                
+                municao = 0
+                tem_arma_especial = True
+                
         # Desenhar fundo do indicador de arma
         pygame.draw.rect(tela, cor_fundo, (pos_equipamento - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
         pygame.draw.rect(tela, cor_borda, (pos_equipamento - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 2, 10)
@@ -126,6 +147,11 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             elif hasattr(jogador, 'amuleto_ativo') and jogador.amuleto_ativo:
                 # Desenhar ícone do amuleto
                 desenhar_icone_amuleto_hud(icone_surface, 30, 20, tempo_atual)
+            elif hasattr(jogador, 'sabre_equipado') and jogador.sabre_equipado:
+                # Desenhar ícone do sabre
+                info_sabre = jogador.obter_info_sabre()
+                ativo = info_sabre['ativo'] if info_sabre else False
+                desenhar_icone_sabre_hud(icone_surface, 30, 20, tempo_atual, ativo)
             
             # Aplicar o ícone na posição correta do HUD
             tela.blit(icone_surface, (pos_equipamento - 30, centro_y - 20))
@@ -229,6 +255,48 @@ def desenhar_icone_metralhadora(tela, x, y, tempo_atual):
         pygame.draw.circle(tela, cor_calor, (x + 15, y - 2), 1)
         pygame.draw.circle(tela, cor_calor, (x + 13, y + 1), 1)
 
+
+def desenhar_icone_sabre_hud(tela, x, y, tempo_atual, ativo=False):
+    """
+    Desenha um ícone simplificado do sabre para o HUD.
+    
+    Args:
+        tela: Superfície onde desenhar
+        x, y: Posição central do ícone
+        tempo_atual: Tempo atual para animações
+        ativo: Se o sabre está ativo
+    """
+    # Cores do sabre
+    cor_cabo = (120, 120, 120)
+    cor_cabo_detalhes = (80, 80, 150)
+    
+    if ativo:
+        cor_lamina = (150, 150, 255)
+        cor_brilho = (255, 255, 255)
+    else:
+        cor_lamina = (60, 60, 80)
+        cor_brilho = (100, 100, 120)
+    
+    # Cabo
+    pygame.draw.circle(tela, cor_cabo, (x, y + 5), 4)
+    pygame.draw.circle(tela, cor_cabo_detalhes, (x, y + 5), 3)
+    
+    # Lâmina
+    if ativo:
+        # Efeito pulsante quando ativo
+        pulso = (math.sin(tempo_atual / 150) + 1) / 2
+        comprimento = int(15 + pulso * 3)
+        
+        # Brilho
+        pygame.draw.line(tela, cor_brilho, (x, y + 5), (x, y - comprimento), 3)
+        pygame.draw.line(tela, cor_lamina, (x, y + 5), (x, y - comprimento), 1)
+    else:
+        # Lâmina apagada
+        pygame.draw.line(tela, cor_lamina, (x, y + 5), (x, y - 10), 2)
+    
+    # Detalhes do cabo
+    for i in range(-1, 2):
+        pygame.draw.circle(tela, cor_cabo_detalhes, (x + i, y + 8), 1)
 
 def desenhar_icone_granada(tela, x, y):
     """
