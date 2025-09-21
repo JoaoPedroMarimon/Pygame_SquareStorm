@@ -5,6 +5,7 @@
 Módulo principal do jogo SquareStorm.
 Versão atualizada com suporte a tela cheia e escalonamento.
 Modificado para continuar da última fase alcançada.
+CORRIGIDO: Import da função correta de fase.
 """
 
 import pygame
@@ -13,7 +14,7 @@ from src.config import *
 from src.utils.visual import criar_gradiente, criar_estrelas
 from src.ui.menu import tela_inicio, tela_game_over, tela_vitoria_fase
 from src.ui.loja import tela_loja
-from src.game.fase import jogar_fase
+from src.game.fase import jogar_fase  # CORRIGIDO: Usar o nome correto da função
 from src.ui.selecao_fase import tela_selecao_fase
 from src.utils.progress import ProgressManager
 from src.game.inventario import tela_inventario
@@ -104,6 +105,7 @@ def main_game(game_surface=None):
                 
             elif estado_atual == "jogar":
                 print(f"🎯 Iniciando fase {fase_atual}...")
+                # CORRIGIDO: Usar a função correta jogar_fase
                 resultado = jogar_fase(tela, relogio, fase_atual, gradiente_jogo, fonte_titulo, fonte_normal)
                 
                 if resultado == True:

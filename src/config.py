@@ -9,7 +9,7 @@ LARGURA_JOGO, ALTURA_JOGO = 1480, 820-80  # Dimensões da área jogável
 ALTURA_HUD = 80  # Altura da barra de HUD
 TITULO = "SquareStorm"
 FPS = 60
-MAX_FASES = 8  # Alterado de 2 para 3 - agora com fase especial
+MAX_FASES = 10
 
 # Cores
 PRETO = (0, 0, 0)

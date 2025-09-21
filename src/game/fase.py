@@ -4,7 +4,7 @@
 """
 Módulo para gerenciar a lógica das fases do jogo.
 Sistema corrigido: E=equipar arma, Q=granada, mouse=tiro com prioridade.
-ATUALIZADO: Agora inclui suporte completo ao sabre de luz.
+ATUALIZADO: Agora inclui suporte completo ao sistema modular de boss fights.
 """
 
 import pygame
@@ -32,6 +32,9 @@ from src.weapons.sabre_luz import processar_deflexao_tiros, atualizar_sabre, pro
 from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos, desenhar_invocacoes, tem_invocacao_ativa, limpar_invocacoes
 from src.items.amuleto import usar_amuleto_para_invocacao
 from src.utils.visual import desenhar_grid_consistente
+
+# NOVO: Importação do sistema modular de boss fights
+from src.game.fase_boss import executar_boss_fight
 
 def desenhar_efeito_tempo_desacelerado(tela, ativo, tempo_atual):
     """
@@ -90,6 +93,8 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     - Mouse: Tiro com prioridade (granada > arma especial > sabre > tiro normal)
     - Clique direito: Modo defesa do sabre (quando equipado)
     
+    ATUALIZADO: Agora detecta e executa boss fights usando sistema modular.
+    
     Args:
         tela: Superfície principal do jogo
         relogio: Objeto Clock para controle de FPS
@@ -104,22 +109,40 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             - False: jogador perdeu
             - "menu": voltar ao menu (quando pausado)
     """
-    # Criar jogador com sistema corrigido
-    jogador = Quadrado(100, ALTURA_JOGO // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
+    # NOVA VERIFICAÇÃO PARA BOSS FIGHTS
+    print(f"🎯 Iniciando fase {numero_fase}...")
     
-    # NOVO: Som da ampulheta
-    som_ampulheta = criar_som_ampulheta()
+    # Criar a fase
+    resultado_fase = NivelFactory.criar_fase(numero_fase)
     
-    # Criar fontes
-    fonte_pequena = pygame.font.SysFont("Arial", 18)  # Fonte pequena para o HUD
+    # Verificar se é boss fight
+    if NivelFactory.e_boss_fight(resultado_fase):
+        info_boss = NivelFactory.obter_info_boss(resultado_fase)
+        print(f"🔥 DETECTADO: {info_boss['mensagem']}")
+        
+        # Executar boss fight usando sistema modular
+        if info_boss['boss'] == 'fusion':
+            return executar_boss_fight('fusion', tela, relogio, numero_fase, 
+                                     gradiente_jogo, fonte_titulo, fonte_normal)
+        
+        # Futuro: adicionar outros tipos de boss aqui
+        # elif info_boss['boss'] == 'outro_boss':
+        #     return executar_boss_fight('outro_boss', tela, relogio, numero_fase, 
+        #                              gradiente_jogo, fonte_titulo, fonte_normal)
+        
+        # Se tipo de boss não reconhecido, fallback para fase normal
+        print(f"⚠️ Tipo de boss '{info_boss['boss']}' não reconhecido, executando fase normal")
+        inimigos = NivelFactory.criar_fase_generica(numero_fase)
+    else:
+        # Se não for boss fight, usar resultado normal
+        inimigos = resultado_fase
     
-    # Criar inimigos
-    inimigos = NivelFactory.criar_fase(numero_fase)
-
-    # --- Defensive checks: garantir que 'inimigos' seja um iterável/lista válida ---
+    # --- LÓGICA NORMAL DA FASE (para fases não-boss) ---
+    
+    # Defensive checks: garantir que 'inimigos' seja um iterável/lista válida
     if inimigos is None:
         print(f"[ERROR] NivelFactory.criar_fase({numero_fase}) retornou None. Abortando fase e voltando ao menu.")
-        limpar_invocacoes()  # limpa invocações pendentes, como você já usa em outros retornos
+        limpar_invocacoes()
         return "menu"
 
     # Se a fábrica retornou um iterável que não é lista (ex.: generator), converte para lista
@@ -130,8 +153,16 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             print(f"[ERROR] NivelFactory.criar_fase({numero_fase}) retornou um tipo inválido: {type(inimigos)}. Voltando ao menu.")
             limpar_invocacoes()
             return "menu"
-    # ------------------------------------------------------------------------------
-
+    
+    # Criar jogador com sistema corrigido
+    jogador = Quadrado(100, ALTURA_JOGO // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
+    
+    # NOVO: Som da ampulheta
+    som_ampulheta = criar_som_ampulheta()
+    
+    # Criar fontes
+    fonte_pequena = pygame.font.SysFont("Arial", 18)  # Fonte pequena para o HUD
+    
     moeda_manager = MoedaManager()
 
     # Listas para tiros, granadas e partículas
@@ -795,7 +826,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         for granada in granadas:
             granada.desenhar(tela)
         
-        
         desenhar_invocacoes(tela)
 
         for particula in particulas:
@@ -861,5 +891,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         
         present_frame()
         relogio.tick(FPS)
+    
     limpar_invocacoes()
     return False  # Padrão: jogador perdeu
