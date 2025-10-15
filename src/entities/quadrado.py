@@ -41,23 +41,17 @@ class Quadrado:
             self.facas = self._carregar_upgrade_faca()
             self.amuleto_ativo = False  # Estado do amuleto (inativo por padrão)
             
-            # SISTEMA DA AMPULHETA
+            # SISTEMA DA AMPULHETA - ATUALIZADO
             self.ampulheta_uses = self._carregar_upgrade_ampulheta()
+            self.ampulheta_selecionada = False  # Toggle visual (segurar na mão)
             self.tempo_desacelerado = False
             self.duracao_desaceleracao = 0
-            self.fator_desaceleracao = 0.2 # 30% da velocidade normal
+            self.fator_desaceleracao = 0.2  # 20% da velocidade normal
             self.duracao_ampulheta = 300  # 5 segundos a 60 FPS
             
             # SISTEMA DE ITENS (sempre inativos no início)
             self.granadas = carregar_upgrade_granada()
             self.granada_selecionada = False  # Jogador usa Q para ativar
-            
-                    # SISTEMA DE ITENS (carregar quantidades)
-            self.granadas = carregar_upgrade_granada()
-            self.granada_selecionada = False  # Será ativado pelo auto-equipamento
-            
-            # AUTO-EQUIPAR baseado na seleção do inventário
-
             
             # SISTEMA DE ARMAS (sempre inativas no início)
             self.espingarda_ativa = False
@@ -77,11 +71,13 @@ class Quadrado:
             self.tiros_espingarda = 0
             self.tiros_metralhadora = 0
             self.ampulheta_uses = 0
+            self.ampulheta_selecionada = False
             self.tempo_desacelerado = False
             self.duracao_desaceleracao = 0
             self.fator_desaceleracao = 1.0
             self.facas = 0
             self.amuleto_ativo = False
+            
         self.sabre_equipado = False
         self.sabre_uses = self._carregar_upgrade_sabre()
         self.sabre_info = {
@@ -93,7 +89,7 @@ class Quadrado:
             'angulo': 0,
             'comprimento_atual': 0,
             'tempo_ultimo_hum': 0
-}
+        }
         
         self.rect = pygame.Rect(x, y, tamanho, tamanho)
         self.tempo_ultimo_tiro = 0
@@ -185,6 +181,11 @@ class Quadrado:
             self.ampulheta_uses -= 1
             self.tempo_desacelerado = True
             self.duracao_desaceleracao = self.duracao_ampulheta
+            
+            # Desativar modo visual após usar
+            if self.ampulheta_uses <= 0:
+                self.ampulheta_selecionada = False
+            
             return True
         return False
 
@@ -202,7 +203,7 @@ class Quadrado:
     def obter_fator_tempo(self):
         """
         Retorna o fator de tempo atual.
-        1.0 = tempo normal, 0.3 = tempo desacelerado
+        1.0 = tempo normal, 0.2 = tempo desacelerado
         """
         return self.fator_desaceleracao if self.tempo_desacelerado else 1.0
 
@@ -228,7 +229,7 @@ class Quadrado:
         
         # Ampulheta não precisa de auto-equip, mas informar que está disponível
         elif item_selecionado == "ampulheta" and hasattr(self, 'ampulheta_uses') and self.ampulheta_uses > 0:
-            return f"Ampulheta disponível! ({self.ampulheta_uses} usos) - Pressione Q para ativar"
+            return f"Ampulheta disponível! ({self.ampulheta_uses} usos) - Pressione Q para segurar + clique para ativar"
         
         return None
         
@@ -347,17 +348,20 @@ class Quadrado:
             pygame.draw.rect(tela, self.cor, 
                             (self.x, self.y - 15, vida_atual, altura_barra), 0, 2)
         
-        # DELEGAÇÃO: Desenhar espingarda se for o jogador (cor AZUL) e tiver a espingarda ativa
+        # DELEGAÇÃO: Desenhar item/arma atualmente ativa
         if self.cor == AZUL:  # Se for o jogador
             pos_mouse = convert_mouse_position(pygame.mouse.get_pos())
             
-            # Desenhar apenas a arma atualmente ativa
+            # Desenhar apenas a arma/item atualmente ativo
             if hasattr(self, 'espingarda_ativa') and self.espingarda_ativa and self.tiros_espingarda > 0:
                 desenhar_espingarda(tela, self, tempo_atual, pos_mouse)
             elif hasattr(self, 'metralhadora_ativa') and self.metralhadora_ativa and self.tiros_metralhadora > 0:
                 desenhar_metralhadora(tela, self, tempo_atual, pos_mouse)
             elif hasattr(self, 'granada_selecionada') and self.granada_selecionada and self.granadas > 0:
                 desenhar_granada_selecionada(tela, self, tempo_atual)
+            elif hasattr(self, 'ampulheta_selecionada') and self.ampulheta_selecionada and self.ampulheta_uses > 0:
+                from src.items.ampulheta import desenhar_ampulheta_selecionada
+                desenhar_ampulheta_selecionada(tela, self, tempo_atual)
             elif hasattr(self, 'amuleto_ativo') and self.amuleto_ativo and hasattr(self, 'facas') and self.facas > 0:
                 from src.items.amuleto import desenhar_amuleto_segurado
                 desenhar_amuleto_segurado(tela, self, tempo_atual)
@@ -615,7 +619,8 @@ class Quadrado:
         # Som de tiro
         pygame.mixer.Channel(1).play(pygame.mixer.Sound(gerar_som_tiro()))
         
-        # Criar tiro com a direção calculada
+        # Criar tiro com a direção calcul
+# Criar tiro com a direção calculada
         if self.cor == AZUL:  # Se for o jogador
             tiros.append(Tiro(centro_x, centro_y, dx, dy, AZUL, 8))
         else:
@@ -629,13 +634,6 @@ class Quadrado:
                 cor_tiro = (r, g, b)
                 
             tiros.append(Tiro(centro_x, centro_y, dx, dy, cor_tiro, 7))
-
-                
-# Modificação para src/entities/quadrado.py
-# SUBSTITUIR o método ativar_arma_inventario() por esta versão:
-
-# Modificação para src/entities/quadrado.py
-# SUBSTITUIR o método ativar_arma_inventario() por esta versão:
 
     def ativar_arma_inventario(self):
         """
@@ -651,6 +649,11 @@ class Quadrado:
         if self.granada_selecionada:
             self.granada_selecionada = False
             return "granada_guardada"
+        
+        # Verificar se ampulheta está selecionada
+        if hasattr(self, 'ampulheta_selecionada') and self.ampulheta_selecionada:
+            self.ampulheta_selecionada = False
+            return "ampulheta_guardada"
         
         # Verificar se já tem alguma arma equipada
         arma_ja_equipada = (self.espingarda_ativa or 
@@ -688,15 +691,12 @@ class Quadrado:
             return "nenhuma_selecionada"
         else:
             return "sem_municao"
-        
-        
-# Adicione este método na classe Quadrado (src/entities/quadrado.py)
 
     def ativar_items_inventario(self):
         """
         Ativa o item selecionado no inventário (chamado ao pressionar Q).
         - Granada selecionada no inventário → Q toggle granada
-        - Ampulheta selecionada no inventário → Q usa ampulheta
+        - Ampulheta selecionada no inventário → Q toggle ampulheta (segurar na mão)
         - Combat Knife selecionada no inventário → Q ativa amuleto
         - Nenhum selecionado → Q não faz nada
         """
@@ -705,25 +705,45 @@ class Quadrado:
         inventario = InventarioManager()
         item_selecionado = inventario.obter_item_selecionado()
         
+        # Guardar armas se estiverem ativas
         if self.espingarda_ativa:
             self.espingarda_ativa = False
+        if self.metralhadora_ativa:
+            self.metralhadora_ativa = False
+        if self.sabre_equipado:
+            self.sabre_equipado = False
+            if hasattr(self, 'sabre_info') and self.sabre_info['ativo']:
+                self.sabre_info['ativo'] = False
+                self.sabre_info['modo_defesa'] = False
         
         # GRANADA: Se selecionada no inventário, Q faz toggle
         if item_selecionado == "granada":
             if self.granadas > 0:
                 self.granada_selecionada = not self.granada_selecionada
+                # Desativar ampulheta se granada for ativada
+                if self.granada_selecionada and hasattr(self, 'ampulheta_selecionada'):
+                    self.ampulheta_selecionada = False
                 return "granada_toggle" if self.granada_selecionada else "granada_guardada"
             else:
                 return "sem_granadas"
         
-        # AMPULHETA: Se selecionada no inventário, Q usa ampulheta
+        # AMPULHETA: Se selecionada no inventário, Q toggle visual (segurar na mão)
         elif item_selecionado == "ampulheta":
             if hasattr(self, 'ampulheta_uses') and self.ampulheta_uses > 0:
-                return self.usar_ampulheta_com_q()
+                # Verificar se já está ativa (tempo desacelerado)
+                if self.tempo_desacelerado:
+                    return "ampulheta_ja_ativa"
+                
+                # Toggle do modo visual (segurar na mão)
+                self.ampulheta_selecionada = not self.ampulheta_selecionada
+                # Desativar granada se ampulheta for ativada
+                if self.ampulheta_selecionada:
+                    self.granada_selecionada = False
+                return "ampulheta_toggle" if self.ampulheta_selecionada else "ampulheta_guardada"
             else:
                 return "sem_ampulhetas"
         
-        # NOVO: COMBAT KNIFE: Se selecionada no inventário, Q ativa amuleto
+        # COMBAT KNIFE: Se selecionada no inventário, Q ativa amuleto
         elif item_selecionado == "faca":
             if hasattr(self, 'facas') and self.facas > 0:
                 # Toggle do amuleto
@@ -731,6 +751,11 @@ class Quadrado:
                     self.amuleto_ativo = False
                 
                 self.amuleto_ativo = not self.amuleto_ativo
+                # Desativar granada e ampulheta se amuleto for ativado
+                if self.amuleto_ativo:
+                    self.granada_selecionada = False
+                    if hasattr(self, 'ampulheta_selecionada'):
+                        self.ampulheta_selecionada = False
                 return "amuleto_toggle" if self.amuleto_ativo else "amuleto_guardado"
             else:
                 return "sem_facas"
@@ -749,7 +774,6 @@ class Quadrado:
             else:
                 return "sem_ampulhetas"
 
-
     def obter_item_ativo(self):
         """
         Retorna qual item está atualmente ativo.
@@ -758,6 +782,9 @@ class Quadrado:
         
         if self.granada_selecionada and self.granadas > 0:
             return "granada"
+        
+        if hasattr(self, 'ampulheta_selecionada') and self.ampulheta_selecionada and self.ampulheta_uses > 0:
+            return "ampulheta"
         
         inventario = InventarioManager()
         item_selecionado = inventario.obter_item_selecionado()
@@ -785,11 +812,12 @@ class Quadrado:
             "ampulheta": {
                 "disponivel": hasattr(self, 'ampulheta_uses') and self.ampulheta_uses > 0,
                 "quantidade": getattr(self, 'ampulheta_uses', 0),
-                "ativo": item_selecionado == "ampulheta",
+                "ativo": hasattr(self, 'ampulheta_selecionada') and self.ampulheta_selecionada,
                 "selecionado_inventario": item_selecionado == "ampulheta",
-                "tecla": "R"
+                "tecla": "Q (segurar) + Clique (ativar)"
             }
         }
+        
     def _carregar_upgrade_sabre(self):
         """
         Carrega o upgrade do sabre de luz do arquivo de upgrades.

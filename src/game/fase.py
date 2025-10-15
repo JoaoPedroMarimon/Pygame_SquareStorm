@@ -5,6 +5,7 @@
 Módulo para gerenciar a lógica das fases do jogo.
 Sistema corrigido: E=equipar arma, Q=granada, mouse=tiro com prioridade.
 ATUALIZADO: Agora inclui suporte completo ao sistema modular de boss fights.
+ATUALIZADO: Ampulheta agora é um item visual (segurar + clicar).
 """
 
 import pygame
@@ -36,64 +37,19 @@ from src.utils.visual import desenhar_grid_consistente
 # NOVO: Importação do sistema modular de boss fights
 from src.game.fase_boss import executar_boss_fight
 
-def desenhar_efeito_tempo_desacelerado(tela, ativo, tempo_atual):
-    """
-    Desenha efeitos visuais quando o tempo está desacelerado.
-    
-    Args:
-        tela: Superfície onde desenhar
-        ativo: Se o efeito deve ser desenhado
-        tempo_atual: Tempo atual para animações
-    """
-    if ativo:
-        # Criar overlay azulado sutil
-        overlay = pygame.Surface((LARGURA, ALTURA_JOGO), pygame.SRCALPHA)
-        overlay.fill((100, 150, 255, 30))  # Azul transparente
-        tela.blit(overlay, (0, 0))
-        
-        # Efeito de ondas temporais nas bordas
-        for i in range(3):
-            alpha = int(50 * math.sin(tempo_atual / 200 + i * 2))
-            if alpha > 0:
-                pygame.draw.rect(tela, (150, 200, 255, alpha), 
-                               (0, i * 10, LARGURA, 3), 0)
-                pygame.draw.rect(tela, (150, 200, 255, alpha), 
-                               (0, ALTURA_JOGO - (i + 1) * 10, LARGURA, 3), 0)
-
-def criar_som_ampulheta():
-    """Cria um som místico para a ativação da ampulheta."""
-    duracao = 0.5
-    sample_rate = 22050
-    frames = int(duracao * sample_rate)
-    
-    som_data = []
-    for i in range(frames):
-        t = i / sample_rate
-        freq_base = 523  # C5
-        
-        amplitude = (
-            0.3 * math.sin(2 * math.pi * freq_base * t) +
-            0.2 * math.sin(2 * math.pi * freq_base * 1.5 * t) +
-            0.1 * math.sin(2 * math.pi * freq_base * 2 * t)
-        ) * math.exp(-t * 2)
-        
-        som_data.append(int(amplitude * 32767))
-    
-    som_bytes = bytearray()
-    for sample in som_data:
-        som_bytes.extend(sample.to_bytes(2, byteorder='little', signed=True))
-    
-    return pygame.mixer.Sound(bytes(som_bytes))
+# NOVO: Importação do sistema de ampulheta visual
+from src.items.ampulheta import usar_ampulheta, desenhar_efeito_tempo_desacelerado
 
 def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):
     """
     Executa uma fase específica do jogo com sistema corrigido:
     - E: Equipa arma do inventário (incluindo sabre de luz)
-    - Q: Liga/desliga granada  
-    - Mouse: Tiro com prioridade (granada > arma especial > sabre > tiro normal)
+    - Q: Liga/desliga item (granada, ampulheta, amuleto)
+    - Mouse: Tiro com prioridade (amuleto > granada > ampulheta > arma especial > sabre > tiro normal)
     - Clique direito: Modo defesa do sabre (quando equipado)
     
     ATUALIZADO: Agora detecta e executa boss fights usando sistema modular.
+    ATUALIZADO: Ampulheta agora funciona como item visual (segurar + clicar).
     
     Args:
         tela: Superfície principal do jogo
@@ -156,9 +112,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     
     # Criar jogador com sistema corrigido
     jogador = Quadrado(100, ALTURA_JOGO // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
-    
-    # NOVO: Som da ampulheta
-    som_ampulheta = criar_som_ampulheta()
     
     # Criar fontes
     fonte_pequena = pygame.font.SysFont("Arial", 18)  # Fonte pequena para o HUD
@@ -291,7 +244,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                                 VERMELHO, particulas, 120, 32)
                             
 
-                    # SISTEMA CORRIGIDO: Tecla Q para ativar/desativar granada
+                    # SISTEMA CORRIGIDO: Tecla Q para ativar/desativar items
                     if evento.key == pygame.K_q:
                         resultado = jogador.ativar_items_inventario()
                         print(resultado)
@@ -299,22 +252,24 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                             criar_texto_flutuante("GRANADA ATIVADA!", 
                                                 LARGURA // 2, ALTURA // 4, 
                                                 VERDE, particulas, 120, 32)       
-                        elif resultado == "espingarda":
-                            print('oi')
                         elif resultado == "granada_guardada":
                             criar_texto_flutuante("GRANADA GUARDADA!", 
                                                 LARGURA // 2, ALTURA // 4, 
                                                 CINZA_ESCURO, particulas, 120, 32)
-                        elif resultado == "ampulheta_ativada":
-                            pygame.mixer.Channel(5).play(som_ampulheta)
-                            criar_texto_flutuante("AMPULHETA ATIVADA!", 
+                        # AMPULHETA - NOVO: Toggle visual (não ativa ainda)
+                        elif resultado == "ampulheta_toggle":
+                            criar_texto_flutuante("AMPULHETA PRONTA!", 
                                                 LARGURA // 2, ALTURA // 4, 
                                                 (150, 200, 255), particulas, 120, 32)
+                        elif resultado == "ampulheta_guardada":
+                            criar_texto_flutuante("AMPULHETA GUARDADA!", 
+                                                LARGURA // 2, ALTURA // 4, 
+                                                CINZA_ESCURO, particulas, 120, 32)
                         elif resultado == "ampulheta_ja_ativa":
                             criar_texto_flutuante("AMPULHETA JÁ ESTÁ ATIVA!", 
                                                 LARGURA // 2, ALTURA // 4, 
                                                 AMARELO, particulas, 120, 32)
-                        # NOVOS CASOS PARA O AMULETO:
+                        # AMULETO
                         elif resultado == "amuleto_toggle":
                             criar_texto_flutuante("AMULETO MÍSTICO ATIVADO!", 
                                                 LARGURA // 2, ALTURA // 4, 
@@ -351,7 +306,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                     if evento.key == pygame.K_d and movimento_x > 0:
                         movimento_x = 0
 
-                # SISTEMA CORRIGIDO: Tiro com prioridade (Granada > Arma Especial > Sabre > Tiro Normal)
+                # SISTEMA CORRIGIDO: Tiro com prioridade (Amuleto > Granada > Ampulheta > Arma > Sabre > Normal)
                 if evento.type == pygame.MOUSEBUTTONDOWN:
                     if tempo_atual - ultimo_clique_mouse >= intervalo_minimo_clique:
                         ultimo_clique_mouse = tempo_atual
@@ -380,7 +335,19 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                     tempo_ultimo_lancamento_granada = tempo_atual
                                     lancar_granada(jogador, granadas, pos_mouse, particulas, flashes)
                             
-                            # PRIORIDADE 3: Sabre de Luz (ativar/desativar)
+                            # PRIORIDADE 3: Ampulheta (NOVO!)
+                            elif hasattr(jogador, 'ampulheta_selecionada') and jogador.ampulheta_selecionada:
+                                if usar_ampulheta(jogador, particulas, flashes):
+                                    criar_texto_flutuante("TEMPO DESACELERADO!", 
+                                                        LARGURA // 2, ALTURA // 4, 
+                                                        (150, 200, 255), particulas, 180, 48)
+                                else:
+                                    if jogador.tempo_desacelerado:
+                                        criar_texto_flutuante("AMPULHETA JÁ ATIVA!", 
+                                                            LARGURA // 2, ALTURA // 4, 
+                                                            AMARELO, particulas, 120, 32)
+                            
+                            # PRIORIDADE 4: Sabre de Luz (ativar/desativar)
                             elif hasattr(jogador, 'sabre_equipado') and jogador.sabre_equipado:
                                 resultado_sabre = jogador.ativar_sabre_luz()
                                 if resultado_sabre == "sabre_ativado":
@@ -392,7 +359,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                                         LARGURA // 2, ALTURA // 4, 
                                                         (100, 100, 150), particulas, 120, 32)
                             
-                            # PRIORIDADE 4: Espingarda
+                            # PRIORIDADE 5: Espingarda
                             elif jogador.espingarda_ativa and jogador.tiros_espingarda > 0:
                                 atirar_espingarda(jogador, tiros_jogador, pos_mouse, particulas, flashes)
                                 if jogador.tiros_espingarda <= 0:
@@ -401,7 +368,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                                         LARGURA // 2, ALTURA // 4, 
                                                         VERMELHO, particulas, 120, 32)
                             
-                            # PRIORIDADE 5: Metralhadora
+                            # PRIORIDADE 6: Metralhadora
                             elif jogador.metralhadora_ativa and jogador.tiros_metralhadora > 0:
                                 atirar_metralhadora(jogador, tiros_jogador, pos_mouse, particulas, flashes)
                                 if jogador.tiros_metralhadora <= 0:
@@ -410,7 +377,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                                         LARGURA // 2, ALTURA // 4, 
                                                         VERMELHO, particulas, 120, 32)
                             else:
-                                # PRIORIDADE 6: Tiro normal
+                                # PRIORIDADE 7: Tiro normal
                                 jogador.atirar_com_mouse(tiros_jogador, pos_mouse)
                         
                         elif evento.button == 3:  # Clique direito - Modo defesa do sabre
@@ -834,7 +801,7 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         # Desenhar moedas
         moeda_manager.desenhar(tela)
         
-        # NOVO: Desenhar efeito de tempo desacelerado
+        # NOVO: Desenhar efeito de tempo desacelerado (da ampulheta)
         desenhar_efeito_tempo_desacelerado(tela, jogador.tem_ampulheta_ativa(), tempo_atual)
         
         # Desenhar HUD atualizado com sistema corrigido

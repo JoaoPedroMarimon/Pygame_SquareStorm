@@ -2,7 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-Boss Fusion - Versão melhorada com movimentação variada e novos ataques.
+Boss Fusion - Versão BALANCEADA com ataques únicos e invocações reduzidas.
+AJUSTES:
+- Um ataque por vez (sem combos)
+- Invocações reduzidas (1-2 inimigos)
+- Cooldown de invocação aumentado
+- Número de tiros reduzido em todos os ataques
+- Velocidades balanceadas
 """
 
 import pygame
@@ -16,7 +22,7 @@ from src.utils.sound import gerar_som_explosao, gerar_som_tiro, gerar_som_dano
 
 class BossFusion:
     """
-    Boss final com movimentação dinâmica e ataques variados.
+    Boss final com movimentação dinâmica e ataques balanceados.
     """
     
     def __init__(self, x, y):
@@ -30,7 +36,7 @@ class BossFusion:
         self.cor_brilho = (255, 100, 255)
         
         # Sistema de vida com fases
-        self.vidas_max = 50
+        self.vidas_max = 40
         self.vidas = self.vidas_max
         self.fase_boss = 1
         
@@ -39,14 +45,14 @@ class BossFusion:
         self.velocidade_base = 1.5
         self.velocidade = self.velocidade_base
         
-        # NOVO: Sistema de movimentação variada
+        # Sistema de movimentação variada
         self.padroes_movimento = [
             "orbital", "zigzag", "perseguicao", "teleporte", 
             "linha_reta", "figura_8", "tremor", "espiral"
         ]
         self.movimento_atual = "orbital"
         self.tempo_mudanca_movimento = 0
-        self.duracao_movimento = 4000  # 4 segundos por padrão
+        self.duracao_movimento = 4000
         
         # Variáveis de movimento específicas
         self.centro_orbital_x = LARGURA // 2
@@ -62,7 +68,7 @@ class BossFusion:
         self.target_y = y
         self.movimento_suave_speed = 0.05
         
-        # NOVO: Sistema de ataques expandido
+        # Sistema de ataques - SEM COMBOS
         self.tempo_ultimo_ataque = 0
         self.padroes_ataque = [
             "rajada_circular", "laser_duplo", "meteoros", "ondas_choque",
@@ -79,11 +85,11 @@ class BossFusion:
         self.barreira_ativa = False
         self.presas_ativas = []
         
-        # Sistema de invocação
+        # Sistema de invocação - AJUSTADO
         self.pode_invocar = True
-        self.tempo_ultima_invocacao = 0
-        self.cooldown_invocacao = 8000
-        self.max_invocacoes = 4
+        self.tempo_ultima_invocacao = pygame.time.get_ticks()  # MUDANÇA: Iniciar com tempo atual
+        self.cooldown_invocacao = 12000  # AUMENTADO: 12 segundos (era 8)
+        self.max_invocacoes = 1  # REDUZIDO: máximo 2 inimigos por vez (era 4)
         
         # Efeitos visuais
         self.pulsacao = 0
@@ -100,7 +106,7 @@ class BossFusion:
         self.tempo_carregamento = 0
         self.tempo_carregamento_necessario = 1500
         
-        # NOVO: Sistema de combo de ataques
+        # Sistema de combo DESATIVADO
         self.combo_ativo = False
         self.ataques_combo = []
         self.combo_index = 0
@@ -108,10 +114,10 @@ class BossFusion:
         # ID único
         self.id = id(self)
         
-        print(f"🔥 Boss Fusion melhorado criado! Vida: {self.vidas}/{self.vidas_max}")
+        print(f"🔥 Boss Fusion balanceado criado! Vida: {self.vidas}/{self.vidas_max}")
     
     def atualizar_fase(self):
-        """Atualiza a fase do boss com novos comportamentos."""
+        """Atualiza a fase do boss."""
         vida_porcentagem = self.vidas / self.vidas_max
         
         if vida_porcentagem > 0.66:
@@ -126,33 +132,33 @@ class BossFusion:
             self.aplicar_mudanca_fase()
     
     def aplicar_mudanca_fase(self):
-        """Mudanças de fase com novos comportamentos."""
+        """Mudanças de fase com novos comportamentos - BALANCEADO."""
         print(f"⚡ Boss entrou na FASE {self.fase_boss}!")
         
         if self.fase_boss == 2:
-            self.velocidade = self.velocidade_base * 1.3
-            self.cooldown_ataque = 1500
-            self.duracao_movimento = 3000  # Muda movimento mais rápido
+            self.velocidade = self.velocidade_base * 1.2  # REDUZIDO: era 1.3
+            self.cooldown_ataque = 1800  # AUMENTADO: era 1500
+            self.duracao_movimento = 3500  # AUMENTADO: era 3000
             self.cor_principal = (150, 0, 0)
-            self.tempo_carregamento_necessario = 1200
+            self.tempo_carregamento_necessario = 1300  # AUMENTADO: era 1200
             
         elif self.fase_boss == 3:
-            self.velocidade = self.velocidade_base * 1.6
-            self.cooldown_ataque = 1000
-            self.duracao_movimento = 2000  # Movimentação muito dinâmica
+            self.velocidade = self.velocidade_base * 1.4  # REDUZIDO: era 1.6
+            self.cooldown_ataque = 1200  # AUMENTADO: era 1000
+            self.duracao_movimento = 2500  # AUMENTADO: era 2000
             self.cor_principal = (200, 0, 0)
             self.tamanho = int(self.tamanho_base * 1.2)
             self.rect.width = self.tamanho
             self.rect.height = self.tamanho
-            self.tempo_carregamento_necessario = 800
-            # Fase 3 ativa combos
-            self.combo_ativo = True
+            self.tempo_carregamento_necessario = 1000  # AUMENTADO: era 800
+            # Fase 3 SEM combos - ataques simples apenas
+            self.combo_ativo = False  # DESATIVADO
     
     def atualizar(self, tempo_atual, jogador, inimigos):
-        """Atualização principal com novos sistemas."""
+        """Atualização principal."""
         self.atualizar_fase()
         
-        # NOVO: Sistema de movimentação variada
+        # Sistema de movimentação variada
         self.atualizar_movimento(tempo_atual, jogador)
         
         # Manter dentro da tela
@@ -173,10 +179,10 @@ class BossFusion:
         # Efeitos visuais
         self.atualizar_efeitos_visuais(tempo_atual)
         
-        # NOVO: Sistema de ataques melhorado
+        # Sistema de ataques balanceado
         self.atualizar_sistema_ataques(tempo_atual, jogador, inimigos)
         
-        # Sistema de invocação
+        # Sistema de invocação - COOLDOWN AUMENTADO
         if (self.pode_invocar and 
             tempo_atual - self.tempo_ultima_invocacao > self.cooldown_invocacao and
             len([i for i in inimigos if i.vidas > 0]) < self.max_invocacoes):
@@ -184,7 +190,6 @@ class BossFusion:
     
     def atualizar_movimento(self, tempo_atual, jogador):
         """Sistema de movimentação variada."""
-        # Verificar se deve mudar padrão de movimento
         if tempo_atual - self.tempo_mudanca_movimento > self.duracao_movimento:
             self.escolher_novo_movimento()
             self.tempo_mudanca_movimento = tempo_atual
@@ -209,10 +214,8 @@ class BossFusion:
     
     def escolher_novo_movimento(self):
         """Escolhe um novo padrão de movimento."""
-        # Evitar repetir o mesmo movimento
         padroes_disponiveis = [p for p in self.padroes_movimento if p != self.movimento_atual]
         
-        # Fase 3 favorece movimentos mais agressivos
         if self.fase_boss == 3:
             padroes_agressivos = ["perseguicao", "teleporte", "tremor", "espiral"]
             padroes_disponiveis.extend(padroes_agressivos)
@@ -220,7 +223,6 @@ class BossFusion:
         self.movimento_atual = random.choice(padroes_disponiveis)
         print(f"🎯 Boss mudou para movimento: {self.movimento_atual}")
         
-        # Resetar variáveis específicas
         if self.movimento_atual == "teleporte":
             self.teleporte_cooldown = 0
         elif self.movimento_atual == "zigzag":
@@ -237,17 +239,13 @@ class BossFusion:
     def movimento_zigzag(self):
         """Movimento em zigue-zague."""
         self.zigzag_contador += 1
-        
-        # Movimento horizontal constante
         self.x += self.direcao_x * self.velocidade * 2
         
-        # Movimento vertical em zigue-zague
-        if self.zigzag_contador % 60 == 0:  # Muda direção a cada segundo
+        if self.zigzag_contador % 60 == 0:
             self.direcao_y *= -1
         
         self.y += self.direcao_y * self.velocidade * 3
         
-        # Inverter direção nas bordas
         if self.x <= 0 or self.x >= LARGURA - self.tamanho:
             self.direcao_x *= -1
         if self.y <= 0 or self.y >= ALTURA_JOGO - self.tamanho:
@@ -266,7 +264,6 @@ class BossFusion:
     def movimento_teleporte(self, tempo_atual):
         """Teleporte para posições estratégicas."""
         if self.teleporte_cooldown <= 0:
-            # Escolher nova posição
             posicoes_possiveis = [
                 (100, 100), (LARGURA - 100, 100),
                 (100, ALTURA_JOGO - 100), (LARGURA - 100, ALTURA_JOGO - 100),
@@ -275,9 +272,8 @@ class BossFusion:
             
             nova_pos = random.choice(posicoes_possiveis)
             self.x, self.y = nova_pos
-            self.teleporte_cooldown = 120  # 2 segundos
+            self.teleporte_cooldown = 120
             
-            # Efeito visual de teleporte
             for _ in range(10):
                 particula = {
                     'x': self.x + self.tamanho // 2,
@@ -297,7 +293,6 @@ class BossFusion:
         self.x += self.direcao_x * self.velocidade * 3
         self.y += self.direcao_y * self.velocidade * 3
         
-        # Ricochete nas bordas
         if self.x <= 0 or self.x >= LARGURA - self.tamanho:
             self.direcao_x *= -1
         if self.y <= 0 or self.y >= ALTURA_JOGO - self.tamanho:
@@ -306,19 +301,15 @@ class BossFusion:
     def movimento_figura_8(self):
         """Movimento em figura 8."""
         self.angulo_orbital += self.velocidade_orbital * 2
-        
-        # Equações paramétricas para figura 8
-        a = 150  # Amplitude
+        a = 150
         self.x = self.centro_orbital_x + a * math.sin(self.angulo_orbital) - self.tamanho // 2
         self.y = self.centro_orbital_y + a * math.sin(self.angulo_orbital) * math.cos(self.angulo_orbital) - self.tamanho // 2
     
     def movimento_tremor(self):
         """Movimento errático com tremores."""
-        # Movimento base mais tremores aleatórios
         self.x += random.uniform(-self.velocidade * 4, self.velocidade * 4)
         self.y += random.uniform(-self.velocidade * 4, self.velocidade * 4)
         
-        # Tendência a ficar no centro
         centro_x = LARGURA // 2
         centro_y = ALTURA_JOGO // 2
         
@@ -330,8 +321,6 @@ class BossFusion:
     def movimento_espiral(self):
         """Movimento em espiral."""
         self.angulo_orbital += self.velocidade_orbital * 3
-        
-        # Raio varia criando espiral
         raio_variavel = 100 + 80 * math.sin(self.angulo_orbital * 0.5)
         
         self.x = self.centro_orbital_x + math.cos(self.angulo_orbital) * raio_variavel - self.tamanho // 2
@@ -339,53 +328,41 @@ class BossFusion:
     
     def atualizar_rastro(self):
         """Atualiza rastro de movimento."""
-        # Adicionar posição atual ao rastro
         self.rastro_movimento.append({
             'x': self.x + self.tamanho // 2,
             'y': self.y + self.tamanho // 2,
             'vida': 20
         })
         
-        # Atualizar e remover rastros antigos
         for rastro in self.rastro_movimento[:]:
             rastro['vida'] -= 1
             if rastro['vida'] <= 0:
                 self.rastro_movimento.remove(rastro)
         
-        # Limitar tamanho do rastro
         if len(self.rastro_movimento) > 15:
             self.rastro_movimento.pop(0)
     
     def atualizar_sistema_ataques(self, tempo_atual, jogador, inimigos):
-        """Sistema de ataques melhorado."""
-        if tempo_atual - self.tempo_ultimo_ataque > self.cooldown_ataque:
-            if not self.carregando_ataque:
-                self.iniciar_ataque(tempo_atual)
+        """Sistema de ataques melhorado - um ataque por vez."""
+        # Só iniciar novo ataque se não estiver carregando
+        if not self.carregando_ataque and tempo_atual - self.tempo_ultimo_ataque > self.cooldown_ataque:
+            self.iniciar_ataque(tempo_atual)
     
     def iniciar_ataque(self, tempo_atual):
-        """Inicia ataque com sistema de combo."""
-        if self.combo_ativo and self.fase_boss == 3:
-            if not self.ataques_combo:
-                # Criar novo combo
-                self.ataques_combo = random.sample(self.padroes_ataque, 3)
-                self.combo_index = 0
+        """Inicia ataque - um por vez, SEM combos."""
+        # Atacar apenas se não estiver carregando
+        if self.carregando_ataque:
+            return
             
-            self.ataque_atual = self.ataques_combo[self.combo_index]
-            self.combo_index += 1
-            
-            if self.combo_index >= len(self.ataques_combo):
-                self.ataques_combo = []
-                self.combo_index = 0
-        else:
-            # Ataque individual
-            padroes_disponiveis = self.padroes_ataque.copy()
-            
-            # Fase 3 tem ataques mais avançados
-            if self.fase_boss == 3:
-                ataques_avancados = ["tornado_tiros", "barreira_espinhos", "pulso_magnetico"]
-                padroes_disponiveis.extend(ataques_avancados)
-            
-            self.ataque_atual = random.choice(padroes_disponiveis)
+        # Escolher um ataque aleatório simples
+        padroes_disponiveis = self.padroes_ataque.copy()
+        
+        # Fase 3 tem ataques mais avançados
+        if self.fase_boss == 3:
+            ataques_avancados = ["tornado_tiros", "barreira_espinhos", "pulso_magnetico"]
+            padroes_disponiveis.extend(ataques_avancados)
+        
+        self.ataque_atual = random.choice(padroes_disponiveis)
         
         self.carregando_ataque = True
         self.tempo_carregamento = tempo_atual
@@ -407,8 +384,6 @@ class BossFusion:
             self.ataque_meteoros(tiros_inimigo, particulas, flashes)
         elif self.ataque_atual == "ondas_choque":
             self.ataque_ondas_choque(centro_x, centro_y, tiros_inimigo)
-        
-        # NOVOS ATAQUES
         elif self.ataque_atual == "laser_rotativo":
             self.ataque_laser_rotativo(centro_x, centro_y, tiros_inimigo)
         elif self.ataque_atual == "chuva_energia":
@@ -429,142 +404,27 @@ class BossFusion:
         
         pygame.mixer.Channel(3).play(pygame.mixer.Sound(gerar_som_explosao()))
     
-    # NOVOS ATAQUES
+    # ATAQUES BALANCEADOS
     
-    def ataque_laser_rotativo(self, centro_x, centro_y, tiros_inimigo):
-        """Laser que gira 360 graus."""
-        num_passos = 24
-        for i in range(num_passos):
-            angulo = (2 * math.pi * i) / num_passos + self.laser_rotativo_angulo
-            
-            for dist in range(10, 300, 15):
-                x = centro_x + math.cos(angulo) * dist
-                y = centro_y + math.sin(angulo) * dist
-                
-                if 0 <= x <= LARGURA and 0 <= y <= ALTURA_JOGO:
-                    tiro = Tiro(x, y, math.cos(angulo), math.sin(angulo), (0, 255, 255), 8)
-                    tiros_inimigo.append(tiro)
-        
-        self.laser_rotativo_angulo += 0.1
-    
-    def ataque_chuva_energia(self, tiros_inimigo, particulas, flashes):
-        """Chuva de energia que cobre toda a tela."""
-        for _ in range(25):
-            x = random.randint(0, LARGURA)
-            y = -50
-            
-            # Velocidades variadas
-            dx = random.uniform(-0.3, 0.3)
-            dy = random.uniform(3, 6)
-            
-            cor = random.choice([(255, 0, 255), (255, 255, 0), (0, 255, 255)])
-            tiro = Tiro(x, y, dx, dy, cor, random.randint(4, 7))
-            tiro.raio = random.randint(8, 15)
-            tiros_inimigo.append(tiro)
-    
-    def ataque_explosao_presas(self, centro_x, centro_y, tiros_inimigo, particulas, flashes):
-        """Cria presas que explodem após um tempo."""
-        posicoes_presas = [
-            (100, 100), (LARGURA - 100, 100),
-            (100, ALTURA_JOGO - 100), (LARGURA - 100, ALTURA_JOGO - 100),
-            (LARGURA // 2, ALTURA_JOGO // 2)
-        ]
-        
-        for pos in posicoes_presas:
-            presa = {
-                'x': pos[0],
-                'y': pos[1],
-                'tempo_vida': 180,  # 3 segundos
-                'raio': 30,
-                'cor': (255, 100, 0)
-            }
-            self.presas_ativas.append(presa)
-    
-    def ataque_tornado_tiros(self, centro_x, centro_y, tiros_inimigo, jogador):
-        """Tornado de tiros que se move em direção ao jogador."""
-        self.tornado_centro_x = centro_x
-        self.tornado_centro_y = centro_y
-        
-        # Direção para o jogador
-        dx = jogador.x - centro_x
-        dy = jogador.y - centro_y
-        dist = math.sqrt(dx**2 + dy**2)
-        
-        if dist > 0:
-            dx /= dist
-            dy /= dist
-        
-        # Criar espiral de tiros
-        for i in range(20):
-            angulo = (2 * math.pi * i) / 20
-            raio = 50 + (i * 10)
-            
-            x = centro_x + math.cos(angulo) * raio
-            y = centro_y + math.sin(angulo) * raio
-            
-            # Velocidade em direção ao jogador + componente rotacional
-            vel_x = dx * 3 + math.cos(angulo + math.pi/2) * 2
-            vel_y = dy * 3 + math.sin(angulo + math.pi/2) * 2
-            
-            tiro = Tiro(x, y, vel_x, vel_y, (150, 0, 150), 5)
-            tiros_inimigo.append(tiro)
-    
-    def ataque_barreira_espinhos(self, centro_x, centro_y, tiros_inimigo):
-        """Cria barreira de tiros espinhosos ao redor do boss."""
-        self.barreira_ativa = True
-        
-        # Círculo de proteção
-        for i in range(16):
-            angulo = (2 * math.pi * i) / 16
-            x = centro_x + math.cos(angulo) * 80
-            y = centro_y + math.sin(angulo) * 80
-            
-            # Tiros que orbitam o boss
-            tiro = Tiro(x, y, 0, 0, (100, 100, 100), 0)  # Sem velocidade inicial
-            tiro.orbital = True
-            tiro.angulo_orbital = angulo
-            tiro.raio_orbital = 80
-            tiro.centro_x = centro_x
-            tiro.centro_y = centro_y
-            tiros_inimigo.append(tiro)
-    
-    def ataque_pulso_magnetico(self, centro_x, centro_y, tiros_inimigo, jogador):
-        """Pulso que empurra ou puxa tiros existentes."""
-        # Criar onda de energia
-        for i in range(12):
-            angulo = (2 * math.pi * i) / 12
-            dx = math.cos(angulo)
-            dy = math.sin(angulo)
-            
-            tiro = Tiro(centro_x, centro_y, dx, dy, (255, 255, 255), 4)
-            tiro.pulso_magnetico = True
-            tiros_inimigo.append(tiro)
-        
-        # Efeito nos tiros existentes (implementar na lógica principal)
-        print("🧲 Pulso magnético ativado!")
-    
-    # Manter métodos originais com pequenas melhorias...
     def ataque_rajada_circular(self, centro_x, centro_y, tiros_inimigo):
-        """Rajada circular melhorada."""
-        num_tiros = 20 if self.fase_boss < 3 else 32
+        """Rajada circular melhorada - BALANCEADA."""
+        num_tiros = 16 if self.fase_boss < 3 else 24  # REDUZIDO: era 20 e 32
         
         for i in range(num_tiros):
             angulo = (2 * math.pi * i) / num_tiros
-            # Adicionar variação no ângulo
             angulo += random.uniform(-0.1, 0.1)
             
             dx = math.cos(angulo)
             dy = math.sin(angulo)
             
             cor_tiro = self.cor_secundaria
-            velocidade = random.randint(5, 8)
+            velocidade = random.randint(4, 6)  # REDUZIDO: era 5-8
             
             tiro = Tiro(centro_x, centro_y, dx, dy, cor_tiro, velocidade)
             tiros_inimigo.append(tiro)
     
     def ataque_laser_duplo(self, centro_x, centro_y, tiros_inimigo, jogador):
         """Laser duplo com predição."""
-        # Calcular onde o jogador estará
         predicao_x = jogador.x + random.randint(-50, 50)
         predicao_y = jogador.y + random.randint(-50, 50)
         
@@ -576,8 +436,7 @@ class BossFusion:
             dx /= dist
             dy /= dist
         
-        # Múltiplos lasers com divergência
-        for offset in [-0.4, -0.2, 0, 0.2, 0.4]:
+        for offset in [-0.3, 0, 0.3]:  # REDUZIDO: era 5 lasers
             dx_laser = dx + offset
             dy_laser = dy
             
@@ -586,98 +445,189 @@ class BossFusion:
                 dx_laser /= norm
                 dy_laser /= norm
             
-            for i in range(12):
+            for i in range(10):  # REDUZIDO: era 12
                 tiro = Tiro(centro_x + dx_laser * i * 8, 
                            centro_y + dy_laser * i * 8, 
                            dx_laser, dy_laser, 
-                           (255, 0, 255), 10)
+                           (255, 0, 255), 9)
                 tiros_inimigo.append(tiro)
     
     def ataque_meteoros(self, tiros_inimigo, particulas, flashes):
-        """Meteoros melhorados."""
-        num_meteoros = 8 if self.fase_boss < 3 else 15
+        """Meteoros melhorados - BALANCEADOS."""
+        num_meteoros = 5 if self.fase_boss < 3 else 8  # REDUZIDO: era 8 e 15
         
         for _ in range(num_meteoros):
             x = random.randint(50, LARGURA - 50)
             y = -30
             
-            dx = random.uniform(-1, 1)
-            dy = random.uniform(0.8, 1.2)
+            dx = random.uniform(-0.5, 0.5)  # REDUZIDO
+            dy = random.uniform(0.6, 1.0)  # REDUZIDO
             
             cor_meteoro = random.choice([(255, 100, 0), (255, 0, 0), (255, 150, 50)])
-            velocidade = random.randint(5, 9)
+            velocidade = random.randint(4, 7)  # REDUZIDO
             
             meteoro = Tiro(x, y, dx, dy, cor_meteoro, velocidade)
-            meteoro.raio = random.randint(10, 18)
+            meteoro.raio = random.randint(8, 14)  # REDUZIDO
             meteoro.rect = pygame.Rect(x - meteoro.raio, y - meteoro.raio, 
                                      meteoro.raio * 2, meteoro.raio * 2)
             tiros_inimigo.append(meteoro)
     
     def ataque_ondas_choque(self, centro_x, centro_y, tiros_inimigo):
         """Ondas de choque melhoradas."""
-        num_ondas = 4 if self.fase_boss < 3 else 7
+        num_ondas = 3 if self.fase_boss < 3 else 5  # REDUZIDO
         
         for onda in range(num_ondas):
-            delay = onda * 150  # Ondas mais rápidas
-            
-            tiros_por_onda = 16  # Mais tiros por onda
+            tiros_por_onda = 12  # REDUZIDO: era 16
             
             for i in range(tiros_por_onda):
                 angulo = (2 * math.pi * i) / tiros_por_onda
                 dx = math.cos(angulo)
                 dy = math.sin(angulo)
                 
-                # Velocidade e cor variam por onda
-                velocidade = 3 + onda * 1.2
+                velocidade = 2.5 + onda * 1.0  # REDUZIDO
                 cor_onda = (80 + onda * 25, 0, 180 - onda * 20)
                 
-                # Posição inicial com offset
                 start_x = centro_x + dx * (onda + 1) * 25
                 start_y = centro_y + dy * (onda + 1) * 25
                 
                 tiro = Tiro(start_x, start_y, dx, dy, cor_onda, velocidade)
                 tiros_inimigo.append(tiro)
     
+    def ataque_laser_rotativo(self, centro_x, centro_y, tiros_inimigo):
+        """Laser que gira 360 graus."""
+        num_passos = 18  # REDUZIDO: era 24
+        for i in range(num_passos):
+            angulo = (2 * math.pi * i) / num_passos + self.laser_rotativo_angulo
+            
+            for dist in range(15, 280, 20):  # REDUZIDO densidade
+                x = centro_x + math.cos(angulo) * dist
+                y = centro_y + math.sin(angulo) * dist
+                
+                if 0 <= x <= LARGURA and 0 <= y <= ALTURA_JOGO:
+                    tiro = Tiro(x, y, math.cos(angulo), math.sin(angulo), (0, 255, 255), 7)
+                    tiros_inimigo.append(tiro)
+        
+        self.laser_rotativo_angulo += 0.1
+    
+    def ataque_chuva_energia(self, tiros_inimigo, particulas, flashes):
+        """Chuva de energia que cobre toda a tela - BALANCEADA."""
+        for _ in range(15):  # REDUZIDO: era 25
+            x = random.randint(0, LARGURA)
+            y = -50
+            
+            dx = random.uniform(-0.2, 0.2)  # REDUZIDO
+            dy = random.uniform(2.5, 5)  # REDUZIDO
+            
+            cor = random.choice([(255, 0, 255), (255, 255, 0), (0, 255, 255)])
+            tiro = Tiro(x, y, dx, dy, cor, random.randint(3, 6))  # REDUZIDO
+            tiro.raio = random.randint(6, 12)  # REDUZIDO
+            tiros_inimigo.append(tiro)
+    
+    def ataque_explosao_presas(self, centro_x, centro_y, tiros_inimigo, particulas, flashes):
+        """Cria presas que explodem após um tempo."""
+        posicoes_presas = [
+            (100, 100), (LARGURA - 100, 100),
+            (LARGURA // 2, ALTURA_JOGO // 2)  # REDUZIDO: eram 5, agora 3
+        ]
+        
+        for pos in posicoes_presas:
+            presa = {
+                'x': pos[0],
+                'y': pos[1],
+                'tempo_vida': 180,
+                'raio': 30,
+                'cor': (255, 100, 0)
+            }
+            self.presas_ativas.append(presa)
+    
+    def ataque_tornado_tiros(self, centro_x, centro_y, tiros_inimigo, jogador):
+        """Tornado de tiros que se move em direção ao jogador."""
+        dx = jogador.x - centro_x
+        dy = jogador.y - centro_y
+        dist = math.sqrt(dx**2 + dy**2)
+        
+        if dist > 0:
+            dx /= dist
+            dy /= dist
+        
+        for i in range(15):  # REDUZIDO: era 20
+            angulo = (2 * math.pi * i) / 15
+            raio = 50 + (i * 8)  # REDUZIDO
+            
+            x = centro_x + math.cos(angulo) * raio
+            y = centro_y + math.sin(angulo) * raio
+            
+            vel_x = dx * 2.5 + math.cos(angulo + math.pi/2) * 1.5  # REDUZIDO
+            vel_y = dy * 2.5 + math.sin(angulo + math.pi/2) * 1.5
+            
+            tiro = Tiro(x, y, vel_x, vel_y, (150, 0, 150), 5)
+            tiros_inimigo.append(tiro)
+    
+    def ataque_barreira_espinhos(self, centro_x, centro_y, tiros_inimigo):
+        """Cria barreira de tiros espinhosos ao redor do boss."""
+        self.barreira_ativa = True
+        
+        for i in range(12):  # REDUZIDO: era 16
+            angulo = (2 * math.pi * i) / 12
+            x = centro_x + math.cos(angulo) * 80
+            y = centro_y + math.sin(angulo) * 80
+            
+            tiro = Tiro(x, y, 0, 0, (100, 100, 100), 0)
+            tiro.orbital = True
+            tiro.angulo_orbital = angulo
+            tiro.raio_orbital = 80
+            tiro.centro_x = centro_x
+            tiro.centro_y = centro_y
+            tiros_inimigo.append(tiro)
+    
+    def ataque_pulso_magnetico(self, centro_x, centro_y, tiros_inimigo, jogador):
+        """Pulso que empurra ou puxa tiros existentes."""
+        for i in range(10):  # REDUZIDO: era 12
+            angulo = (2 * math.pi * i) / 10
+            dx = math.cos(angulo)
+            dy = math.sin(angulo)
+            
+            tiro = Tiro(centro_x, centro_y, dx, dy, (255, 255, 255), 3.5)
+            tiro.pulso_magnetico = True
+            tiros_inimigo.append(tiro)
+        
+        print("🧲 Pulso magnético ativado!")
+    
     def atualizar_presas_ativas(self, tiros_inimigo, particulas, flashes):
         """Atualiza e explode presas ativas."""
         for presa in self.presas_ativas[:]:
             presa['tempo_vida'] -= 1
             
-            # Pulsação visual
             if presa['tempo_vida'] % 20 < 10:
                 presa['cor'] = (255, 150, 0)
             else:
                 presa['cor'] = (255, 50, 0)
             
-            # Explodir quando tempo acabar
             if presa['tempo_vida'] <= 0:
                 self.explodir_presa(presa, tiros_inimigo, particulas, flashes)
                 self.presas_ativas.remove(presa)
     
     def explodir_presa(self, presa, tiros_inimigo, particulas, flashes):
         """Explode uma presa criando tiros em todas as direções."""
-        num_tiros = 12
+        num_tiros = 10  # REDUZIDO: era 12
         
         for i in range(num_tiros):
             angulo = (2 * math.pi * i) / num_tiros
             dx = math.cos(angulo)
             dy = math.sin(angulo)
             
-            tiro = Tiro(presa['x'], presa['y'], dx, dy, (255, 100, 0), 6)
+            tiro = Tiro(presa['x'], presa['y'], dx, dy, (255, 100, 0), 5)
             tiros_inimigo.append(tiro)
         
-        # Efeito visual de explosão
         flash = criar_explosao(presa['x'], presa['y'], (255, 100, 0), particulas, 40)
         flashes.append(flash)
     
     def atualizar_efeitos_visuais(self, tempo_atual):
         """Efeitos visuais melhorados."""
-        # Pulsação
-        if tempo_atual - self.tempo_pulsacao > 80:  # Mais rápido
+        if tempo_atual - self.tempo_pulsacao > 80:
             self.tempo_pulsacao = tempo_atual
             self.pulsacao = (self.pulsacao + 1) % 30
         
-        # Partículas de aura mais intensas
         if random.random() < 0.4:
             for _ in range(3):
                 particula = {
@@ -691,7 +641,6 @@ class BossFusion:
                 }
                 self.particulas_aura.append(particula)
         
-        # Atualizar partículas
         for particula in self.particulas_aura[:]:
             particula['x'] += particula['dx']
             particula['y'] += particula['dy']
@@ -700,24 +649,22 @@ class BossFusion:
             
             if particula['vida'] <= 0 or particula['tamanho'] <= 0:
                 self.particulas_aura.remove(particula)
-        
-        # Atualizar presas ativas
-        if hasattr(self, 'presas_ativas'):
-            self.atualizar_presas_ativas([], [], [])  # Será chamado corretamente no jogo
     
     def invocar_ajudantes(self, inimigos, tempo_atual):
-        """Sistema de invocação melhorado."""
+        """Sistema de invocação melhorado - menos inimigos."""
         from src.entities.inimigo_factory import InimigoFactory
         
         self.tempo_ultima_invocacao = tempo_atual
         
-        # Número baseado na fase
-        num_invocacoes = self.fase_boss
-        if self.fase_boss == 3:
-            num_invocacoes += 1  # Fase 3 invoca mais
+        # REDUZIDO: Número baseado na fase, mas menor
+        if self.fase_boss == 1:
+            num_invocacoes = 1  # Fase 1: 1 inimigo
+        elif self.fase_boss == 2:
+            num_invocacoes = 2  # Fase 2: 2 inimigos
+        else:
+            num_invocacoes = 2  # Fase 3: 2 inimigos (antes era 4)
         
         for _ in range(num_invocacoes):
-            # Posições mais estratégicas
             cantos = [
                 (50, 50), (LARGURA - 50, 50),
                 (50, ALTURA_JOGO - 50), (LARGURA - 50, ALTURA_JOGO - 50)
@@ -730,19 +677,14 @@ class BossFusion:
             posicoes_possiveis = cantos + meio_bordas
             x, y = random.choice(posicoes_possiveis)
             
-            # Tipos de inimigo baseados na fase
             if self.fase_boss == 1:
                 ajudante = InimigoFactory.criar_inimigo_basico(x, y)
             elif self.fase_boss == 2:
                 tipos = [InimigoFactory.criar_inimigo_basico, InimigoFactory.criar_inimigo_rapido]
                 ajudante = random.choice(tipos)(x, y)
-            else:  # Fase 3
-                tipos = [InimigoFactory.criar_inimigo_rapido, InimigoFactory.criar_inimigo_especial]
+            else:
+                tipos = [InimigoFactory.criar_inimigo_basico, InimigoFactory.criar_inimigo_rapido]
                 ajudante = random.choice(tipos)(x, y)
-                # Chance de criar inimigo elite na fase 3
-                if random.random() < 0.3:
-                    ajudante.vidas *= 2
-                    ajudante.cor = (150, 0, 150)  # Cor especial para elite
             
             ajudante.invocado_pelo_boss = True
             inimigos.append(ajudante)
@@ -754,7 +696,6 @@ class BossFusion:
         if not self.invulneravel:
             self.vidas -= 1
             
-            # Invulnerabilidade mais curta nas fases avançadas
             duracao_base = 100
             if self.fase_boss == 2:
                 duracao_base = 80
@@ -765,7 +706,6 @@ class BossFusion:
             self.tempo_invulneravel = pygame.time.get_ticks()
             self.duracao_invulneravel = duracao_base
             
-            # Efeito visual ao tomar dano
             for _ in range(5):
                 particula = {
                     'x': self.x + self.tamanho // 2,
@@ -784,42 +724,39 @@ class BossFusion:
     
     def desenhar(self, tela, tempo_atual):
         """Sistema de desenho melhorado."""
-        # Desenhar rastro de movimento
-        for i, rastro in enumerate(self.rastro_movimento):
+        # Desenhar rastro
+        for rastro in self.rastro_movimento:
             if rastro['vida'] > 0:
                 alpha = int(255 * (rastro['vida'] / 20))
                 tamanho_rastro = max(1, int(self.tamanho * (rastro['vida'] / 20) * 0.3))
                 
-                # Usar uma superfície temporária para alpha
                 rastro_surface = pygame.Surface((tamanho_rastro * 2, tamanho_rastro * 2))
                 rastro_surface.set_alpha(alpha // 3)
                 rastro_surface.fill(self.cor_principal)
                 
                 tela.blit(rastro_surface, (rastro['x'] - tamanho_rastro, rastro['y'] - tamanho_rastro))
         
-        # Desenhar partículas de aura
+        # Desenhar partículas
         for particula in self.particulas_aura:
             if particula['tamanho'] > 0:
                 pygame.draw.circle(tela, particula['cor'], 
                                  (int(particula['x']), int(particula['y'])), 
                                  max(1, int(particula['tamanho'])))
         
-        # Desenhar presas ativas
+        # Desenhar presas
         for presa in self.presas_ativas:
-            # Desenhar área de perigo
             pygame.draw.circle(tela, (100, 50, 0), 
                              (int(presa['x']), int(presa['y'])), 
                              presa['raio'], 3)
-            # Desenhar núcleo
             pygame.draw.circle(tela, presa['cor'], 
                              (int(presa['x']), int(presa['y'])), 
                              max(5, presa['raio'] // 3))
         
-        # Efeito de pulsação melhorado
+        # Pulsação
         pulso = int(self.pulsacao / 3)
         tamanho_atual = self.tamanho + pulso
         
-        # Sombra mais suave
+        # Sombra
         shadow_surface = pygame.Surface((tamanho_atual + 8, tamanho_atual + 8))
         shadow_surface.set_alpha(100)
         shadow_surface.fill((0, 0, 0))
@@ -834,36 +771,33 @@ class BossFusion:
         pygame.draw.rect(tela, (30, 30, 30), 
                         (self.x - 3, self.y - 3, tamanho_atual + 6, tamanho_atual + 6), 0, 10)
         
-        # Corpo principal com gradiente simulado
+        # Corpo principal com gradiente
         for i in range(3):
             cor_gradiente = tuple(max(0, c - i * 20) for c in cor_uso)
             pygame.draw.rect(tela, cor_gradiente, 
                             (self.x + i, self.y + i, 
                              tamanho_atual - i * 2, tamanho_atual - i * 2), 0, 8)
         
-        # Núcleo central brilhante
+        # Núcleo central
         core_size = tamanho_atual // 3
         core_x = self.x + tamanho_atual // 2 - core_size // 2
         core_y = self.y + tamanho_atual // 2 - core_size // 2
         
-        # Efeito de brilho no núcleo
         for i in range(3):
             core_cor = tuple(min(255, c + 80 - i * 25) for c in self.cor_brilho)
             pygame.draw.rect(tela, core_cor, 
                             (core_x + i, core_y + i, 
                              core_size - i * 2, core_size - i * 2), 0, 6)
         
-        # Olhos mais detalhados
+        # Olhos
         olho_size = tamanho_atual // 8
         olho_y = self.y + tamanho_atual // 3
         
-        # Base dos olhos
         pygame.draw.circle(tela, (50, 50, 50), 
                           (self.x + tamanho_atual // 4, olho_y), olho_size + 2)
         pygame.draw.circle(tela, (50, 50, 50), 
                           (self.x + 3 * tamanho_atual // 4, olho_y), olho_size + 2)
         
-        # Olhos brilhantes
         cor_olho = (255, 0, 0) if self.fase_boss < 3 else (255, 100, 0)
         pygame.draw.circle(tela, cor_olho, 
                           (self.x + tamanho_atual // 4, olho_y), olho_size)
@@ -876,9 +810,8 @@ class BossFusion:
         pygame.draw.circle(tela, (255, 255, 255), 
                           (self.x + 3 * tamanho_atual // 4 - 2, olho_y - 2), max(1, olho_size // 3))
         
-        # Detalhes extras baseados na fase
+        # Detalhes por fase
         if self.fase_boss >= 2:
-            # Espinhos laterais
             for lado in [-1, 1]:
                 espinho_x = self.x + tamanho_atual // 2 + lado * (tamanho_atual // 2 + 10)
                 espinho_y = self.y + tamanho_atual // 2
@@ -889,7 +822,6 @@ class BossFusion:
                 ])
         
         if self.fase_boss == 3:
-            # Aura de energia
             for i in range(5):
                 raio_aura = tamanho_atual // 2 + 20 + i * 8
                 alpha = 50 - i * 8
@@ -910,21 +842,20 @@ class BossFusion:
     def desenhar_barra_vida(self, tela):
         """Barra de vida melhorada."""
         barra_largura = LARGURA - 100
-        barra_altura = 25  # Mais alta
+        barra_altura = 25
         barra_x = 50
         barra_y = 25
         
-        # Fundo com borda
+        # Fundo
         pygame.draw.rect(tela, (20, 20, 20), 
                         (barra_x - 3, barra_y - 3, barra_largura + 6, barra_altura + 6), 0, 8)
         pygame.draw.rect(tela, (80, 80, 80), 
                         (barra_x, barra_y, barra_largura, barra_altura), 0, 5)
         
-        # Vida restante com gradiente
+        # Vida restante
         vida_porcentagem = self.vidas / self.vidas_max
         vida_largura = int(barra_largura * vida_porcentagem)
         
-        # Cor da barra baseada na vida e fase
         if vida_porcentagem > 0.66:
             cor_vida = (255, 100, 100)
         elif vida_porcentagem > 0.33:
@@ -932,12 +863,10 @@ class BossFusion:
         else:
             cor_vida = (255, 0, 0)
         
-        # Adicionar efeito de fase
         if self.fase_boss >= 2:
             cor_vida = tuple(min(255, c + 30) for c in cor_vida)
         
         if vida_largura > 0:
-            # Gradiente simulado
             for i in range(vida_largura):
                 alpha = 1.0 - (i / vida_largura) * 0.3
                 cor_gradiente = tuple(int(c * alpha) for c in cor_vida)
@@ -945,15 +874,12 @@ class BossFusion:
                                (barra_x + i, barra_y), 
                                (barra_x + i, barra_y + barra_altura))
         
-        # Texto melhorado
+        # Texto
         from src.utils.visual import desenhar_texto
         
-        # Nome com efeito de brilho
         nome_texto = f"BOSS FUSION - FASE {self.fase_boss}"
-        if self.combo_ativo:
-            nome_texto += " [COMBO MODE]"
         
-        # Sombra do texto
+        # Sombra
         desenhar_texto(tela, nome_texto, 26, (50, 50, 50), LARGURA // 2 + 2, barra_y - 17)
         # Texto principal
         cor_texto = (255, 255, 255) if self.fase_boss < 3 else (255, 200, 0)
@@ -963,7 +889,7 @@ class BossFusion:
         vida_texto = f"{self.vidas}/{self.vidas_max}"
         desenhar_texto(tela, vida_texto, 20, (255, 255, 255), LARGURA // 2, barra_y + 40)
         
-        # Indicador de movimento atual
+        # Indicador de movimento
         movimento_texto = f"Padrão: {self.movimento_atual.title()}"
         desenhar_texto(tela, movimento_texto, 16, (200, 200, 200), LARGURA // 2, barra_y + 60)
     
@@ -988,7 +914,6 @@ class BossFusion:
                     x = centro_x + raio * math.cos(angulo - math.pi/2)
                     y = centro_y + raio * math.sin(angulo - math.pi/2)
                     
-                    # Cor muda baseada no progresso
                     if progresso < 0.5:
                         cor = (255, 255 * progresso * 2, 0)
                     else:
@@ -996,13 +921,13 @@ class BossFusion:
                     
                     pygame.draw.circle(tela, cor, (int(x), int(y)), 4)
             
-            # Texto do ataque no centro
+            # Texto do ataque
             if self.ataque_atual:
                 from src.utils.visual import desenhar_texto
                 nome_ataque = self.ataque_atual.replace("_", " ").title()
                 desenhar_texto(tela, nome_ataque, 18, (255, 255, 0), centro_x, centro_y - 10)
                 
-                # Barra de progresso pequena
+                # Barra de progresso
                 barra_w = 80
                 barra_h = 6
                 barra_x = centro_x - barra_w // 2
@@ -1013,5 +938,4 @@ class BossFusion:
                 if prog_w > 0:
                     pygame.draw.rect(tela, (255, 200, 0), (barra_x, barra_y, prog_w, barra_h), 0, 3)
         
-        # Retornar se deve executar o ataque
         return progresso >= 1.0
