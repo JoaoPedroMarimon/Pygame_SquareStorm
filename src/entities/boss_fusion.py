@@ -35,8 +35,8 @@ class BossFusion:
         self.cor_secundaria = (200, 0, 0)
         self.cor_brilho = (255, 100, 255)
         
-        # Sistema de vida com fases
-        self.vidas_max = 40
+        # Sistema de vida com fases - AJUSTADO
+        self.vidas_max = 40  # REDUZIDO: era 50
         self.vidas = self.vidas_max
         self.fase_boss = 1
         
@@ -85,11 +85,11 @@ class BossFusion:
         self.barreira_ativa = False
         self.presas_ativas = []
         
-        # Sistema de invocação - AJUSTADO
-        self.pode_invocar = True
-        self.tempo_ultima_invocacao = pygame.time.get_ticks()  # MUDANÇA: Iniciar com tempo atual
-        self.cooldown_invocacao = 12000  # AUMENTADO: 12 segundos (era 8)
-        self.max_invocacoes = 1  # REDUZIDO: máximo 2 inimigos por vez (era 4)
+        # Sistema de invocação - DESATIVADO
+        self.pode_invocar = False  # DESATIVADO: Boss não invoca mais
+        self.tempo_ultima_invocacao = 0
+        self.cooldown_invocacao = 999999  # Cooldown infinito (desativado)
+        self.max_invocacoes = 0  # Zero invocações permitidas
         
         # Efeitos visuais
         self.pulsacao = 0
@@ -182,11 +182,11 @@ class BossFusion:
         # Sistema de ataques balanceado
         self.atualizar_sistema_ataques(tempo_atual, jogador, inimigos)
         
-        # Sistema de invocação - COOLDOWN AUMENTADO
-        if (self.pode_invocar and 
-            tempo_atual - self.tempo_ultima_invocacao > self.cooldown_invocacao and
-            len([i for i in inimigos if i.vidas > 0]) < self.max_invocacoes):
-            self.invocar_ajudantes(inimigos, tempo_atual)
+        # Sistema de invocação - DESATIVADO (comentado)
+        # if (self.pode_invocar and 
+        #     tempo_atual - self.tempo_ultima_invocacao > self.cooldown_invocacao and
+        #     len([i for i in inimigos if i.vidas > 0]) < self.max_invocacoes):
+        #     self.invocar_ajudantes(inimigos, tempo_atual)
     
     def atualizar_movimento(self, tempo_atual, jogador):
         """Sistema de movimentação variada."""

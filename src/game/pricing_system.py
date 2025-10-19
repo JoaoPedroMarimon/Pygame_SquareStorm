@@ -33,7 +33,7 @@ class PricingManager:
                 "compras_realizadas": 0,
                 "limite_maximo": 8,   # Máximo 8 compras
                 "multiplicador": 1.4, # Preço aumenta 40% a cada compra
-                "quantidade_por_compra": 50
+                "quantidade_por_compra": 25
             },
             "sabre_luz": {
                 "preco_base": 50,

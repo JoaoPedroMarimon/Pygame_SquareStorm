@@ -232,10 +232,9 @@ class BossFightManager:
                     game_systems['difficulty_manager'].atualizar_dificuldade(tempo_atual, jogador, boss)
                     
                     # Verificar modo desespero
-                    if boss and boss.vidas <= boss.vidas_max * 0.2 and not estados['boss_modo_desespero']:
+                    if boss and boss.vidas <= 5 and not estados['boss_modo_desespero']:
                         estados['boss_modo_desespero'] = True
                         boss.cooldown_ataque = int(boss.cooldown_ataque * 0.6)
-                        print("BOSS ENTROU EM MODO DESESPERO!")
                     
                     resultado_jogo = self._atualizar_jogo_melhorado(jogador, boss, inimigos, game_systems, estados, 
                                                                   tempo_atual, pos_mouse, moeda_manager, boss_info)
