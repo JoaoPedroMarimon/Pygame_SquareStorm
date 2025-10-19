@@ -391,13 +391,14 @@ def carregar_upgrades():
     Se o arquivo não existir, inicia com valores padrão.
     """
     upgrades_padrao = {
-        "vida": 1,  # Vida máxima inicial é 1
-        "espingarda": 0,  # Tiros de espingarda disponíveis (0 = não tem)
-        "metralhadora": 0,  # Tiros de metralhadora disponíveis (0 = não tem)
-        "sabre_luz": 0,  # Células de energia do sabre de luz disponíveis (0 = não tem)
-        "granada": 0,  # Granadas disponíveis (0 = não tem)
-        "ampulheta": 0,  # Usos da ampulheta disponíveis (0 = não tem)
-        "faca": 0  # Facas de combate disponíveis (0 = não tem)
+        "vida": 1,
+        "desert_eagle": 0,
+        "espingarda": 0,
+        "metralhadora": 0,
+        "sabre_luz": 0,
+        "granada": 0,
+        "ampulheta": 0,
+        "faca": 0
     }
     
     try:

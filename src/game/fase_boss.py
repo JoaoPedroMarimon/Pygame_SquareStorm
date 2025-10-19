@@ -5,6 +5,7 @@
 Sistema modular para fases com boss fights melhorado.
 Gerencia cutscenes, boss fights e mecânicas especiais com movimentação dinâmica e novos ataques.
 COM CONTROLE ADEQUADO DA MÚSICA DO BOSS.
+ATUALIZADO: Sistema de ampulheta funcional no boss fight.
 """
 
 import pygame
@@ -400,7 +401,8 @@ class BossFightManager:
         
         mensagens = {
             "granada_toggle": ("GRANADA ATIVADA!", VERDE),
-            "ampulheta_ativada": ("AMPULHETA ATIVADA!", (150, 200, 255)),
+            "ampulheta_toggle": ("AMPULHETA PRONTA!", (150, 200, 255)),
+            "ampulheta_guardada": ("AMPULHETA GUARDADA!", CINZA_ESCURO),
             "amuleto_toggle": ("AMULETO MÍSTICO ATIVADO!", (200, 150, 255))
         }
         
@@ -423,6 +425,18 @@ class BossFightManager:
                     game_systems['tempo_ultimo_lancamento_granada'] = tempo_atual
                     lancar_granada(jogador, game_systems['granadas'], pos_mouse, 
                                  game_systems['particulas'], game_systems['flashes'])
+            
+            elif hasattr(jogador, 'ampulheta_selecionada') and jogador.ampulheta_selecionada:
+                from src.items.ampulheta import usar_ampulheta
+                if usar_ampulheta(jogador, game_systems['particulas'], game_systems['flashes']):
+                    criar_texto_flutuante("TEMPO DESACELERADO!", 
+                                        LARGURA // 2, ALTURA_JOGO // 4, 
+                                        (150, 200, 255), game_systems['particulas'], 180, 48)
+                else:
+                    if jogador.tempo_desacelerado:
+                        criar_texto_flutuante("AMPULHETA JÁ ATIVA!", 
+                                            LARGURA // 2, ALTURA_JOGO // 4, 
+                                            AMARELO, game_systems['particulas'], 120, 32)
             
             elif hasattr(jogador, 'sabre_equipado') and jogador.sabre_equipado:
                 resultado_sabre = jogador.ativar_sabre_luz()
@@ -481,6 +495,9 @@ class BossFightManager:
     def _atualizar_jogo_melhorado(self, jogador, boss, inimigos, game_systems, estados, 
                                 tempo_atual, pos_mouse, moeda_manager, boss_info):
         """Atualiza toda a lógica do jogo com melhorias."""
+        # NOVO: Obter fator de tempo da ampulheta
+        fator_tempo = jogador.obter_fator_tempo() if hasattr(jogador, 'obter_fator_tempo') else 1.0
+        
         # Tiro contínuo da metralhadora
         botoes_mouse = pygame.mouse.get_pressed()
         if (botoes_mouse[0] and not estados['jogador_morto'] and not estados['boss_derrotado'] and
@@ -507,7 +524,14 @@ class BossFightManager:
         
         # Atualizar boss com sistemas melhorados
         if boss and not estados['boss_derrotado']:
+            # NOVO: Aplicar fator de tempo ao boss
+            velocidade_original_boss = boss.velocidade
+            boss.velocidade *= fator_tempo
+            
             boss.atualizar(tempo_atual, jogador, inimigos)
+            
+            # Restaurar velocidade original
+            boss.velocidade = velocidade_original_boss
             
             # Sistema de ataques especiais
             if estados['boss_modo_desespero'] and random.random() < 0.001:  # 0.1% chance por frame
@@ -551,7 +575,7 @@ class BossFightManager:
                 intervalo_movimento = 400
                 numero_fase_simulada = 10
                 
-                fator_tempo = jogador.obter_fator_tempo() if hasattr(jogador, 'obter_fator_tempo') else 1.0
+                # MODIFICADO: Aplicar fator de tempo aos inimigos invocados
                 velocidade_original = inimigo.velocidade
                 inimigo.velocidade *= fator_tempo
                 
@@ -696,6 +720,9 @@ class BossFightManager:
     
     def _processar_tiros_e_colisoes(self, jogador, boss, inimigos, game_systems, estados, moeda_manager, boss_info):
         """Processa todos os tiros e colisões."""
+        # NOVO: Obter fator de tempo
+        fator_tempo = jogador.obter_fator_tempo() if hasattr(jogador, 'obter_fator_tempo') else 1.0
+        
         # Tiros do jogador
         for tiro in game_systems['tiros_jogador'][:]:
             tiro.atualizar()
@@ -735,7 +762,14 @@ class BossFightManager:
         
         # Tiros dos inimigos
         for tiro in game_systems['tiros_inimigo'][:]:
+            # MODIFICADO: Aplicar fator de tempo aos tiros inimigos
+            velocidade_original_tiro = tiro.velocidade
+            tiro.velocidade *= fator_tempo
+            
             tiro.atualizar()
+            
+            # Restaurar velocidade original
+            tiro.velocidade = velocidade_original_tiro
             
             if not estados['jogador_morto'] and tiro.rect.colliderect(jogador.rect):
                 if jogador.tomar_dano():
@@ -925,9 +959,9 @@ class BossFightManager:
             # Desenhar moedas
             moeda_manager.desenhar(tela)
             
-            # Desenhar efeito de tempo desacelerado
-            if jogador.tem_ampulheta_ativa():
-                from src.game.fase import desenhar_efeito_tempo_desacelerado
+            # MODIFICADO: Desenhar efeito de tempo desacelerado da ampulheta
+            if hasattr(jogador, 'tem_ampulheta_ativa') and jogador.tem_ampulheta_ativa():
+                from src.items.ampulheta import desenhar_efeito_tempo_desacelerado
                 desenhar_efeito_tempo_desacelerado(tela, True, tempo_atual)
             
             # Desenhar HUD

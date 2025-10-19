@@ -138,6 +138,170 @@ def desenhar_icone_metralhadora(tela, x, y, tempo_atual):
 
     # Brilho no cano
     pygame.draw.line(tela, cor_laranja, (x, y), (ponta_metra_x, ponta_metra_y), 1)
+    
+    
+def desenhar_icone_desert_eagle(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone de Desert Eagle realista com acabamento em aço inoxidável.
+    Um verdadeiro canhão de mão - pistola poderosa de alto calibre.
+    """
+    # Cores realistas da Desert Eagle (aço inoxidável/cromado)
+    cor_metal_claro = (180, 180, 190)      # Aço brilhante
+    cor_metal_medio = (120, 120, 130)      # Aço médio
+    cor_metal_escuro = (60, 60, 70)        # Aço escuro/sombra
+    cor_punho_preto = (30, 30, 35)         # Punho de borracha preta
+    cor_detalhes_punho = (50, 50, 55)      # Detalhes do grip
+    cor_brilho_metal = (220, 220, 230)     # Reflexo do metal
+    cor_cano_interno = (20, 20, 25)        # Interior do cano
+    
+    # Animação sutil de brilho metálico
+    pulso = (math.sin(tempo_atual / 400) + 1) / 2
+    
+    # === SLIDE (parte superior massiva da Desert Eagle) ===
+    slide_x = x - 18
+    slide_y = y - 5
+    slide_largura = 38
+    slide_altura = 8
+    
+    # Slide principal com efeito de metal em camadas
+    slide_rect = pygame.Rect(slide_x, slide_y, slide_largura, slide_altura)
+    pygame.draw.rect(tela, cor_metal_medio, slide_rect, 0, 2)
+    
+    # Brilho superior do slide (simula reflexo de luz)
+    pygame.draw.line(tela, cor_metal_claro, 
+                    (slide_x + 2, slide_y + 1), 
+                    (slide_x + slide_largura - 4, slide_y + 1), 2)
+    
+    # Sombra inferior do slide
+    pygame.draw.line(tela, cor_metal_escuro, 
+                    (slide_x + 2, slide_y + slide_altura - 2), 
+                    (slide_x + slide_largura - 4, slide_y + slide_altura - 2), 1)
+    
+    # Ranhuras de ventilação no slide (característica marcante)
+    for i in range(5):
+        ranhura_x = slide_x + 20 + i * 3
+        pygame.draw.line(tela, cor_metal_escuro,
+                        (ranhura_x, slide_y + 2),
+                        (ranhura_x, slide_y + slide_altura - 2), 2)
+        # Reflexo nas ranhuras
+        pygame.draw.line(tela, cor_metal_claro,
+                        (ranhura_x + 1, slide_y + 2),
+                        (ranhura_x + 1, slide_y + slide_altura - 2), 1)
+    
+    # === CANO MASSIVO (característica principal da Desert Eagle) ===
+    cano_x = slide_x + slide_largura
+    cano_y = y
+    cano_raio = 4  # Cano grosso
+    
+    # Cano externo com sombreamento
+    pygame.draw.circle(tela, cor_metal_medio, (cano_x, cano_y), cano_raio)
+    pygame.draw.circle(tela, cor_metal_claro, (cano_x, cano_y - 1), cano_raio - 1)
+    
+    # Boca do cano (buraco interno)
+    pygame.draw.circle(tela, cor_cano_interno, (cano_x, cano_y), cano_raio - 2)
+    pygame.draw.circle(tela, (10, 10, 15), (cano_x, cano_y), cano_raio - 3)
+    
+    # Anel de precisão na boca do cano
+    pygame.draw.circle(tela, cor_metal_escuro, (cano_x, cano_y), cano_raio, 1)
+    
+    # === FRAME (corpo/chassi da arma) ===
+    frame_x = slide_x + 3
+    frame_y = y
+    frame_largura = 26
+    frame_altura = 12
+    
+    frame_rect = pygame.Rect(frame_x, frame_y - frame_altura//2, frame_largura, frame_altura)
+    pygame.draw.rect(tela, cor_metal_escuro, frame_rect, 0, 2)
+    
+    # Detalhes de sombreamento no frame
+    pygame.draw.rect(tela, cor_metal_medio, 
+                    (frame_x + 1, frame_y - frame_altura//2 + 1, frame_largura - 2, 2), 0, 1)
+    
+    # === TRILHO PICATINNY (em cima do slide) ===
+    trilho_y = slide_y - 2
+    for i in range(3):
+        trilho_x = slide_x + 15 + i * 4
+        pygame.draw.rect(tela, cor_metal_escuro, (trilho_x, trilho_y, 2, 2))
+    
+    # === GUARDA-MATO (trigger guard) ===
+    guarda_centro_x = frame_x + 10
+    guarda_centro_y = y + 6
+    
+    # Guarda-mato robusto
+    pygame.draw.ellipse(tela, cor_metal_medio,
+                       (guarda_centro_x - 5, guarda_centro_y - 4, 10, 8), 2)
+    pygame.draw.ellipse(tela, cor_metal_claro,
+                       (guarda_centro_x - 5, guarda_centro_y - 4, 10, 8), 1)
+    
+    # === GATILHO ===
+    gatilho_x = guarda_centro_x
+    gatilho_y = guarda_centro_y
+    pygame.draw.rect(tela, cor_metal_claro, (gatilho_x - 2, gatilho_y - 1, 4, 3), 0, 1)
+    pygame.draw.line(tela, cor_metal_escuro, (gatilho_x - 1, gatilho_y + 1), (gatilho_x + 1, gatilho_y + 1), 1)
+    
+    # === PUNHO ERGONÔMICO (grip) ===
+    punho_x = frame_x - 1
+    punho_y = y + 3
+    
+    # Formato anatômico do punho
+    punho_pontos = [
+        (punho_x, punho_y - 4),
+        (punho_x + 12, punho_y - 3),
+        (punho_x + 10, punho_y + 12),
+        (punho_x - 4, punho_y + 10)
+    ]
+    
+    # Punho principal (preto fosco)
+    pygame.draw.polygon(tela, cor_punho_preto, punho_pontos)
+    pygame.draw.polygon(tela, cor_detalhes_punho, punho_pontos, 1)
+    
+    # Textura antiderrapante do punho (checkering)
+    for i in range(4):
+        for j in range(2):
+            tex_x = punho_x + 2 + j * 3
+            tex_y = punho_y + 1 + i * 3
+            pygame.draw.rect(tela, cor_detalhes_punho, (tex_x, tex_y, 2, 2))
+    
+    # === CARREGADOR (magazine) ===
+    mag_x = punho_x + 3
+    mag_y = punho_y + 12
+    pygame.draw.rect(tela, cor_metal_escuro, (mag_x, mag_y, 5, 3))
+    pygame.draw.line(tela, cor_metal_claro, (mag_x, mag_y), (mag_x + 5, mag_y), 1)
+    
+    # === MIRAS (sights) ===
+    # Mira frontal
+    mira_frontal_x = cano_x - 4
+    mira_frontal_y = slide_y - 2
+    pygame.draw.rect(tela, cor_metal_claro, (mira_frontal_x, mira_frontal_y, 2, 4))
+    pygame.draw.circle(tela, (100, 255, 100), (mira_frontal_x + 1, mira_frontal_y + 1), 1)  # Ponto luminoso
+    
+    # Mira traseira
+    mira_traseira_x = slide_x + 8
+    mira_traseira_y = slide_y - 2
+    pygame.draw.rect(tela, cor_metal_escuro, (mira_traseira_x, mira_traseira_y, 5, 3))
+    # Entalhe da mira traseira
+    pygame.draw.line(tela, cor_cano_interno, (mira_traseira_x + 2, mira_traseira_y), 
+                    (mira_traseira_x + 2, mira_traseira_y + 2), 2)
+    
+    # === EFEITO DE BRILHO METÁLICO SUTIL ===
+    if pulso > 0.7:
+        brilho_surf = pygame.Surface((50, 25), pygame.SRCALPHA)
+        alpha = int(40 * pulso)
+        cor_glow = (200, 200, 210, alpha)
+        
+        # Brilho suave no slide
+        pygame.draw.line(brilho_surf, cor_glow,
+                        (10, 8),
+                        (45, 8), 3)
+        
+        tela.blit(brilho_surf, (slide_x - 5, slide_y - 3))
+    
+    # === LOGO/MARCA "DESERT EAGLE" ===
+    logo_x = frame_x + 14
+    logo_y = frame_y - 2
+    # Desenhar "DE" estilizado
+    pygame.draw.line(tela, cor_metal_claro, (logo_x, logo_y), (logo_x + 3, logo_y), 1)
+    pygame.draw.line(tela, cor_metal_claro, (logo_x + 4, logo_y), (logo_x + 6, logo_y), 1)
 
 def desenhar_icone_sabre_luz(tela, x, y, tempo_atual):
     """
@@ -313,6 +477,21 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_texto": (150, 200, 255),
             "cor_resultado": CIANO,
             "icone_func": "sabre_luz"
+        },
+        {
+            "key": "desert_eagle",
+            "nome": "DESERT EAGLE",
+            "descricao": "",
+            "instrucoes": "Press R to switch weapon type",
+            "info_extra": "Powerful hand cannon with high accuracy",
+            "cor_fundo": (60, 50, 30),
+            "cor_borda": (220, 180, 80),
+            "cor_botao": (180, 140, 60),
+            "cor_hover": (220, 180, 80),
+            "cor_texto": (255, 220, 120),
+            "cor_resultado": AMARELO,
+            "icone_func": "desert_eagle",
+            "custo": 100
         }
     ]
     
@@ -376,7 +555,9 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
         icone_x = item_rect.x + 60
         icone_y = y_item_relativo + altura_item // 2
         
-        if arma["icone_func"] == "espingarda":
+        if arma["icone_func"] == "desert_eagle":
+            desenhar_icone_desert_eagle(conteudo_surf, icone_x, icone_y, tempo_atual)
+        elif arma["icone_func"] == "espingarda":
             desenhar_icone_espingarda(conteudo_surf, icone_x, icone_y, tempo_atual)
         elif arma["icone_func"] == "metralhadora":
             desenhar_icone_metralhadora(conteudo_surf, icone_x, icone_y, tempo_atual)
