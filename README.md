@@ -1,5 +1,7 @@
 # SquareStorm
 
+⚠️  This project is currently under development. Some features may be incomplete or subject to change.
+
 A fast-paced 2D geometry-based shooter game where you battle waves of enemy squares in an epic arena. Built with Python and Pygame.
 
 ![Game Version](https://img.shields.io/badge/version-1.5.5-blue.svg)
