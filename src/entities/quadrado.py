@@ -56,8 +56,11 @@ class Quadrado:
             # SISTEMA DE ARMAS (sempre inativas no início)
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
+            self.desert_eagle_ativa = False
             self.tiros_espingarda = carregar_upgrade_espingarda()
             self.tiros_metralhadora = carregar_upgrade_metralhadora()
+            from src.weapons.desert_eagle import carregar_upgrade_desert_eagle
+            self.tiros_desert_eagle = carregar_upgrade_desert_eagle()
             
         else:  # Se for inimigo
             self.vidas = 1  # Padrão: 1 vida para inimigos normais
@@ -67,9 +70,11 @@ class Quadrado:
             self.granada_selecionada = False
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
+            self.desert_eagle_ativa = False
             self.granadas = 0
             self.tiros_espingarda = 0
             self.tiros_metralhadora = 0
+            self.tiros_desert_eagle = 0
             self.ampulheta_uses = 0
             self.ampulheta_selecionada = False
             self.tempo_desacelerado = False
@@ -285,10 +290,6 @@ class Quadrado:
             
         if hasattr(self, 'perseguidor') and self.perseguidor:
             # Desenhar um efeito de "chamas" perseguindo
-            # Calcular o centro do quadrado
-            centro_x = self.x + self.tamanho // 2
-            centro_y = self.y + self.tamanho // 2
-            
             # Desenhar efeito de rastro de "fogo"
             for i in range(8):
                 # Variação no tamanho e posição
@@ -357,6 +358,9 @@ class Quadrado:
                 desenhar_espingarda(tela, self, tempo_atual, pos_mouse)
             elif hasattr(self, 'metralhadora_ativa') and self.metralhadora_ativa and self.tiros_metralhadora > 0:
                 desenhar_metralhadora(tela, self, tempo_atual, pos_mouse)
+            elif hasattr(self, 'desert_eagle_ativa') and self.desert_eagle_ativa and self.tiros_desert_eagle > 0:
+                from src.weapons.desert_eagle import desenhar_desert_eagle
+                desenhar_desert_eagle(tela, self, pos_mouse)
             elif hasattr(self, 'granada_selecionada') and self.granada_selecionada and self.granadas > 0:
                 desenhar_granada_selecionada(tela, self, tempo_atual)
             elif hasattr(self, 'ampulheta_selecionada') and self.ampulheta_selecionada and self.ampulheta_uses > 0:
@@ -561,13 +565,17 @@ class Quadrado:
         # Auto-equipar item selecionado se disponível
 
             
-    def tomar_dano(self):
+    def tomar_dano(self, dano=1):
         """
         Faz o quadrado tomar dano.
+
+        Args:
+            dano: Quantidade de dano a receber (padrão: 1)
+
         Retorna True se o dano foi aplicado, False se estava invulnerável.
         """
         if not self.invulneravel:
-            self.vidas -= 1
+            self.vidas -= dano
             # Apenas o jogador fica invulnerável após tomar dano
             if self.cor == AZUL:
                 self.invulneravel = True
@@ -656,36 +664,47 @@ class Quadrado:
             return "ampulheta_guardada"
         
         # Verificar se já tem alguma arma equipada
-        arma_ja_equipada = (self.espingarda_ativa or 
-                        self.metralhadora_ativa or 
+        arma_ja_equipada = (self.espingarda_ativa or
+                        self.metralhadora_ativa or
+                        self.desert_eagle_ativa or
                         self.sabre_equipado)
-        
+
         # Se já tem arma equipada, guardar todas
         if arma_ja_equipada:
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
+            self.desert_eagle_ativa = False
             self.sabre_equipado = False
             # Desativar sabre se estiver ativo
             if hasattr(self, 'sabre_info') and self.sabre_info['ativo']:
                 self.sabre_info['ativo'] = False
                 self.sabre_info['modo_defesa'] = False
             return "guardada"
-        
+
         # Se não tem arma equipada, tentar equipar a selecionada
         if arma_selecionada == "espingarda" and self.tiros_espingarda > 0:
             self.espingarda_ativa = True
             self.metralhadora_ativa = False
+            self.desert_eagle_ativa = False
             self.sabre_equipado = False
             return "espingarda"
         elif arma_selecionada == "metralhadora" and self.tiros_metralhadora > 0:
             self.metralhadora_ativa = True
             self.espingarda_ativa = False
+            self.desert_eagle_ativa = False
             self.sabre_equipado = False
             return "metralhadora"
+        elif arma_selecionada == "desert_eagle" and self.tiros_desert_eagle > 0:
+            self.desert_eagle_ativa = True
+            self.espingarda_ativa = False
+            self.metralhadora_ativa = False
+            self.sabre_equipado = False
+            return "desert_eagle"
         elif arma_selecionada == "sabre_luz" and self.sabre_uses > 0:
             self.sabre_equipado = True
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
+            self.desert_eagle_ativa = False
             return "sabre_luz"
         elif arma_selecionada == "nenhuma":
             return "nenhuma_selecionada"

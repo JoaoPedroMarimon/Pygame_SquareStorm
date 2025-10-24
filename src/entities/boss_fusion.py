@@ -691,21 +691,26 @@ class BossFusion:
         
         print(f"Boss invocou {num_invocacoes} ajudante(s)!")
     
-    def tomar_dano(self):
-        """Sistema de dano melhorado."""
+    def tomar_dano(self, dano=1):
+        """
+        Sistema de dano melhorado.
+
+        Args:
+            dano: Quantidade de dano a receber (padrão: 1)
+        """
         if not self.invulneravel:
-            self.vidas -= 1
-            
+            self.vidas -= dano
+
             duracao_base = 100
             if self.fase_boss == 2:
                 duracao_base = 80
             elif self.fase_boss == 3:
                 duracao_base = 60
-            
+
             self.invulneravel = True
             self.tempo_invulneravel = pygame.time.get_ticks()
             self.duracao_invulneravel = duracao_base
-            
+
             for _ in range(5):
                 particula = {
                     'x': self.x + self.tamanho // 2,

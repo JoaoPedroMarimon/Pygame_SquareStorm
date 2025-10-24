@@ -96,15 +96,26 @@ class InventarioManager:
                 "alcance": "★★★☆☆"
             },
             "sabre_luz": {
-                "nome": "Lightsaber", 
-                "quantidade": 0, 
-                "cor": (150, 150, 255), 
+                "nome": "Lightsaber",
+                "quantidade": 0,
+                "cor": (150, 150, 255),
                 "descricao": "Elegant weapon for a more civilized age",
                 "tipo": "arma",
                 "key": "sabre_luz",
                 "raridade": "Legendary",
                 "dano": "★★★★★",
                 "alcance": "★★★★☆"
+            },
+            "desert_eagle": {
+                "nome": "Desert Eagle",
+                "quantidade": 0,
+                "cor": (200, 180, 100),
+                "descricao": "Powerful hand cannon with high damage",
+                "tipo": "arma",
+                "key": "desert_eagle",
+                "raridade": "Rare",
+                "dano": "★★★★☆",
+                "alcance": "★★★★★"
             }
         }
         
@@ -424,6 +435,11 @@ def desenhar_icone_espingarda_moderno(tela, x, y, tempo_atual, tamanho=30):
                         (x - tamanho//2 + 5, y), 
                         (x + tamanho//2, y), 3)
 
+def desenhar_icone_desert_eagle_moderno(tela, x, y, tempo_atual, tamanho=30):
+    """Desenha ícone moderno da Desert Eagle para o inventário."""
+    from src.weapons.desert_eagle import desenhar_icone_desert_eagle
+    desenhar_icone_desert_eagle(tela, x, y, tempo_atual)
+
 def desenhar_icone_metralhadora_moderno(tela, x, y, tempo_atual, tamanho=35):
     """
     Desenha um ícone de metralhadora com efeitos visuais.
@@ -563,7 +579,9 @@ def desenhar_card_item_moderno(tela, item_data, item_key, x, y, largura, altura,
         desenhar_icone_metralhadora_moderno(tela, icone_x, icone_y, tempo_atual)
     elif item_key == "sabre_luz":
         desenhar_icone_sabre_moderno(tela, icone_x, icone_y, tempo_atual)
-    
+    elif item_key == "desert_eagle":
+        desenhar_icone_desert_eagle_moderno(tela, icone_x, icone_y, tempo_atual)
+
     # Nome do item
     cor_texto = BRANCO if tem_estoque else (100, 100, 100)
     desenhar_texto(tela, item_data["nome"], 24, cor_texto, x + 150, y + 25)

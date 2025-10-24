@@ -85,7 +85,14 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             cor_borda = AMARELO
             municao = str(jogador.tiros_espingarda)
             tem_arma_especial = True
-            
+
+        elif hasattr(jogador, 'desert_eagle_ativa') and jogador.desert_eagle_ativa and hasattr(jogador, 'tiros_desert_eagle') and jogador.tiros_desert_eagle > 0:
+            arma_ativa = "DESERT EAGLE"
+            cor_fundo = (70, 70, 80)
+            cor_borda = (200, 180, 100)
+            municao = str(jogador.tiros_desert_eagle)
+            tem_arma_especial = True
+
         elif hasattr(jogador, 'granada_selecionada') and jogador.granada_selecionada and hasattr(jogador, 'granadas') and jogador.granadas > 0:
             arma_ativa = "GRANADA"
             cor_fundo = (80, 40, 40)
@@ -138,7 +145,12 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             elif hasattr(jogador, 'espingarda_ativa') and jogador.espingarda_ativa:
                 # Desenhar ícone da espingarda
                 desenhar_icone_espingarda(icone_surface, 30, 20, tempo_atual)
-                
+
+            elif hasattr(jogador, 'desert_eagle_ativa') and jogador.desert_eagle_ativa:
+                # Desenhar ícone da Desert Eagle
+                from src.weapons.desert_eagle import desenhar_icone_desert_eagle
+                desenhar_icone_desert_eagle(icone_surface, 30, 20, tempo_atual)
+
             elif hasattr(jogador, 'granada_selecionada') and jogador.granada_selecionada:
                 # Desenhar ícone da granada
                 desenhar_icone_granada(icone_surface, 30, 20)

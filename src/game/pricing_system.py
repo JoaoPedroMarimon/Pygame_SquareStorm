@@ -42,7 +42,14 @@ class PricingManager:
                 "multiplicador": 1.8, # Preço aumenta 80% a cada compra
                 "quantidade_por_compra": 20
             },
-            
+            "desert_eagle": {
+                "preco_base": 40,
+                "compras_realizadas": 0,
+                "limite_maximo": 8,   # Máximo 8 compras
+                "multiplicador": 1.35, # Preço aumenta 35% a cada compra
+                "quantidade_por_compra": 15
+            },
+
             # UPGRADES SHOP
             "vida": {
                 "preco_base": 20,

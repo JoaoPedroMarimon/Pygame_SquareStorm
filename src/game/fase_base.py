@@ -23,6 +23,7 @@ from src.utils.visual import desenhar_mira, criar_mira
 from src.items.granada import Granada, lancar_granada, processar_granadas, inicializar_sistema_granadas, obter_intervalo_lancamento
 from src.weapons.espingarda import atirar_espingarda
 from src.weapons.metralhadora import atirar_metralhadora
+from src.weapons.desert_eagle import atirar_desert_eagle
 from src.weapons.sabre_luz import processar_deflexao_tiros, atualizar_sabre, processar_dano_sabre
 from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos, desenhar_invocacoes, limpar_invocacoes
 from src.items.amuleto import usar_amuleto_para_invocacao
@@ -184,6 +185,7 @@ class FaseBase:
         mensagens = {
             "espingarda": ("ESPINGARDA EQUIPADA!", AMARELO, 32),
             "metralhadora": ("METRALHADORA EQUIPADA!", LARANJA, 32),
+            "desert_eagle": ("DESERT EAGLE EQUIPADA!", (200, 180, 100), 32),
             "sabre_luz": ("SABRE DE LUZ EQUIPADO!", (150, 150, 255), 32),
             "guardada": ("ARMA GUARDADA!", CINZA_ESCURO, 32),
             "granada_guardada": ("GRANADA GUARDADA!", CINZA_ESCURO, 32),
@@ -267,7 +269,15 @@ class FaseBase:
                     criar_texto_flutuante("ESPINGARDA SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
                                          VERMELHO, self.particulas, 120, 32)
 
-            # PRIORIDADE 6: Metralhadora
+            # PRIORIDADE 6: Desert Eagle
+            elif self.jogador.desert_eagle_ativa and self.jogador.tiros_desert_eagle > 0:
+                atirar_desert_eagle(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
+                if self.jogador.tiros_desert_eagle <= 0:
+                    self.jogador.desert_eagle_ativa = False
+                    criar_texto_flutuante("DESERT EAGLE SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
+                                         VERMELHO, self.particulas, 120, 32)
+
+            # PRIORIDADE 7: Metralhadora
             elif self.jogador.metralhadora_ativa and self.jogador.tiros_metralhadora > 0:
                 atirar_metralhadora(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
                 if self.jogador.tiros_metralhadora <= 0:
@@ -275,7 +285,7 @@ class FaseBase:
                     criar_texto_flutuante("METRALHADORA SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
                                          VERMELHO, self.particulas, 120, 32)
 
-            # PRIORIDADE 7: Tiro normal
+            # PRIORIDADE 8: Tiro normal
             else:
                 self.jogador.atirar_com_mouse(self.tiros_jogador, pos_mouse)
 
@@ -345,9 +355,11 @@ class FaseBase:
                     continue
 
                 if tiro.rect.colliderect(alvo.rect):
-                    dano_causou_morte = (alvo.vidas == 1)
+                    # Obter dano do tiro (padrão: 1)
+                    dano = getattr(tiro, 'dano', 1)
+                    dano_causou_morte = (alvo.vidas <= dano)
 
-                    if alvo.tomar_dano():
+                    if alvo.tomar_dano(dano):
                         # Se o alvo morreu, adicionar moedas
                         if dano_causou_morte:
                             moedas_bonus = self._calcular_moedas_alvo(alvo)
