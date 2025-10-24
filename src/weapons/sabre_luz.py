@@ -60,6 +60,294 @@ def criar_som_sabre_hum():
     # Som contínuo removido conforme solicitado
     return None
 
+def arremessar_sabre(jogador, pos_mouse):
+    """
+    Arremessa o sabre de luz na direção do mouse como um boomerang.
+
+    Args:
+        jogador: Objeto do jogador
+        pos_mouse: Posição do mouse para onde arremessar
+
+    Returns:
+        True se arremessou com sucesso, False caso contrário
+    """
+    if not hasattr(jogador, 'sabre_info'):
+        return False
+
+    sabre = jogador.sabre_info
+
+    # Só pode arremessar se o sabre estiver ativo e não estiver já voando
+    if not sabre['ativo'] or sabre.get('arremessado', False):
+        return False
+
+    # Calcular direção do arremesso
+    centro_x = jogador.x + jogador.tamanho // 2
+    centro_y = jogador.y + jogador.tamanho // 2
+
+    dx = pos_mouse[0] - centro_x
+    dy = pos_mouse[1] - centro_y
+    distancia = math.sqrt(dx**2 + dy**2)
+
+    if distancia == 0:
+        return False
+
+    # Normalizar direção
+    dx /= distancia
+    dy /= distancia
+
+    # Configurar estado de arremesso
+    sabre['arremessado'] = True
+    sabre['arremesso_pos_x'] = centro_x
+    sabre['arremesso_pos_y'] = centro_y
+    sabre['arremesso_vel_x'] = dx * 12  # Velocidade do arremesso (12 pixels/frame)
+    sabre['arremesso_vel_y'] = dy * 12
+    sabre['arremesso_rotacao'] = 0  # Ângulo de rotação inicial
+    sabre['arremesso_retornando'] = False
+    sabre['modo_defesa'] = False  # Desativar modo defesa durante arremesso
+
+    return True
+
+def forcar_retorno_sabre(jogador):
+    """
+    Força o retorno imediato do sabre arremessado para o jogador.
+
+    Args:
+        jogador: Objeto do jogador
+
+    Returns:
+        True se forçou o retorno, False se o sabre não estava arremessado
+    """
+    if not hasattr(jogador, 'sabre_info'):
+        return False
+
+    sabre = jogador.sabre_info
+
+    if not sabre.get('arremessado', False):
+        return False
+
+    # Ativar modo de retorno imediato
+    sabre['arremesso_retornando'] = True
+
+    return True
+
+def atualizar_sabre_arremessado(jogador, tempo_atual):
+    """
+    Atualiza a física do sabre arremessado (movimento e rotação).
+
+    Args:
+        jogador: Objeto do jogador
+        tempo_atual: Tempo atual em ms
+
+    Returns:
+        True se o sabre ainda está voando, False se retornou ao jogador
+    """
+    if not hasattr(jogador, 'sabre_info'):
+        return False
+
+    sabre = jogador.sabre_info
+
+    if not sabre.get('arremessado', False):
+        return False
+
+    from src.config import LARGURA, ALTURA_JOGO
+
+    # Atualizar rotação (gira rapidamente)
+    sabre['arremesso_rotacao'] = (sabre['arremesso_rotacao'] + 25) % 360
+
+    centro_x = jogador.x + jogador.tamanho // 2
+    centro_y = jogador.y + jogador.tamanho // 2
+
+    # Verificar se deve começar a retornar
+    if not sabre['arremesso_retornando']:
+        # Verificar colisão com bordas
+        if (sabre['arremesso_pos_x'] <= 20 or
+            sabre['arremesso_pos_x'] >= LARGURA - 20 or
+            sabre['arremesso_pos_y'] <= 20 or
+            sabre['arremesso_pos_y'] >= ALTURA_JOGO - 20):
+            sabre['arremesso_retornando'] = True
+
+    # Atualizar posição
+    if sabre['arremesso_retornando']:
+        # Retornar ao jogador (movimento tipo boomerang)
+        dx = centro_x - sabre['arremesso_pos_x']
+        dy = centro_y - sabre['arremesso_pos_y']
+        distancia = math.sqrt(dx**2 + dy**2)
+
+        # Verificar se chegou de volta ao jogador
+        if distancia < 30:
+            sabre['arremessado'] = False
+            sabre['arremesso_retornando'] = False
+            return False
+
+        # Normalizar e aplicar velocidade de retorno (mais rápido)
+        dx /= distancia
+        dy /= distancia
+        sabre['arremesso_vel_x'] = dx * 15  # Retorno mais rápido
+        sabre['arremesso_vel_y'] = dy * 15
+
+    # Mover sabre
+    sabre['arremesso_pos_x'] += sabre['arremesso_vel_x']
+    sabre['arremesso_pos_y'] += sabre['arremesso_vel_y']
+
+    return True
+
+def processar_deflexao_sabre_arremessado(jogador, tiros_inimigo, particulas=None, flashes=None):
+    """
+    Processa deflexão de tiros pelo sabre arremessado girando.
+    Tiros que tocam o sabre arremessado são refletidos de volta aos inimigos.
+
+    Args:
+        jogador: Objeto do jogador
+        tiros_inimigo: Lista de tiros inimigos
+        particulas: Lista de partículas para efeitos
+        flashes: Lista de flashes para efeitos
+
+    Returns:
+        Lista de tiros refletidos
+    """
+    tiros_refletidos = []
+
+    if not hasattr(jogador, 'sabre_info'):
+        return tiros_refletidos
+
+    sabre = jogador.sabre_info
+
+    if not sabre.get('arremessado', False):
+        return tiros_refletidos
+
+    raio_deflexao = 60  # Raio de deflexão do sabre girando (maior que o dano)
+
+    for tiro in tiros_inimigo[:]:
+        # Calcular distância do tiro ao sabre
+        dx = tiro.x - sabre['arremesso_pos_x']
+        dy = tiro.y - sabre['arremesso_pos_y']
+        distancia = math.sqrt(dx**2 + dy**2)
+
+        # Verificar se o tiro está próximo do sabre
+        if distancia < raio_deflexao:
+            # Refletir o tiro de volta
+            # Inverter direção do tiro
+            tiro.dx = -tiro.dx
+            tiro.dy = -tiro.dy
+
+            # Mudar cor para azul (tiro refletido)
+            from src.config import AZUL
+            tiro.cor = AZUL
+
+            # Remover da lista de tiros inimigos e adicionar aos tiros do jogador
+            tiros_inimigo.remove(tiro)
+            tiros_refletidos.append(tiro)
+
+            # Efeitos visuais de deflexão
+            if particulas is not None:
+                for _ in range(8):
+                    particula_x = sabre['arremesso_pos_x'] + random.uniform(-10, 10)
+                    particula_y = sabre['arremesso_pos_y'] + random.uniform(-10, 10)
+
+                    particula = Particula(particula_x, particula_y, (150, 200, 255))
+                    particula.velocidade_x = random.uniform(-3, 3)
+                    particula.velocidade_y = random.uniform(-3, 3)
+                    particula.vida = random.randint(5, 10)
+                    particula.tamanho = random.uniform(1, 3)
+                    particulas.append(particula)
+
+            # Flash de deflexão
+            if flashes is not None:
+                flashes.append({
+                    'x': sabre['arremesso_pos_x'],
+                    'y': sabre['arremesso_pos_y'],
+                    'raio': 20,
+                    'vida': 8,
+                    'cor': (100, 200, 255)
+                })
+
+            # Som de deflexão
+            from src.utils.sound import gerar_som_tiro
+            som_deflexao = gerar_som_tiro()
+            som = pygame.mixer.Sound(som_deflexao)
+            som.set_volume(0.12)
+            pygame.mixer.Channel(7).play(som)
+
+    return tiros_refletidos
+
+def processar_dano_sabre_arremessado(jogador, inimigos, particulas=None, flashes=None):
+    """
+    Processa dano causado pelo sabre arremessado girando.
+
+    Args:
+        jogador: Objeto do jogador
+        inimigos: Lista de inimigos
+        particulas: Lista de partículas para efeitos
+        flashes: Lista de flashes para efeitos
+
+    Returns:
+        Lista de inimigos atingidos
+    """
+    inimigos_atingidos = []
+
+    if not hasattr(jogador, 'sabre_info'):
+        return inimigos_atingidos
+
+    sabre = jogador.sabre_info
+
+    if not sabre.get('arremessado', False):
+        return inimigos_atingidos
+
+    raio_dano = 50  # Raio de dano do sabre girando
+    tempo_atual = pygame.time.get_ticks()
+
+    for inimigo in inimigos:
+        # Verificar se inimigo está vivo
+        if inimigo.vidas <= 0:
+            continue
+
+        # Calcular distância até o inimigo
+        centro_inimigo_x = inimigo.x + inimigo.tamanho // 2
+        centro_inimigo_y = inimigo.y + inimigo.tamanho // 2
+
+        dx = centro_inimigo_x - sabre['arremesso_pos_x']
+        dy = centro_inimigo_y - sabre['arremesso_pos_y']
+        distancia = math.sqrt(dx**2 + dy**2)
+
+        # Verificar colisão
+        if distancia < raio_dano:
+            # Verificar cooldown (para não dar dano múltiplas vezes muito rápido)
+            if not hasattr(inimigo, 'ultimo_dano_sabre_arremessado'):
+                inimigo.ultimo_dano_sabre_arremessado = 0
+
+            # Cooldown de 200ms entre danos do sabre arremessado (mais rápido que o normal)
+            if tempo_atual - inimigo.ultimo_dano_sabre_arremessado >= 200:
+                inimigo.ultimo_dano_sabre_arremessado = tempo_atual
+
+                # Aplicar dano usando o método do inimigo
+                if inimigo.tomar_dano():
+                    inimigos_atingidos.append(inimigo)
+
+                    # Criar partículas de corte
+                    if particulas is not None:
+                        for _ in range(12):
+                            particula_x = centro_inimigo_x + random.uniform(-15, 15)
+                            particula_y = centro_inimigo_y + random.uniform(-15, 15)
+
+                            particula = Particula(particula_x, particula_y, (150, 200, 255))
+                            particula.velocidade_x = random.uniform(-4, 4)
+                            particula.velocidade_y = random.uniform(-4, 4)
+                            particula.vida = random.randint(8, 15)
+                            particula.tamanho = random.uniform(2, 4)
+                            particulas.append(particula)
+
+                    # Criar flash no ponto de impacto
+                    if flashes is not None:
+                        flashes.append({
+                            'x': centro_inimigo_x,
+                            'y': centro_inimigo_y,
+                            'raio': 25,
+                            'vida': 10,
+                            'cor': (150, 200, 255)
+                        })
+
+    return inimigos_atingidos
+
 def verificar_colisao_sabre_tiro(sabre_info, tiro):
     """
     Verifica se um tiro colidiu com a lâmina do sabre.
@@ -218,8 +506,8 @@ def atualizar_sabre(jogador, pos_mouse, tempo_atual):
     elif not sabre['ativo'] and sabre['animacao_ativacao'] > 0:
         sabre['animacao_ativacao'] -= 8  # Desativação mais rápida
     
-    # Comprimento da lâmina baseado na animação (mesmo tamanho em todos os modos)
-    comprimento_max = 60
+    # Comprimento da lâmina baseado na animação (AUMENTADO para ficar mais legal)
+    comprimento_max = 90  # Aumentado de 60 para 90
     sabre['comprimento_atual'] = (sabre['animacao_ativacao'] / 100) * comprimento_max
     
     # Posição da ponta
@@ -465,10 +753,93 @@ def processar_deflexao_tiros(jogador, tiros_inimigo, particulas=None, flashes=No
     return tiros_refletidos
 
 
+def desenhar_sabre_arremessado(tela, jogador, tempo_atual):
+    """
+    Desenha o sabre de luz arremessado girando no ar como um boomerang.
+
+    Args:
+        tela: Superfície onde desenhar
+        jogador: Objeto do jogador
+        tempo_atual: Tempo atual em ms para efeitos
+    """
+    if not hasattr(jogador, 'sabre_info'):
+        return
+
+    sabre = jogador.sabre_info
+
+    if not sabre.get('arremessado', False):
+        return
+
+    # Posição e rotação do sabre
+    pos_x = sabre['arremesso_pos_x']
+    pos_y = sabre['arremesso_pos_y']
+    rotacao = math.radians(sabre['arremesso_rotacao'])
+
+    # Cores da lâmina (azul brilhante)
+    cor_lamina_core = (200, 230, 255)
+    cor_lamina_edge = (50, 150, 255)
+    cor_lamina_glow = (100, 200, 255)
+    cor_cabo_metal = (150, 150, 160)
+
+    # Dimensões
+    comprimento_lamina = 90
+    comprimento_cabo = 25
+    largura_lamina = 6
+
+    # Calcular posições rotacionadas
+    cos_r = math.cos(rotacao)
+    sin_r = math.sin(rotacao)
+
+    # Calcular pontos da lâmina
+    cabo_inicio_x = -comprimento_cabo
+    lamina_fim_x = comprimento_lamina
+
+    p1_x = pos_x + cabo_inicio_x * cos_r
+    p1_y = pos_y + cabo_inicio_x * sin_r
+    p2_x = pos_x + lamina_fim_x * cos_r
+    p2_y = pos_y + lamina_fim_x * sin_r
+
+    # Desenhar borda da lâmina (SEM brilho azul ao redor)
+    pygame.draw.line(tela, cor_lamina_edge, (p1_x, p1_y), (p2_x, p2_y), largura_lamina + 2)
+
+    # Desenhar núcleo da lâmina
+    pygame.draw.line(tela, cor_lamina_core, (p1_x, p1_y), (p2_x, p2_y), largura_lamina - 2)
+
+    # Desenhar linha brilhante no centro
+    pygame.draw.line(tela, (255, 255, 255), (p1_x, p1_y), (p2_x, p2_y), 2)
+
+    # Desenhar cabo metálico no centro
+    cabo_points = []
+    largura_cabo = 8
+    half_cabo = largura_cabo // 2
+
+    for offset in [-half_cabo, half_cabo]:
+        perp_x = -sin_r * offset
+        perp_y = cos_r * offset
+
+        # Início do cabo
+        cabo_points.append((
+            pos_x - comprimento_cabo * cos_r + perp_x,
+            pos_y - comprimento_cabo * sin_r + perp_y
+        ))
+
+    for offset in [half_cabo, -half_cabo]:
+        perp_x = -sin_r * offset
+        perp_y = cos_r * offset
+
+        # Fim do cabo
+        cabo_points.append((
+            pos_x + perp_x,
+            pos_y + perp_y
+        ))
+
+    pygame.draw.polygon(tela, cor_cabo_metal, cabo_points)
+    pygame.draw.polygon(tela, (100, 100, 110), cabo_points, 2)
+
 def desenhar_sabre(tela, jogador, tempo_atual, pos_mouse):
     """
     Desenha o sabre de luz na posição do jogador com visual avançado estilo Star Wars.
-    
+
     Args:
         tela: Superfície onde desenhar
         jogador: Objeto do jogador
@@ -477,10 +848,15 @@ def desenhar_sabre(tela, jogador, tempo_atual, pos_mouse):
     """
     if not hasattr(jogador, 'sabre_info'):
         return
-    
+
     sabre = jogador.sabre_info
-    
-    # Atualizar informações do sabre
+
+    # Se estiver arremessado, desenhar versão girando
+    if sabre.get('arremessado', False):
+        desenhar_sabre_arremessado(tela, jogador, tempo_atual)
+        return
+
+    # Atualizar informações do sabre (modo normal)
     sabre_info = atualizar_sabre(jogador, pos_mouse, tempo_atual)
     
     cabo_x, cabo_y = sabre_info['pos_cabo']
