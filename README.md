@@ -34,6 +34,7 @@ SquareStorm is an action-packed arcade shooter where you control a blue square f
 
 - Python 3.8 or higher
 - pip (Python package installer)
+- Git
 
 ### Quick Setup
 
