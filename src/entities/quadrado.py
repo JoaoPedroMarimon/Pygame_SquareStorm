@@ -646,30 +646,40 @@ class Quadrado:
     def ativar_arma_inventario(self):
         """
         Toggle da arma selecionada no inventário (chamado ao pressionar E).
-        Agora inclui suporte ao sabre de luz.
+        Agora com lógica melhorada: sempre guarda itens quando equipar arma.
+        IMPORTANTE: Não permite desequipar o sabre se estiver arremessado.
         """
         from src.game.inventario import InventarioManager
-        
+
         inventario = InventarioManager()
         arma_selecionada = inventario.obter_arma_selecionada()
-        
-        # Verificar se granada está selecionada
+
+        # SEMPRE guardar TODOS os itens quando pressionar E (categoria diferente)
+        itens_guardados = False
         if self.granada_selecionada:
             self.granada_selecionada = False
-            return "granada_guardada"
-        
-        # Verificar se ampulheta está selecionada
+            itens_guardados = True
+
         if hasattr(self, 'ampulheta_selecionada') and self.ampulheta_selecionada:
             self.ampulheta_selecionada = False
-            return "ampulheta_guardada"
-        
+            itens_guardados = True
+
+        if hasattr(self, 'amuleto_ativo') and self.amuleto_ativo:
+            self.amuleto_ativo = False
+            itens_guardados = True
+
+        # IMPORTANTE: Não permite desequipar o sabre se estiver arremessado
+        if (hasattr(self, 'sabre_info') and
+            self.sabre_info.get('arremessado', False)):
+            return "sabre_arremessado"  # Não pode desequipar
+
         # Verificar se já tem alguma arma equipada
         arma_ja_equipada = (self.espingarda_ativa or
                         self.metralhadora_ativa or
                         self.desert_eagle_ativa or
                         self.sabre_equipado)
 
-        # Se já tem arma equipada, guardar todas
+        # Se já tem arma equipada, guardar todas (toggle off)
         if arma_ja_equipada:
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
@@ -707,6 +717,9 @@ class Quadrado:
             self.desert_eagle_ativa = False
             return "sabre_luz"
         elif arma_selecionada == "nenhuma":
+            # Se guardou itens mas não tem arma selecionada
+            if itens_guardados:
+                return "item_guardado"
             return "nenhuma_selecionada"
         else:
             return "sem_municao"
@@ -714,63 +727,76 @@ class Quadrado:
     def ativar_items_inventario(self):
         """
         Ativa o item selecionado no inventário (chamado ao pressionar Q).
+        Agora com lógica melhorada: sempre guarda armas quando equipar item.
         - Granada selecionada no inventário → Q toggle granada
         - Ampulheta selecionada no inventário → Q toggle ampulheta (segurar na mão)
         - Combat Knife selecionada no inventário → Q ativa amuleto
         - Nenhum selecionado → Q não faz nada
         """
         from src.game.inventario import InventarioManager
-        
+
         inventario = InventarioManager()
         item_selecionado = inventario.obter_item_selecionado()
-        
-        # Guardar armas se estiverem ativas
+
+        # SEMPRE guardar TODAS as armas quando pressionar Q (categoria diferente)
+        armas_guardadas = False
         if self.espingarda_ativa:
             self.espingarda_ativa = False
+            armas_guardadas = True
         if self.metralhadora_ativa:
             self.metralhadora_ativa = False
+            armas_guardadas = True
+        if self.desert_eagle_ativa:
+            self.desert_eagle_ativa = False
+            armas_guardadas = True
         if self.sabre_equipado:
             self.sabre_equipado = False
+            armas_guardadas = True
             if hasattr(self, 'sabre_info') and self.sabre_info['ativo']:
                 self.sabre_info['ativo'] = False
                 self.sabre_info['modo_defesa'] = False
-        
+
         # GRANADA: Se selecionada no inventário, Q faz toggle
         if item_selecionado == "granada":
             if self.granadas > 0:
                 self.granada_selecionada = not self.granada_selecionada
-                # Desativar ampulheta se granada for ativada
-                if self.granada_selecionada and hasattr(self, 'ampulheta_selecionada'):
-                    self.ampulheta_selecionada = False
+                # Desativar outros itens se granada for ativada
+                if self.granada_selecionada:
+                    if hasattr(self, 'ampulheta_selecionada'):
+                        self.ampulheta_selecionada = False
+                    if hasattr(self, 'amuleto_ativo'):
+                        self.amuleto_ativo = False
                 return "granada_toggle" if self.granada_selecionada else "granada_guardada"
             else:
                 return "sem_granadas"
-        
+
         # AMPULHETA: Se selecionada no inventário, Q toggle visual (segurar na mão)
         elif item_selecionado == "ampulheta":
             if hasattr(self, 'ampulheta_uses') and self.ampulheta_uses > 0:
                 # Verificar se já está ativa (tempo desacelerado)
                 if self.tempo_desacelerado:
                     return "ampulheta_ja_ativa"
-                
+
                 # Toggle do modo visual (segurar na mão)
                 self.ampulheta_selecionada = not self.ampulheta_selecionada
-                # Desativar granada se ampulheta for ativada
+                # Desativar outros itens se ampulheta for ativada
                 if self.ampulheta_selecionada:
                     self.granada_selecionada = False
+                    if hasattr(self, 'amuleto_ativo'):
+                        self.amuleto_ativo = False
                 return "ampulheta_toggle" if self.ampulheta_selecionada else "ampulheta_guardada"
             else:
                 return "sem_ampulhetas"
-        
+
         # COMBAT KNIFE: Se selecionada no inventário, Q ativa amuleto
         elif item_selecionado == "faca":
             if hasattr(self, 'facas') and self.facas > 0:
                 # Toggle do amuleto
                 if not hasattr(self, 'amuleto_ativo'):
                     self.amuleto_ativo = False
-                
+
                 self.amuleto_ativo = not self.amuleto_ativo
-                # Desativar granada e ampulheta se amuleto for ativado
+                # Desativar outros itens se amuleto for ativado
                 if self.amuleto_ativo:
                     self.granada_selecionada = False
                     if hasattr(self, 'ampulheta_selecionada'):
@@ -778,9 +804,12 @@ class Quadrado:
                 return "amuleto_toggle" if self.amuleto_ativo else "amuleto_guardado"
             else:
                 return "sem_facas"
-        
+
         # NENHUM: Se nenhum item selecionado no inventário
         else:
+            # Se guardou armas mas não tem item selecionado
+            if armas_guardadas:
+                return "arma_guardada"
             return "nenhum_item_selecionado"
 
     def usar_ampulheta_com_q(self):

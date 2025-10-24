@@ -74,22 +74,24 @@ class InventarioManager:
         """Retorna dicionário com as armas disponíveis no inventário."""
         armas_info = {
             "espingarda": {
-                "nome": "Shotgun", 
-                "quantidade": 0, 
-                "cor": (255, 150, 150), 
+                "nome": "Shotgun",
+                "quantidade": 0,
+                "cor": (255, 150, 150),
                 "descricao": "Multiple shot devastating damage",
                 "tipo": "arma",
+                "categoria": "arma",
                 "key": "espingarda",
                 "raridade": "Common",
                 "dano": "★★★★☆",
                 "alcance": "★★☆☆☆"
             },
             "metralhadora": {
-                "nome": "Machine Gun", 
-                "quantidade": 0, 
-                "cor": (255, 180, 70), 
+                "nome": "Machine Gun",
+                "quantidade": 0,
+                "cor": (255, 180, 70),
                 "descricao": "Extreme rate of fire",
                 "tipo": "arma",
+                "categoria": "arma",
                 "key": "metralhadora",
                 "raridade": "Rare",
                 "dano": "★★★☆☆",
@@ -101,6 +103,7 @@ class InventarioManager:
                 "cor": (150, 150, 255),
                 "descricao": "Elegant weapon for a more civilized age",
                 "tipo": "arma",
+                "categoria": "arma",
                 "key": "sabre_luz",
                 "raridade": "Legendary",
                 "dano": "★★★★★",
@@ -112,6 +115,7 @@ class InventarioManager:
                 "cor": (200, 180, 100),
                 "descricao": "Powerful hand cannon with high damage",
                 "tipo": "arma",
+                "categoria": "arma",
                 "key": "desert_eagle",
                 "raridade": "Rare",
                 "dano": "★★★★☆",
@@ -134,11 +138,12 @@ class InventarioManager:
         """Retorna dicionário com os itens disponíveis no inventário."""
         itens_info = {
             "granada": {
-                "nome": "Grenade", 
-                "quantidade": 0, 
-                "cor": (150, 220, 150), 
+                "nome": "Grenade",
+                "quantidade": 0,
+                "cor": (150, 220, 150),
                 "descricao": "Explosive area damage!",
                 "tipo": "item",
+                "categoria": "item",
                 "tecla": "Q",
                 "key": "granada",
                 "raridade": "Uncommon",
@@ -146,11 +151,12 @@ class InventarioManager:
                 "duracao": "Instant"
             },
             "ampulheta": {
-                "nome": "Hourglass of Balance", 
-                "quantidade": 0, 
-                "cor": (150, 150, 255), 
+                "nome": "Hourglass of Balance",
+                "quantidade": 0,
+                "cor": (150, 150, 255),
                 "descricao": "Slows down time for precision!",
                 "tipo": "item",
+                "categoria": "item",
                 "tecla": "Q",
                 "key": "ampulheta",
                 "raridade": "Legendary",
@@ -158,11 +164,12 @@ class InventarioManager:
                 "duracao": "5 seconds"
             },
             "faca": {
-                "nome": "Killer Doll", 
-                "quantidade": 0, 
-                "cor": (220, 150, 150), 
+                "nome": "Killer Doll",
+                "quantidade": 0,
+                "cor": (220, 150, 150),
                 "descricao": "Summon a little friend to help you",
                 "tipo": "item",
+                "categoria": "item",
                 "tecla": "Q",
                 "key": "faca",
                 "raridade": "Epic",
@@ -906,7 +913,7 @@ def tela_inventario(tela, relogio, gradiente_inventario, fonte_titulo, fonte_nor
         instrucoes_y = ALTURA - 120
         
         if aba_ativa == 0:
-            desenhar_texto(tela, "Press R during gameplay to switch weapons", 18, (100, 200, 255), 
+            desenhar_texto(tela, "Press E during gameplay to switch weapons", 18, (100, 200, 255), 
                           LARGURA // 2, instrucoes_y)
         else:
             desenhar_texto(tela, "Press Q during gameplay to use equipped item", 18, (100, 255, 100), 

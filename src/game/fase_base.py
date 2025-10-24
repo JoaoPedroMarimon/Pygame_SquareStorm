@@ -179,45 +179,14 @@ class FaseBase:
         return None
 
     def _processar_ativacao_arma(self):
-        """Processa ativação de armas (Tecla E)."""
+        """Processa ativação de armas (Tecla E) - sem feedback visual."""
         resultado = self.jogador.ativar_arma_inventario()
-
-        mensagens = {
-            "espingarda": ("ESPINGARDA EQUIPADA!", AMARELO, 32),
-            "metralhadora": ("METRALHADORA EQUIPADA!", LARANJA, 32),
-            "desert_eagle": ("DESERT EAGLE EQUIPADA!", (200, 180, 100), 32),
-            "sabre_luz": ("SABRE DE LUZ EQUIPADO!", (150, 150, 255), 32),
-            "guardada": ("ARMA GUARDADA!", CINZA_ESCURO, 32),
-            "granada_guardada": ("GRANADA GUARDADA!", CINZA_ESCURO, 32),
-            "nenhuma_selecionada": ("SELECIONE UMA ARMA NO INVENTÁRIO!", VERMELHO, 32),
-            "sem_municao": ("ARMA SEM MUNIÇÃO!", VERMELHO, 32)
-        }
-
-        if resultado in mensagens:
-            texto, cor, tamanho = mensagens[resultado]
-            criar_texto_flutuante(texto, LARGURA // 2, ALTURA_JOGO // 4, cor, self.particulas, 120, tamanho)
+        # Sem mensagens na tela - apenas executa a ação
 
     def _processar_ativacao_item(self):
-        """Processa ativação de itens (Tecla Q)."""
+        """Processa ativação de itens (Tecla Q) - sem feedback visual."""
         resultado = self.jogador.ativar_items_inventario()
-
-        mensagens = {
-            "granada_toggle": ("GRANADA ATIVADA!", VERDE, 32),
-            "granada_guardada": ("GRANADA GUARDADA!", CINZA_ESCURO, 32),
-            "ampulheta_toggle": ("AMPULHETA PRONTA!", (150, 200, 255), 32),
-            "ampulheta_guardada": ("AMPULHETA GUARDADA!", CINZA_ESCURO, 32),
-            "ampulheta_ja_ativa": ("AMPULHETA JÁ ESTÁ ATIVA!", AMARELO, 32),
-            "amuleto_toggle": ("AMULETO MÍSTICO ATIVADO!", (200, 150, 255), 32),
-            "amuleto_guardado": ("AMULETO GUARDADO!", CINZA_ESCURO, 32),
-            "sem_facas": ("SEM COMBAT KNIFE!", VERMELHO, 32),
-            "sem_granadas": ("SEM GRANADAS!", VERMELHO, 32),
-            "sem_ampulhetas": ("SEM AMPULHETAS!", VERMELHO, 32),
-            "nenhum_item_selecionado": ("SELECIONE UM ITEM NO INVENTÁRIO!", AMARELO, 32)
-        }
-
-        if resultado in mensagens:
-            texto, cor, tamanho = mensagens[resultado]
-            criar_texto_flutuante(texto, LARGURA // 2, ALTURA_JOGO // 4, cor, self.particulas, 120, tamanho)
+        # Sem mensagens na tela - apenas executa a ação
 
     def _processar_ataques_mouse(self, evento, pos_mouse, tempo_atual):
         """Processa ataques com mouse (sistema de prioridade)."""
@@ -251,15 +220,19 @@ class FaseBase:
                         criar_texto_flutuante("AMPULHETA JÁ ATIVA!", LARGURA // 2, ALTURA_JOGO // 4,
                                              AMARELO, self.particulas, 120, 32)
 
-            # PRIORIDADE 4: Sabre de Luz (ativar/desativar)
+            # PRIORIDADE 4: Sabre de Luz (ativar, arremessar ou retornar)
             elif hasattr(self.jogador, 'sabre_equipado') and self.jogador.sabre_equipado:
-                resultado_sabre = self.jogador.ativar_sabre_luz()
-                if resultado_sabre == "sabre_ativado":
-                    criar_texto_flutuante("SABRE ATIVADO!", LARGURA // 2, ALTURA_JOGO // 4,
-                                         (150, 150, 255), self.particulas, 120, 32)
-                elif resultado_sabre == "sabre_desativado":
-                    criar_texto_flutuante("SABRE DESATIVADO!", LARGURA // 2, ALTURA_JOGO // 4,
-                                         (100, 100, 150), self.particulas, 120, 32)
+                from src.weapons.sabre_luz import arremessar_sabre, forcar_retorno_sabre
+
+                # Se o sabre está arremessado, forçar retorno imediato
+                if self.jogador.sabre_info.get('arremessado', False):
+                    forcar_retorno_sabre(self.jogador)
+                # Se o sabre está ativo mas não arremessado, arremessar
+                elif self.jogador.sabre_info.get('ativo', False):
+                    arremessar_sabre(self.jogador, pos_mouse)
+                # Se o sabre não está ativo, ativar
+                else:
+                    self.jogador.ativar_sabre_luz()
 
             # PRIORIDADE 5: Espingarda
             elif self.jogador.espingarda_ativa and self.jogador.tiros_espingarda > 0:
@@ -339,6 +312,12 @@ class FaseBase:
 
             # Atualizar sabre de luz
             if hasattr(self.jogador, 'sabre_equipado') and self.jogador.sabre_equipado:
+                from src.weapons.sabre_luz import atualizar_sabre_arremessado
+
+                # Atualizar sabre arremessado (se aplicável)
+                atualizar_sabre_arremessado(self.jogador, tempo_atual)
+
+                # Atualizar sabre normal
                 atualizar_sabre(self.jogador, pos_mouse, tempo_atual)
 
     def atualizar_tiros_jogador(self, alvos):
@@ -410,27 +389,48 @@ class FaseBase:
 
     def processar_sabre_luz(self, alvos):
         """
-        Processa deflexão de tiros e dano do sabre de luz.
+        Processa deflexão de tiros e dano do sabre de luz (normal e arremessado).
         alvos: lista de inimigos/boss para aplicar dano
         """
         if not (hasattr(self.jogador, 'sabre_equipado') and self.jogador.sabre_equipado):
             return
 
-        # Deflexão de tiros
-        tiros_refletidos = processar_deflexao_tiros(self.jogador, self.tiros_inimigo, self.particulas, self.flashes)
-        self.tiros_jogador.extend(tiros_refletidos)
+        from src.weapons.sabre_luz import processar_dano_sabre_arremessado, processar_deflexao_sabre_arremessado
 
-        # Dano do sabre nos alvos
-        alvos_cortados = processar_dano_sabre(self.jogador, alvos, self.particulas, self.flashes)
+        # Processar sabre arremessado (dano E deflexão)
+        if self.jogador.sabre_info.get('arremessado', False):
+            # Deflexão de tiros pelo sabre arremessado
+            tiros_refletidos = processar_deflexao_sabre_arremessado(self.jogador, self.tiros_inimigo, self.particulas, self.flashes)
+            self.tiros_jogador.extend(tiros_refletidos)
 
-        # Adicionar moedas pelos alvos mortos
-        for alvo in alvos_cortados:
-            if alvo.vidas <= 0:
-                moedas_bonus = self._calcular_moedas_alvo(alvo)
-                self.moeda_manager.quantidade_moedas += moedas_bonus
-                self.moeda_manager.salvar_moedas()
-                criar_texto_flutuante(f"+{moedas_bonus}", alvo.x + alvo.tamanho//2,
-                                     alvo.y, AMARELO, self.particulas)
+            # Dano nos inimigos
+            alvos_cortados = processar_dano_sabre_arremessado(self.jogador, alvos, self.particulas, self.flashes)
+
+            # Adicionar moedas pelos alvos mortos pelo sabre arremessado
+            for alvo in alvos_cortados:
+                if alvo.vidas <= 0:
+                    moedas_bonus = self._calcular_moedas_alvo(alvo)
+                    self.moeda_manager.quantidade_moedas += moedas_bonus
+                    self.moeda_manager.salvar_moedas()
+                    criar_texto_flutuante(f"+{moedas_bonus}", alvo.x + alvo.tamanho//2,
+                                         alvo.y, AMARELO, self.particulas)
+        else:
+            # Sabre normal (não arremessado)
+            # Deflexão de tiros
+            tiros_refletidos = processar_deflexao_tiros(self.jogador, self.tiros_inimigo, self.particulas, self.flashes)
+            self.tiros_jogador.extend(tiros_refletidos)
+
+            # Dano do sabre nos alvos
+            alvos_cortados = processar_dano_sabre(self.jogador, alvos, self.particulas, self.flashes)
+
+            # Adicionar moedas pelos alvos mortos
+            for alvo in alvos_cortados:
+                if alvo.vidas <= 0:
+                    moedas_bonus = self._calcular_moedas_alvo(alvo)
+                    self.moeda_manager.quantidade_moedas += moedas_bonus
+                    self.moeda_manager.salvar_moedas()
+                    criar_texto_flutuante(f"+{moedas_bonus}", alvo.x + alvo.tamanho//2,
+                                         alvo.y, AMARELO, self.particulas)
 
     def processar_granadas(self, alvos):
         """Processa granadas."""

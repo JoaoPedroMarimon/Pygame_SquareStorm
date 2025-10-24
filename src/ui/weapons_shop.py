@@ -465,20 +465,6 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "icone_func": "metralhadora"
         },
         {
-            "key": "sabre_luz",
-            "nome": "LIGHTSABER",
-            "descricao": "",
-            "instrucoes": "Press R to switch weapon type",
-            "info_extra": "Elegant weapon for a more civilized age",
-            "cor_fundo": (30, 30, 60),
-            "cor_borda": (100, 150, 255),
-            "cor_botao": (50, 100, 200),
-            "cor_hover": (80, 150, 255),
-            "cor_texto": (150, 200, 255),
-            "cor_resultado": CIANO,
-            "icone_func": "sabre_luz"
-        },
-        {
             "key": "desert_eagle",
             "nome": "DESERT EAGLE",
             "descricao": "",
@@ -492,6 +478,20 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_resultado": AMARELO,
             "icone_func": "desert_eagle",
             "custo": 100
+        },
+        {
+            "key": "sabre_luz",
+            "nome": "LIGHTSABER",
+            "descricao": "",
+            "instrucoes": "Press R to switch weapon type",
+            "info_extra": "Elegant weapon for a more civilized age",
+            "cor_fundo": (30, 30, 60),
+            "cor_borda": (100, 150, 255),
+            "cor_botao": (50, 100, 200),
+            "cor_hover": (80, 150, 255),
+            "cor_texto": (150, 200, 255),
+            "cor_resultado": CIANO,
+            "icone_func": "sabre_luz"
         }
     ]
     
