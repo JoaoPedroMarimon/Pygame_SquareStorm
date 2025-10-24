@@ -448,6 +448,14 @@ class FaseBase:
 
     def _calcular_moedas_alvo(self, alvo):
         """Calcula quantas moedas um alvo deve dar."""
+        # Boss ou entidades sem atributo 'cor' (usam cor_principal)
+        if not hasattr(alvo, 'cor'):
+            # Boss ou entidade especial - dar moedas baseado em vidas
+            if hasattr(alvo, 'vidas_max'):
+                return max(10, alvo.vidas_max // 2)  # Boss dá muitas moedas
+            return 10
+
+        # Inimigos normais com cor
         if alvo.cor == ROXO:
             return 5
         elif alvo.cor == CIANO:
