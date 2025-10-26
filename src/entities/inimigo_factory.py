@@ -8,6 +8,7 @@ Este arquivo facilita a criação de diversos tipos de inimigos para as fases.
 
 from src.config import *
 from src.entities.quadrado import Quadrado
+from src.entities.inimigo_metralhadora import InimigoMetralhadora
 
 class InimigoFactory:
     """
@@ -93,10 +94,10 @@ class InimigoFactory:
     def criar_inimigo_perseguidor(x, y):
         """
         Cria um inimigo perseguidor que corre atrás do jogador e causa dano por colisão.
-        
+
         Args:
             x, y: Posição inicial do inimigo
-                
+
         Returns:
             Objeto Quadrado configurado como inimigo perseguidor
         """
@@ -104,7 +105,7 @@ class InimigoFactory:
         cor_perseguidor = (255, 140, 0)  # Laranja
         # Velocidade maior que a média, para poder alcançar o jogador
         velocidade = VELOCIDADE_INIMIGO_BASE * 1.3
-        
+
         inimigo = Quadrado(x, y, TAMANHO_QUADRADO, cor_perseguidor, velocidade)
         inimigo.vidas = 2
         inimigo.vidas_max = 2
@@ -116,3 +117,17 @@ class InimigoFactory:
         # Não vai atirar, então pode ter um cooldown muito alto
         inimigo.tempo_cooldown = 99999999
         return inimigo
+
+    @staticmethod
+    def criar_inimigo_metralhadora(x, y):
+        """
+        Cria um inimigo com metralhadora.
+        Atira rapidamente por 5 segundos, depois recarrega por 3 segundos.
+
+        Args:
+            x, y: Posição inicial do inimigo
+
+        Returns:
+            Objeto InimigoMetralhadora configurado
+        """
+        return InimigoMetralhadora(x, y)

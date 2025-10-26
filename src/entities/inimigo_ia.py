@@ -134,7 +134,7 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
         
         # Retornar timestamp de movimento
         return tempo_movimento_inimigos[idx]
-    
+
     # Adicionar variação com base no ID único do inimigo
     # Isso garantirá que mesmo inimigos do mesmo tipo tenham comportamentos diferentes
     inimigo_id = inimigo.id
@@ -222,8 +222,12 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
             imprecisao = max(0.05, min(0.4, (dist / 1000 - (numero_fase * 0.02)) * fator_precisao))
             dir_tiro_x += random.uniform(-imprecisao, imprecisao)
             dir_tiro_y += random.uniform(-imprecisao, imprecisao)
-            
-            inimigo.atirar(tiros_inimigo, (dir_tiro_x, dir_tiro_y))
+
+            # Verificar se é inimigo metralhadora para usar método específico
+            if hasattr(inimigo, 'tipo_metralhadora') and inimigo.tipo_metralhadora:
+                inimigo.atirar_metralhadora(jogador, tiros_inimigo, particulas, flashes)
+            else:
+                inimigo.atirar(tiros_inimigo, (dir_tiro_x, dir_tiro_y))
         
         # Restaurar o estado original do gerador de números aleatórios
         random.setstate(random_state)

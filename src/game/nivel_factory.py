@@ -5,6 +5,19 @@
 Módulo para criar inimigos e configurar fases.
 Factory pattern para facilitar a criação de diferentes níveis/fases.
 CORRIGIDO: Incluindo a Fase 10 - Boss Fight com Boss Fusion.
+
+NOVO: Agora suporta definição da posição inicial do jogador por fase.
+Cada fase retorna um dicionário com 'inimigos' e 'pos_jogador'.
+
+Exemplo de uso:
+    resultado = NivelFactory.criar_fase(1)
+    inimigos = resultado['inimigos']
+    pos_jogador = resultado['pos_jogador']  # (x, y)
+
+Posições customizadas podem ser usadas para:
+    - Posicionar jogador no centro: (LARGURA // 2, ALTURA_JOGO // 2)
+    - Posicionar na parte inferior: (100, ALTURA_JOGO - 100)
+    - Posicionar na parte superior: (100, 100)
 """
 
 import random
@@ -23,65 +36,24 @@ class NivelFactory:
     def criar_fase(numero_fase):
         """
         Cria os inimigos para a fase especificada.
-        
+
         Args:
             numero_fase: Número da fase a ser criada
-            
+
         Returns:
-            Lista de inimigos para a fase, ou objeto especial para boss fight
+            Dicionário com 'inimigos' e 'pos_jogador' (tuple x, y), ou objeto especial para boss fight
         """
         print(f"🎯 Criando fase {numero_fase}...")
-        
+
         # Verificar se existe método específico para a fase
         metodo_fase = getattr(NivelFactory, f"criar_fase_{numero_fase}", None)
-        
+
         if metodo_fase:
             print(f"✅ Método específico encontrado: criar_fase_{numero_fase}")
             return metodo_fase()
         else:
             print(f"⚠️ Método criar_fase_{numero_fase} não encontrado, criando fase genérica")
-            # Fase genérica para números altos
-            return NivelFactory.criar_fase_generica(numero_fase)
 
-    @staticmethod
-    def criar_fase_generica(numero_fase):
-        """
-        Cria uma fase genérica baseada no número da fase.
-        Usada para fases que não têm método específico.
-        """
-        inimigos = []
-        
-        # Dificuldade baseada no número da fase
-        num_inimigos = min(3 + numero_fase // 2, 8)  # Máximo 8 inimigos
-        
-        for i in range(num_inimigos):
-            # Posição aleatória na metade direita da tela
-            pos_x = random.randint(LARGURA // 2, LARGURA - 100)
-            pos_y = random.randint(50, ALTURA_JOGO - 50)
-            
-            # Tipo de inimigo baseado na fase
-            if numero_fase < 5:
-                inimigo = random.choice([
-                    InimigoFactory.criar_inimigo_basico(pos_x, pos_y),
-                    InimigoFactory.criar_inimigo_rapido(pos_x, pos_y)
-                ])
-            elif numero_fase < 10:
-                inimigo = random.choice([
-                    InimigoFactory.criar_inimigo_rapido(pos_x, pos_y),
-                    InimigoFactory.criar_inimigo_especial(pos_x, pos_y),
-                    InimigoFactory.criar_inimigo_elite(pos_x, pos_y)
-                ])
-            else:
-                # Fases muito avançadas: mix de todos
-                inimigo = random.choice([
-                    InimigoFactory.criar_inimigo_especial(pos_x, pos_y),
-                    InimigoFactory.criar_inimigo_elite(pos_x, pos_y),
-                    InimigoFactory.criar_inimigo_perseguidor(pos_x, pos_y)
-                ])
-            
-            inimigos.append(inimigo)
-        
-        return inimigos
     
     @staticmethod
     def criar_fase_1():
@@ -89,15 +61,21 @@ class NivelFactory:
         Fase 1: Um único inimigo vermelho simples.
         """
         inimigos = []
-        
+
         # Inimigo centralizado
         pos_x = LARGURA - 150
         pos_y = ALTURA_JOGO // 2
-        
+
         inimigo = InimigoFactory.criar_inimigo_basico(pos_x, pos_y)
         inimigos.append(inimigo)
-        
-        return inimigos
+
+        # Posição inicial do jogador (esquerda, centralizado)
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
     
     @staticmethod
     def criar_fase_2():
@@ -105,18 +83,24 @@ class NivelFactory:
         Fase 2: Dois inimigos, um superior e um inferior.
         """
         inimigos = []
-        
+
         # Inimigo 1 - Superior (básico)
         pos_x1 = LARGURA - 150
         pos_y1 = ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x1, pos_y1))
-        
+
         # Inimigo 2 - Inferior (rápido)
         pos_x2 = LARGURA - 150
         pos_y2 = 2 * ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_rapido(pos_x2, pos_y2))
-        
-        return inimigos
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
     
     @staticmethod
     def criar_fase_3():
@@ -124,14 +108,20 @@ class NivelFactory:
         Fase 3: Um inimigo especial roxo com 2 vidas.
         """
         inimigos = []
-        
+
         pos_x = LARGURA - 150
         pos_y = ALTURA_JOGO // 2
-        
+
         inimigo_especial = InimigoFactory.criar_inimigo_especial(pos_x, pos_y)
         inimigos.append(inimigo_especial)
-        
-        return inimigos
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
     
     @staticmethod
     def criar_fase_4():
@@ -139,22 +129,28 @@ class NivelFactory:
         Fase 4: Dois inimigos básicos e um inimigo especial.
         """
         inimigos = []
-        
+
         # Dois inimigos básicos
         pos_x1 = LARGURA - 200
         pos_y1 = ALTURA_JOGO // 4
         inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x1, pos_y1))
-        
+
         pos_x2 = LARGURA - 200
         pos_y2 = 3 * ALTURA_JOGO // 4
         inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x2, pos_y2))
-        
+
         # Um inimigo especial roxo no meio
         pos_x3 = LARGURA - 100
         pos_y3 = ALTURA_JOGO // 2
         inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x3, pos_y3))
-        
-        return inimigos
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
     
     @staticmethod
     def criar_fase_5():
@@ -162,13 +158,19 @@ class NivelFactory:
         Fase 5: Um inimigo elite ciano.
         """
         inimigos = []
-        
+
         pos_x = LARGURA - 150
         pos_y = ALTURA_JOGO // 2
-        
+
         inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x, pos_y))
-        
-        return inimigos
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
 
     @staticmethod
     def criar_fase_6():
@@ -176,22 +178,28 @@ class NivelFactory:
         Fase 6: Um mix de todos os tipos de inimigos.
         """
         inimigos = []
-        
+
         pos_x1 = LARGURA - 150
         pos_y1 = ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x1, pos_y1))
-        
+
         # Inimigo especial
         pos_x3 = LARGURA - 150
         pos_y3 = ALTURA_JOGO // 1.7
         inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x3, pos_y3))
-        
+
         # Inimigo elite
         pos_x4 = LARGURA - 100
         pos_y4 = 4 * ALTURA_JOGO // 5
         inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x4, pos_y4))
-        
-        return inimigos
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
 
     @staticmethod
     def criar_fase_7():
@@ -199,22 +207,28 @@ class NivelFactory:
         Fase 7: Dois elites cianos e um especial.
         """
         inimigos = []
-        
+
         pos_x1 = LARGURA - 150
         pos_y1 = ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x1, pos_y1))
-        
+
         # Inimigo especial
         pos_x3 = LARGURA - 150
         pos_y3 = ALTURA_JOGO // 1.7
         inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x3, pos_y3))
-        
+
         # Inimigo elite
         pos_x4 = LARGURA - 100
         pos_y4 = 4 * ALTURA_JOGO // 5
         inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x4, pos_y4))
-        
-        return inimigos
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
     
     @staticmethod
     def criar_fase_8():
@@ -222,45 +236,57 @@ class NivelFactory:
         Fase 8: Inimigos perseguidores - introdução de nova mecânica.
         """
         inimigos = []
-        
+
         # Adicionar 3 perseguidores em posições diferentes
         pos_x1 = LARGURA - 100
         pos_y1 = ALTURA_JOGO // 4
         inimigos.append(InimigoFactory.criar_inimigo_perseguidor(pos_x1, pos_y1))
-        
+
         pos_x2 = LARGURA - 200
         pos_y2 = ALTURA_JOGO // 2
         inimigos.append(InimigoFactory.criar_inimigo_perseguidor(pos_x2, pos_y2))
-        
+
         pos_x3 = LARGURA - 100
         pos_y3 = 3 * ALTURA_JOGO // 4
         inimigos.append(InimigoFactory.criar_inimigo_perseguidor(pos_x3, pos_y3))
-        
-        return inimigos
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
     
     @staticmethod
     def criar_fase_9():
         """
-        Fase 8: Inimigos perseguidores - introdução de nova mecânica.
+        Fase 9: Mix de tipos - rápido, perseguidor e especial.
         """
         inimigos = []
-        
-        # Adicionar 3 perseguidores em posições diferentes
+
+        # Adicionar 3 inimigos em posições diferentes
         pos_x1 = LARGURA - 100
         pos_y1 = ALTURA_JOGO // 4
         inimigos.append(InimigoFactory.criar_inimigo_rapido(pos_x1, pos_y1))
-        
+
         pos_x2 = LARGURA - 200
         pos_y2 = ALTURA_JOGO // 2
         inimigos.append(InimigoFactory.criar_inimigo_perseguidor(pos_x2, pos_y2))
-        
+
         pos_x3 = LARGURA - 100
         pos_y3 = 3 * ALTURA_JOGO // 4
         inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x3, pos_y3))
-        
-        return inimigos
 
-    
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
+
+
     @staticmethod
     def criar_fase_10():
         """
@@ -272,7 +298,34 @@ class NivelFactory:
             'tipo': 'boss_fight',
             'boss': 'fusion',
             'cutscene': True,
-            'mensagem': 'BOSS FIGHT - BOSS FUSION DESPERTA!'
+            'mensagem': 'BOSS FIGHT - BOSS FUSION DESPERTA!',
+            'pos_jogador': (100, ALTURA_JOGO // 2)
+        }
+
+    @staticmethod
+    def criar_fase_11():
+        """
+        Fase 11: Inimigos com metralhadora - nova mecânica de combate.
+        2 inimigos que usam metralhadora com sistema de recarga.
+        """
+        inimigos = []
+
+        # Inimigo metralhadora 1 - parte superior
+        pos_x1 = LARGURA - 150
+        pos_y1 = ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x1, pos_y1))
+
+        # Inimigo metralhadora 2 - parte inferior
+        pos_x2 = LARGURA - 150
+        pos_y2 = 2 * ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x2, pos_y2))
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
         }
     
     @staticmethod
