@@ -23,6 +23,7 @@ from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos
 # Importar classes específicas do boss
 from src.entities.boss_fusion import BossFusion
 from src.entities.fusion_cutscene import FusionCutscene
+from src.entities.misterioso_cutscene import executar_cutscene_misterioso
 
 
 class BossDifficultyManager:
@@ -55,9 +56,13 @@ class FaseBoss(FaseBase):
     Herda toda a lógica comum de FaseBase e adiciona lógica específica de boss.
     """
 
-    def __init__(self, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, boss_info):
-        """Inicializa a fase de boss."""
-        super().__init__(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal)
+    def __init__(self, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, boss_info, pos_jogador=None):
+        """Inicializa a fase de boss.
+
+        Args:
+            pos_jogador: Tupla (x, y) com a posição inicial do jogador. Se None, usa posição padrão.
+        """
+        super().__init__(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, pos_jogador)
 
         self.boss_info = boss_info
         self.boss = None
@@ -149,6 +154,17 @@ class FaseBoss(FaseBase):
                 resultado_transicao = self.processar_transicoes()
                 if resultado_transicao == "vitoria":
                     self._parar_musica_boss()
+
+                    # CUTSCENE DO MISTERIOSO (apenas na fase 10 - Boss Fusion)
+                    if self.numero_fase == 10:
+                        print("🎬 Executando cutscene do inimigo misterioso...")
+                        # Usar posição padrão de spawn do jogador
+                        jogador_pos_spawn = (100, ALTURA_JOGO // 2)
+                        executar_cutscene_misterioso(
+                            self.tela, self.relogio, self.gradiente_jogo,
+                            self.estrelas, jogador_pos_spawn
+                        )
+
                     self.limpar()
                     return True
                 elif resultado_transicao == "derrota":
@@ -419,6 +435,15 @@ class FaseBoss(FaseBase):
 
     def _verificar_condicoes_fim_boss(self):
         """Verifica condições de fim do boss fight."""
+        # Jogador morreu - VERIFICAR PRIMEIRO para tornar boss imune
+        if self.verificar_jogador_morto():
+            # Tornar boss imune para evitar que morra após o jogador
+            if self.boss and not self.boss_derrotado:
+                self.boss.invulneravel = True
+                # Marcar para que não possa mais morrer
+                self.boss.vidas = max(self.boss.vidas, 1)  # Garantir pelo menos 1 vida
+            return "jogador_morto"
+
         # Boss derrotado
         if self.boss and self.boss.vidas <= 0 and not self.boss_derrotado:
             self.boss_derrotado = True
@@ -443,10 +468,6 @@ class FaseBoss(FaseBase):
 
             print(f"{self.boss_info['nome']} DERROTADO!")
             return "boss_derrotado"
-
-        # Jogador morreu
-        if self.verificar_jogador_morto():
-            return "jogador_morto"
 
         return None
 
@@ -576,8 +597,12 @@ class BossFightManager:
             }
         }
 
-    def criar_boss_fight(self, tipo_boss, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):
-        """Cria e executa um boss fight do tipo especificado."""
+    def criar_boss_fight(self, tipo_boss, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, pos_jogador=None):
+        """Cria e executa um boss fight do tipo especificado.
+
+        Args:
+            pos_jogador: Tupla (x, y) com a posição inicial do jogador. Se None, usa posição padrão.
+        """
         if tipo_boss not in self.boss_types:
             print(f"Tipo de boss '{tipo_boss}' não encontrado!")
             return False
@@ -591,16 +616,20 @@ class BossFightManager:
             pass
 
         # Criar e executar fase de boss
-        fase_boss = FaseBoss(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, boss_info)
+        fase_boss = FaseBoss(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, boss_info, pos_jogador)
         return fase_boss.executar()
 
 
 # Função de conveniência para usar o sistema
-def executar_boss_fight(tipo_boss, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):
-    """Função de conveniência para executar um boss fight."""
+def executar_boss_fight(tipo_boss, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, pos_jogador=None):
+    """Função de conveniência para executar um boss fight.
+
+    Args:
+        pos_jogador: Tupla (x, y) com a posição inicial do jogador. Se None, usa posição padrão.
+    """
     manager = BossFightManager()
     try:
-        return manager.criar_boss_fight(tipo_boss, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal)
+        return manager.criar_boss_fight(tipo_boss, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, pos_jogador)
     except Exception as e:
         print(f"Erro no boss fight: {e}")
         # Garantir que música para mesmo em caso de erro
