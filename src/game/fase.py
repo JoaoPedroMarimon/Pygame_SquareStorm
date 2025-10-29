@@ -28,9 +28,13 @@ class FaseNormal(FaseBase):
     Herda toda a lógica comum de FaseBase.
     """
 
-    def __init__(self, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, inimigos):
-        """Inicializa a fase normal com inimigos específicos."""
-        super().__init__(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal)
+    def __init__(self, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, inimigos, pos_jogador=None):
+        """Inicializa a fase normal com inimigos específicos.
+
+        Args:
+            pos_jogador: Tupla (x, y) com a posição inicial do jogador. Se None, usa posição padrão.
+        """
+        super().__init__(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, pos_jogador)
         self.inimigos = inimigos if inimigos else []
 
         # Tempos para a IA dos inimigos
@@ -338,15 +342,25 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
 
         # Executar boss fight usando sistema modular
         if info_boss['boss'] == 'fusion':
+            # Boss fight pode ter posição customizada do jogador
+            pos_jogador = info_boss.get('pos_jogador', None)
             return executar_boss_fight('fusion', tela, relogio, numero_fase,
-                                      gradiente_jogo, fonte_titulo, fonte_normal)
+                                      gradiente_jogo, fonte_titulo, fonte_normal,
+                                      pos_jogador=pos_jogador)
 
         # Fallback para fase normal se boss não reconhecido
         print(f"⚠️ Tipo de boss '{info_boss['boss']}' não reconhecido, executando fase normal")
         inimigos = NivelFactory.criar_fase_generica(numero_fase)
+        pos_jogador = None
     else:
-        # Fase normal
-        inimigos = resultado_fase
+        # Fase normal - extrair inimigos e posição do jogador
+        if isinstance(resultado_fase, dict):
+            inimigos = resultado_fase.get('inimigos', [])
+            pos_jogador = resultado_fase.get('pos_jogador', None)
+        else:
+            # Fallback para compatibilidade com código antigo
+            inimigos = resultado_fase
+            pos_jogador = None
 
     # Validação dos inimigos
     if inimigos is None:
@@ -366,5 +380,5 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             return "menu"
 
     # Criar e executar fase normal
-    fase = FaseNormal(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, inimigos)
+    fase = FaseNormal(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, inimigos, pos_jogador)
     return fase.executar()

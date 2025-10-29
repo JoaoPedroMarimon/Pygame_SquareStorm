@@ -36,8 +36,12 @@ class FaseBase:
     Contém toda a lógica compartilhada de controles, combate, renderização, etc.
     """
 
-    def __init__(self, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):
-        """Inicializa a fase base."""
+    def __init__(self, tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, pos_jogador=None):
+        """Inicializa a fase base.
+
+        Args:
+            pos_jogador: Tupla (x, y) com a posição inicial do jogador. Se None, usa posição padrão.
+        """
         self.tela = tela
         self.relogio = relogio
         self.numero_fase = numero_fase
@@ -46,8 +50,13 @@ class FaseBase:
         self.fonte_normal = fonte_normal
         self.fonte_pequena = pygame.font.SysFont("Arial", 18)
 
-        # Criar jogador
-        self.jogador = Quadrado(100, ALTURA_JOGO // 2, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
+        # Criar jogador na posição especificada ou padrão
+        if pos_jogador:
+            jogador_x, jogador_y = pos_jogador
+        else:
+            jogador_x, jogador_y = 100, ALTURA_JOGO // 2
+
+        self.jogador = Quadrado(jogador_x, jogador_y, TAMANHO_QUADRADO, AZUL, VELOCIDADE_JOGADOR)
 
         # Gerenciador de moedas
         self.moeda_manager = MoedaManager()
@@ -503,6 +512,9 @@ class FaseBase:
         for alvo in alvos:
             if alvo.vidas > 0:
                 alvo.desenhar(self.tela, tempo_atual)
+                # Se for inimigo metralhadora, desenhar a arma
+                if hasattr(alvo, 'tipo_metralhadora') and alvo.tipo_metralhadora:
+                    alvo.desenhar_metralhadora_inimigo(self.tela, tempo_atual, self.jogador)
 
         # Tiros
         for tiro in self.tiros_jogador:

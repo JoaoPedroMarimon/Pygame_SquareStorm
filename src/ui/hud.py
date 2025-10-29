@@ -125,9 +125,26 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
                     arma_ativa = "SABRE - EQUIPADO"
                     cor_fundo = (60, 60, 60)
                     cor_borda = (120, 120, 150)
-                
+
                 municao = 0
                 tem_arma_especial = True
+
+        # NOVO: Suporte à ampulheta (hourglass) - APENAS SE SELECIONADA
+        elif hasattr(jogador, 'ampulheta_selecionada') and jogador.ampulheta_selecionada and hasattr(jogador, 'ampulheta_uses') and jogador.ampulheta_uses > 0:
+            # Verificar se está ativa (efeito de desaceleração acontecendo)
+            ampulheta_ativa = hasattr(jogador, 'tem_ampulheta_ativa') and jogador.tem_ampulheta_ativa()
+
+            if ampulheta_ativa:
+                arma_ativa = "AMPULHETA - ATIVA"
+                cor_fundo = (40, 60, 80)
+                cor_borda = (100, 150, 255)
+            else:
+                arma_ativa = "AMPULHETA"
+                cor_fundo = (60, 60, 70)
+                cor_borda = (150, 150, 170)
+
+            municao = str(jogador.ampulheta_uses)
+            tem_arma_especial = True
                 
         # Desenhar fundo do indicador de arma
         pygame.draw.rect(tela, cor_fundo, (pos_equipamento - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
@@ -164,6 +181,9 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
                 info_sabre = jogador.obter_info_sabre()
                 ativo = info_sabre['ativo'] if info_sabre else False
                 desenhar_icone_sabre_hud(icone_surface, 30, 20, tempo_atual, ativo)
+            elif hasattr(jogador, 'ampulheta_selecionada') and jogador.ampulheta_selecionada:
+                # Desenhar ícone da ampulheta
+                desenhar_icone_ampulheta_hud(icone_surface, 30, 20, tempo_atual)
             
             # Aplicar o ícone na posição correta do HUD
             tela.blit(icone_surface, (pos_equipamento - 30, centro_y - 20))
@@ -176,17 +196,10 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
         desenhar_texto(tela, arma_ativa, 18, cor_texto, pos_equipamento, centro_y + 12)
         desenhar_texto(tela, f"Munição: {municao}", 14, cor_borda, pos_equipamento, centro_y + 28)
     
-    # Ajustar posição dos inimigos baseado na presença de ampulheta
-    if (jogador and hasattr(jogador, 'ampulheta_uses') and 
-        (jogador.ampulheta_uses > 0 or jogador.tem_ampulheta_ativa())):
-        pos_inimigos_final = 7.2 * LARGURA // 8  # Mais à direita
-    else:
-        pos_inimigos_final = pos_inimigos  # Posição original
-    
     # Inimigos restantes
-    pygame.draw.rect(tela, (80, 40, 40), (pos_inimigos_final - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
-    pygame.draw.rect(tela, VERMELHO, (pos_inimigos_final - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 2, 10)
-    desenhar_texto(tela, f"Inimigos: {inimigos_restantes}", 28, VERMELHO, pos_inimigos_final, centro_y)
+    pygame.draw.rect(tela, (80, 40, 40), (pos_inimigos - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
+    pygame.draw.rect(tela, VERMELHO, (pos_inimigos - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 2, 10)
+    desenhar_texto(tela, f"Inimigos: {inimigos_restantes}", 28, VERMELHO, pos_inimigos, centro_y)
 
 
 def desenhar_icone_espingarda(tela, x, y, tempo_atual):

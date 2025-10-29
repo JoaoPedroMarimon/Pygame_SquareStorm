@@ -160,11 +160,18 @@ def atualizar_sabre_arremessado(jogador, tempo_atual):
     # Verificar se deve começar a retornar
     if not sabre['arremesso_retornando']:
         # Verificar colisão com bordas
-        if (sabre['arremesso_pos_x'] <= 20 or
-            sabre['arremesso_pos_x'] >= LARGURA - 20 or
-            sabre['arremesso_pos_y'] <= 20 or
-            sabre['arremesso_pos_y'] >= ALTURA_JOGO - 20):
-            sabre['arremesso_retornando'] = True
+        # IMPORTANTE: Só ativar retorno se o sabre já viajou uma distância mínima do jogador
+        # Isso evita que o sabre retorne imediatamente quando o jogador está nas bordas
+        distancia_do_jogador = math.sqrt((sabre['arremesso_pos_x'] - centro_x)**2 +
+                                         (sabre['arremesso_pos_y'] - centro_y)**2)
+
+        # Só verificar bordas se o sabre já viajou pelo menos 60 pixels
+        if distancia_do_jogador > 60:
+            if (sabre['arremesso_pos_x'] <= 20 or
+                sabre['arremesso_pos_x'] >= LARGURA - 20 or
+                sabre['arremesso_pos_y'] <= 20 or
+                sabre['arremesso_pos_y'] >= ALTURA_JOGO - 20):
+                sabre['arremesso_retornando'] = True
 
     # Atualizar posição
     if sabre['arremesso_retornando']:
@@ -319,8 +326,8 @@ def processar_dano_sabre_arremessado(jogador, inimigos, particulas=None, flashes
             if tempo_atual - inimigo.ultimo_dano_sabre_arremessado >= 200:
                 inimigo.ultimo_dano_sabre_arremessado = tempo_atual
 
-                # Aplicar dano usando o método do inimigo
-                if inimigo.tomar_dano():
+                # Aplicar dano usando o método do inimigo (3 de dano)
+                if inimigo.tomar_dano(dano=3):
                     inimigos_atingidos.append(inimigo)
 
                     # Criar partículas de corte
@@ -646,9 +653,9 @@ def processar_dano_sabre(jogador, inimigos, particulas=None, flashes=None):
             # Cooldown de 500ms entre danos do sabre no mesmo inimigo
             if tempo_atual - inimigo.ultimo_dano_sabre >= 500:
                 inimigo.ultimo_dano_sabre = tempo_atual
-                
-                # Aplicar dano
-                if inimigo.tomar_dano():
+
+                # Aplicar dano (3 de dano)
+                if inimigo.tomar_dano(dano=3):
                     inimigos_atingidos.append(inimigo)
                     
                     # Efeitos visuais do corte
