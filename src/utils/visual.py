@@ -37,15 +37,16 @@ def criar_gradiente(cor1, cor2, largura=None, altura=None):
         pygame.draw.line(gradiente, (r, g, b), (0, y), (largura, y))
     return gradiente
 
-def criar_estrelas(quantidade):
+def criar_estrelas(quantidade, cores_tematicas=None):
     """
     Cria uma lista de estrelas para o fundo.
-    
+
     Args:
         quantidade: Número de estrelas a criar
-        
+        cores_tematicas: Lista de cores RGB para estrelas temáticas (opcional)
+
     Returns:
-        Lista de estrelas (cada uma é uma lista [x, y, tamanho, brilho, velocidade])
+        Lista de estrelas (cada uma é uma lista [x, y, tamanho, brilho, velocidade, cor])
     """
     estrelas = []
     for _ in range(quantidade):
@@ -54,26 +55,41 @@ def criar_estrelas(quantidade):
         tamanho = random.uniform(0.5, 2.5)
         brilho = random.randint(100, 255)
         vel = random.uniform(0.1, 0.5)
-        estrelas.append([x, y, tamanho, brilho, vel])
+
+        # Se cores temáticas foram fornecidas, escolher uma aleatoriamente
+        if cores_tematicas:
+            cor = random.choice(cores_tematicas)
+        else:
+            # Cor branca padrão
+            cor = (brilho, brilho, brilho)
+
+        estrelas.append([x, y, tamanho, brilho, vel, cor])
     return estrelas
 
 def desenhar_estrelas(tela, estrelas):
     """
     Desenha e atualiza as estrelas na tela.
-    
+
     Args:
         tela: Superfície onde desenhar
         estrelas: Lista de estrelas
     """
     for estrela in estrelas:
-        x, y, tamanho, brilho, vel = estrela
+        # Verificar se estrela tem cor (novo formato) ou não (formato antigo)
+        if len(estrela) >= 6:
+            x, y, tamanho, brilho, vel, cor = estrela
+        else:
+            # Compatibilidade com formato antigo
+            x, y, tamanho, brilho, vel = estrela
+            cor = (brilho, brilho, brilho)
+
         # Desenhar a estrela apenas se estiver na área de jogo
         if y < ALTURA_JOGO:
-            pygame.draw.circle(tela, (brilho, brilho, brilho), (int(x), int(y)), int(tamanho))
-        
+            pygame.draw.circle(tela, cor, (int(x), int(y)), int(tamanho))
+
         # Mover a estrela (paralaxe)
         estrela[0] -= vel
-        
+
         # Se a estrela sair da tela, reposicioná-la
         if estrela[0] < 0:
             estrela[0] = LARGURA
@@ -356,3 +372,56 @@ def criar_texto_flutuante(texto, x, y, cor, particulas, duracao=60, tamanho_font
     # Criar e adicionar o texto à lista de partículas
     texto_flutuante = TextoFlutuante(texto, x, y, cor, duracao, tamanho_fonte)
     particulas.append(texto_flutuante)
+
+
+def criar_relampagos(tempo_atual, ultima_vez, intervalo_min=3000, intervalo_max=8000):
+    """
+    Decide se deve criar um relâmpago baseado no tempo.
+
+    Args:
+        tempo_atual: Tempo atual em ms
+        ultima_vez: Última vez que um relâmpago ocorreu
+        intervalo_min: Intervalo mínimo entre relâmpagos (ms)
+        intervalo_max: Intervalo máximo entre relâmpagos (ms)
+
+    Returns:
+        Tupla (deve_criar, novo_ultima_vez, duracao_flash)
+    """
+    if ultima_vez is None:
+        # Primeira execução - agendar próximo relâmpago
+        return False, tempo_atual + random.randint(intervalo_min, intervalo_max), 0
+
+    if tempo_atual >= ultima_vez:
+        # Hora de criar relâmpago!
+        duracao = random.randint(100, 300)  # Duração do flash entre 100-300ms
+        proximo = tempo_atual + random.randint(intervalo_min, intervalo_max)
+        return True, proximo, duracao
+
+    return False, ultima_vez, 0
+
+
+def desenhar_relampago(tela, tempo_inicio, duracao, cor_flash=(200, 255, 200)):
+    """
+    Desenha um efeito de relâmpago (flash na tela).
+
+    Args:
+        tela: Superfície onde desenhar
+        tempo_inicio: Tempo quando o relâmpago começou
+        duracao: Duração do relâmpago em ms
+        cor_flash: Cor do flash RGB
+    """
+    tempo_atual = pygame.time.get_ticks()
+    tempo_decorrido = tempo_atual - tempo_inicio
+
+    if tempo_decorrido < duracao:
+        # Calcular alpha baseado no tempo (começa forte e diminui)
+        progresso = tempo_decorrido / duracao
+        alpha = int(150 * (1 - progresso))  # De 150 a 0
+
+        # Criar overlay do flash
+        flash_surface = pygame.Surface((LARGURA, ALTURA_JOGO), pygame.SRCALPHA)
+        flash_surface.fill((*cor_flash, alpha))
+        tela.blit(flash_surface, (0, 0))
+        return True  # Relâmpago ainda ativo
+
+    return False  # Relâmpago terminou

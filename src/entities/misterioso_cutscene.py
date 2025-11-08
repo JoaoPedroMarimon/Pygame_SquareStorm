@@ -12,7 +12,7 @@ import random
 from src.config import *
 from src.entities.quadrado import Quadrado
 from src.entities.particula import Particula
-from src.utils.visual import desenhar_texto, desenhar_estrelas, desenhar_grid_consistente
+from src.utils.visual import desenhar_texto, desenhar_estrelas
 from src.utils.display_manager import present_frame
 
 
@@ -412,7 +412,6 @@ def executar_cutscene_misterioso(tela, relogio, gradiente_jogo, estrelas, jogado
         tela.fill((0, 0, 0))
         tela.blit(gradiente_jogo, (0, 0))
         desenhar_estrelas(tela, estrelas)
-        desenhar_grid_consistente(tela)
 
         # Desenhar cutscene
         cutscene.desenhar(tela, tempo_atual)

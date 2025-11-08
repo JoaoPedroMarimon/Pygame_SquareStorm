@@ -12,7 +12,7 @@ import math
 from src.config import *
 from src.entities.quadrado import Quadrado
 from src.entities.particula import criar_explosao
-from src.utils.visual import criar_estrelas, desenhar_texto, criar_texto_flutuante, desenhar_estrelas, desenhar_grid_consistente, criar_botao
+from src.utils.visual import criar_estrelas, desenhar_texto, criar_texto_flutuante, desenhar_estrelas, criar_botao, criar_relampagos, desenhar_relampago
 from src.utils.sound import gerar_som_explosao, gerar_som_dano
 from src.game.moeda_manager import MoedaManager
 from src.ui.hud import desenhar_hud
@@ -101,7 +101,29 @@ class FaseBase:
 
     def _inicializar_ambiente(self):
         """Inicializa elementos visuais do ambiente."""
-        self.estrelas = criar_estrelas(NUM_ESTRELAS_JOGO)
+        # Criar estrelas com cores temáticas para fases 11+
+        if self.numero_fase >= 11:
+            # Cores tóxicas: roxo, vermelho, verde
+            cores_toxicas = [
+                (150, 100, 255),  # Roxo
+                (255, 100, 100),  # Vermelho
+                (100, 255, 150),  # Verde
+                (200, 150, 255),  # Roxo claro
+                (255, 150, 100),  # Laranja/vermelho
+                (150, 255, 100),  # Verde ácido
+            ]
+            self.estrelas = criar_estrelas(NUM_ESTRELAS_JOGO, cores_tematicas=cores_toxicas)
+
+            # Sistema de relâmpagos para fases tóxicas
+            self.relampago_ativo = False
+            self.tempo_inicio_relampago = 0
+            self.duracao_relampago = 0
+            self.proximo_relampago = None
+        else:
+            # Estrelas brancas padrão
+            self.estrelas = criar_estrelas(NUM_ESTRELAS_JOGO)
+            self.relampago_ativo = False
+            self.proximo_relampago = None
 
     def _inicializar_controles(self):
         """Inicializa sistema de controles."""
@@ -492,7 +514,31 @@ class FaseBase:
         self.tela.fill((0, 0, 0))
         self.tela.blit(self.gradiente_jogo, (0, 0))
         desenhar_estrelas(self.tela, self.estrelas)
-        desenhar_grid_consistente(self.tela)
+
+        # Sistema de relâmpagos para fases 11+
+        if self.numero_fase >= 11:
+            tempo_atual = pygame.time.get_ticks()
+
+            # Verificar se deve criar um novo relâmpago
+            if not self.relampago_ativo:
+                deve_criar, self.proximo_relampago, duracao = criar_relampagos(
+                    tempo_atual, self.proximo_relampago, 3000, 8000
+                )
+                if deve_criar:
+                    self.relampago_ativo = True
+                    self.tempo_inicio_relampago = tempo_atual
+                    self.duracao_relampago = duracao
+
+            # Desenhar relâmpago se estiver ativo
+            if self.relampago_ativo:
+                ainda_ativo = desenhar_relampago(
+                    self.tela,
+                    self.tempo_inicio_relampago,
+                    self.duracao_relampago,
+                    cor_flash=(200, 255, 200)  # Verde tóxico
+                )
+                if not ainda_ativo:
+                    self.relampago_ativo = False
 
     def renderizar_objetos_jogo(self, tempo_atual, alvos):
         """

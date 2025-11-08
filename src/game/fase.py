@@ -172,9 +172,8 @@ class FaseNormal(FaseBase):
         self.tela.fill((0, 0, 0))
         self.tela.blit(self.gradiente_jogo, (0, 0))
 
-        from src.utils.visual import desenhar_estrelas, desenhar_grid_consistente
+        from src.utils.visual import desenhar_estrelas
         desenhar_estrelas(self.tela, self.estrelas)
-        desenhar_grid_consistente(self.tela)
 
         # Desenhar jogador e inimigos (sem movimento)
         if self.jogador.vidas > 0:
