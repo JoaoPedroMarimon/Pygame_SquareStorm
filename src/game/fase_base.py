@@ -678,5 +678,10 @@ class FaseBase:
         return None
 
     def limpar(self):
-        """Limpa recursos da fase."""
+        """Limpa recursos da fase e salva munições."""
+        # Salvar munições atuais do jogador (sistema permanente)
+        from src.game.municao_manager import salvar_todas_municoes
+        salvar_todas_municoes(self.jogador)
+
+        # Limpar invocações
         limpar_invocacoes()

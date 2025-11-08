@@ -20,33 +20,33 @@ class PricingManager:
     def carregar_pricing(self):
         """Carrega os dados de preços ou cria valores padrão."""
         dados_padrao = {
-            # WEAPONS SHOP
+            # WEAPONS SHOP - PREÇOS FIXOS, SEM LIMITES
             "espingarda": {
                 "preco_base": 15,
                 "compras_realizadas": 0,
-                "limite_maximo": 10,  # Máximo 10 compras
-                "multiplicador": 1.3,  # Preço aumenta 30% a cada compra
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0,  # Preço não aumenta
                 "quantidade_por_compra": 10
             },
             "metralhadora": {
                 "preco_base": 25,
                 "compras_realizadas": 0,
-                "limite_maximo": 8,   # Máximo 8 compras
-                "multiplicador": 1.4, # Preço aumenta 40% a cada compra
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 25
             },
             "sabre_luz": {
                 "preco_base": 50,
                 "compras_realizadas": 0,
-                "limite_maximo": 1,   # Máximo 5 compras (arma épica)
-                "multiplicador": 1.8, # Preço aumenta 80% a cada compra
+                "limite_maximo": 1,  # Apenas 1 compra (item épico único)
+                "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 20
             },
             "desert_eagle": {
                 "preco_base": 40,
                 "compras_realizadas": 0,
-                "limite_maximo": 8,   # Máximo 8 compras
-                "multiplicador": 1.35, # Preço aumenta 35% a cada compra
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 15
             },
 
@@ -54,31 +54,31 @@ class PricingManager:
             "vida": {
                 "preco_base": 20,
                 "compras_realizadas": 0,
-                "limite_maximo": 15,  # Máximo 15 compras de vida
-                "multiplicador": 1.5, # Preço aumenta 50% a cada compra
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 1
             },
-            
-            # ITEMS SHOP
+
+            # ITEMS SHOP - PREÇOS FIXOS, SEM LIMITES
             "granada": {
                 "preco_base": 25,
                 "compras_realizadas": 0,
-                "limite_maximo": 12,  # Máximo 12 compras
-                "multiplicador": 1.2, # Preço aumenta 20% a cada compra
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 3
             },
             "ampulheta": {
                 "preco_base": 40,
                 "compras_realizadas": 0,
-                "limite_maximo": 6,   # Máximo 6 compras (item raro)
-                "multiplicador": 1.6, # Preço aumenta 60% a cada compra
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 2
             },
             "faca": {
                 "preco_base": 30,
                 "compras_realizadas": 0,
-                "limite_maximo": 8,   # Máximo 8 compras
-                "multiplicador": 1.35, # Preço aumenta 35% a cada compra
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 5
             }
         }
@@ -127,7 +127,12 @@ class PricingManager:
         """Verifica se o item ainda pode ser comprado (não atingiu o limite)."""
         if item_key not in self.dados_pricing:
             return False
-        
+
+        # Apenas sabre_luz tem limite, todos os outros sempre podem ser comprados
+        if item_key != "sabre_luz":
+            return True
+
+        # Para sabre_luz, verificar o limite
         item_data = self.dados_pricing[item_key]
         return item_data["compras_realizadas"] < item_data["limite_maximo"]
     
@@ -234,8 +239,11 @@ def aplicar_pricing_sistema(lista_itens, pricing_manager):
             else:
                 item["proximo_preco"] = None
                 
-            # Atualizar descrição para mostrar limite
-            item["info_limite"] = f"Purchases: {info_pricing['compras_realizadas']}/{info_pricing['limite_maximo']}"
+            # Atualizar descrição para mostrar limite (apenas para sabre_luz)
+            if item_key == "sabre_luz":
+                item["info_limite"] = f"Purchases: {info_pricing['compras_realizadas']}/{info_pricing['limite_maximo']}"
+            else:
+                item["info_limite"] = ""  # Sem limite para outros itens
     
     return lista_itens
 

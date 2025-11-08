@@ -32,6 +32,25 @@ def carregar_upgrade_metralhadora():
         print(f"Erro ao carregar upgrade de metralhadora: {e}")
         return 0
 
+def salvar_municao_metralhadora(quantidade):
+    """
+    Salva a quantidade atual de munição de metralhadora.
+
+    Args:
+        quantidade: Quantidade atual de munição
+    """
+    try:
+        upgrades = {}
+        if os.path.exists("data/upgrades.json"):
+            with open("data/upgrades.json", "r") as f:
+                upgrades = json.load(f)
+        upgrades["metralhadora"] = max(0, quantidade)
+        os.makedirs("data", exist_ok=True)
+        with open("data/upgrades.json", "w") as f:
+            json.dump(upgrades, f, indent=4)
+    except Exception as e:
+        print(f"Erro ao salvar munição de metralhadora: {e}")
+
 def atirar_metralhadora(jogador, tiros, pos_mouse, particulas=None, flashes=None):
     """
     Dispara um único tiro de metralhadora com alta cadência de tiro.

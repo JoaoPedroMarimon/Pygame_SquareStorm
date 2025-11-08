@@ -32,6 +32,32 @@ def carregar_upgrade_espingarda():
         print(f"Erro ao carregar upgrade de espingarda: {e}")
         return 0
 
+def salvar_municao_espingarda(quantidade):
+    """
+    Salva a quantidade atual de munição de espingarda.
+
+    Args:
+        quantidade: Quantidade atual de munição
+    """
+    try:
+        # Carregar upgrades existentes
+        upgrades = {}
+        if os.path.exists("data/upgrades.json"):
+            with open("data/upgrades.json", "r") as f:
+                upgrades = json.load(f)
+
+        # Atualizar munição de espingarda
+        upgrades["espingarda"] = max(0, quantidade)
+
+        # Criar diretório se não existir
+        os.makedirs("data", exist_ok=True)
+
+        # Salvar
+        with open("data/upgrades.json", "w") as f:
+            json.dump(upgrades, f, indent=4)
+    except Exception as e:
+        print(f"Erro ao salvar munição de espingarda: {e}")
+
 def atirar_espingarda(jogador, tiros, pos_mouse, particulas=None, flashes=None, num_tiros=5):
     """
     Dispara múltiplos tiros em um padrão de espingarda e cria uma animação de partículas no cano.
