@@ -67,8 +67,8 @@ def main():
         sys.exit()
 
 if __name__ == "__main__":
-    print("🎯 Iniciando SquareStorm...")
-    print("💡 Dicas:")
+    print("Iniciando SquareStorm...")
+    print("Dicas:")
     print("   - Pressione F11 para alternar tela cheia")
     print("   - Pressione ESC para sair da tela cheia")
     main()

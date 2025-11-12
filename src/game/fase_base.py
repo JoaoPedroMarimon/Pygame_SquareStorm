@@ -154,8 +154,10 @@ class FaseBase:
             if evento.type == pygame.QUIT:
                 return "sair"
 
-            # Controles durante o jogo
-            if not self.mostrando_inicio and not self.pausado and not self.jogador_morto and not self.em_congelamento:
+            # Controles durante o jogo (não permitir controles durante transições)
+            if (not self.mostrando_inicio and not self.pausado and not self.jogador_morto and
+                not self.em_congelamento and self.tempo_transicao_vitoria is None and
+                self.tempo_transicao_derrota is None):
                 resultado = self._processar_controles_jogo(evento, tempo_atual, pos_mouse)
                 if resultado:
                     return resultado
@@ -184,9 +186,11 @@ class FaseBase:
             elif evento.key == pygame.K_d:
                 self.movimento_x = 1
             elif evento.key == pygame.K_ESCAPE:
-                self.pausado = True
-                pygame.mixer.pause()
-                pygame.mouse.set_visible(True)
+                # Não permitir pause durante transição de vitória ou derrota
+                if self.tempo_transicao_vitoria is None and self.tempo_transicao_derrota is None:
+                    self.pausado = True
+                    pygame.mixer.pause()
+                    pygame.mouse.set_visible(True)
             elif evento.key == pygame.K_e:
                 self._processar_ativacao_arma()
             elif evento.key == pygame.K_q:
