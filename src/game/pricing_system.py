@@ -54,8 +54,8 @@ class PricingManager:
             "vida": {
                 "preco_base": 20,
                 "compras_realizadas": 0,
-                "limite_maximo": 999999,  # Sem limite
-                "multiplicador": 1.0, # Preço não aumenta
+                "limite_maximo": 10,  # Máximo 10 compras
+                "multiplicador": 1.5, # Preço aumenta 50% a cada compra
                 "quantidade_por_compra": 1
             },
 
@@ -128,11 +128,11 @@ class PricingManager:
         if item_key not in self.dados_pricing:
             return False
 
-        # Apenas sabre_luz tem limite, todos os outros sempre podem ser comprados
-        if item_key != "sabre_luz":
+        # Apenas sabre_luz e vida tem limite, todos os outros sempre podem ser comprados
+        if item_key not in ("sabre_luz", "vida"):
             return True
 
-        # Para sabre_luz, verificar o limite
+        # Para itens com limite, verificar
         item_data = self.dados_pricing[item_key]
         return item_data["compras_realizadas"] < item_data["limite_maximo"]
     
@@ -239,8 +239,8 @@ def aplicar_pricing_sistema(lista_itens, pricing_manager):
             else:
                 item["proximo_preco"] = None
                 
-            # Atualizar descrição para mostrar limite (apenas para sabre_luz)
-            if item_key == "sabre_luz":
+            # Atualizar descrição para mostrar limite (apenas para itens com limite)
+            if item_key in ("sabre_luz", "vida"):
                 item["info_limite"] = f"Purchases: {info_pricing['compras_realizadas']}/{info_pricing['limite_maximo']}"
             else:
                 item["info_limite"] = ""  # Sem limite para outros itens
