@@ -34,49 +34,86 @@ def salvar_upgrades(upgrades):
 
 def desenhar_icone_espingarda(tela, x, y, tempo_atual):
     """
-    Desenha um ícone de espingarda com efeitos visuais.
+    Desenha um ícone de espingarda de CANO DUPLO com efeitos visuais.
     """
-    # Cores para a espingarda
-    cor_metal = (180, 180, 190)
-    cor_cano = (100, 100, 110)
-    cor_madeira = (120, 80, 40)
+    # Cores da espingarda (cano duplo)
+    cor_metal = (60, 60, 70)
+    cor_metal_claro = (120, 120, 130)
+    cor_cano = (40, 40, 45)
+    cor_madeira = (101, 67, 33)
 
-    # Desenhar espingarda
+    # Comprimento da arma
     comprimento_arma = 30
-    for i in range(4):
-        offset = i - 1.5
-        pygame.draw.line(tela, cor_cano, 
-                    (x, y + offset), 
-                    (x + comprimento_arma, y + offset), 2)
-
-    # Boca do cano
     ponta_x = x + comprimento_arma
-    ponta_y = y
-    pygame.draw.circle(tela, cor_metal, (int(ponta_x), int(ponta_y)), 4)
-    pygame.draw.circle(tela, (40, 40, 40), (int(ponta_x), int(ponta_y)), 2)
 
-    # Corpo central
-    corpo_x = x + 6
-    corpo_y = y
-    pygame.draw.circle(tela, cor_metal, (int(corpo_x), int(corpo_y)), 6)
-    pygame.draw.circle(tela, (50, 50, 55), (int(corpo_x), int(corpo_y)), 3)
-
-    # Coronha
-    coronha_base_x = corpo_x - 2
-    coronha_base_y = corpo_y
+    # === CORONHA (parte traseira) ===
+    coronha_x = x - 10
     pygame.draw.polygon(tela, cor_madeira, [
-        (coronha_base_x, coronha_base_y - 5),
-        (coronha_base_x, coronha_base_y + 5),
-        (coronha_base_x - 12, coronha_base_y + 3),
-        (coronha_base_x - 12, coronha_base_y - 3)
+        (coronha_x, y - 4),
+        (coronha_x, y + 4),
+        (x, y + 3),
+        (x, y - 3)
     ])
+    pygame.draw.polygon(tela, (139, 90, 43), [
+        (coronha_x, y - 4),
+        (coronha_x, y + 4),
+        (x, y + 3),
+        (x, y - 3)
+    ], 1)
 
-    # Efeito de energia
+    # === CORPO/MECANISMO ===
+    corpo_x = x + 5
+    pygame.draw.rect(tela, cor_metal, (x, y - 4, 10, 8))
+    pygame.draw.rect(tela, cor_metal_claro, (x, y - 4, 10, 8), 1)
+
+    # === CANO DUPLO (característica principal) ===
+    separacao = 2.5  # Distância entre os dois canos
+
+    # CANO SUPERIOR
+    pygame.draw.line(tela, cor_cano,
+                    (corpo_x, y - separacao),
+                    (ponta_x, y - separacao), 4)
+    pygame.draw.line(tela, cor_metal_claro,
+                    (corpo_x, y - separacao - 1.5),
+                    (ponta_x, y - separacao - 1.5), 1)
+
+    # CANO INFERIOR
+    pygame.draw.line(tela, cor_cano,
+                    (corpo_x, y + separacao),
+                    (ponta_x, y + separacao), 4)
+    pygame.draw.line(tela, cor_metal_claro,
+                    (corpo_x, y + separacao + 1.5),
+                    (ponta_x, y + separacao + 1.5), 1)
+
+    # === BOCAS DOS CANOS ===
+    # Boca superior
+    pygame.draw.circle(tela, cor_metal, (int(ponta_x), int(y - separacao)), 3)
+    pygame.draw.circle(tela, (20, 20, 20), (int(ponta_x), int(y - separacao)), 1)
+
+    # Boca inferior
+    pygame.draw.circle(tela, cor_metal, (int(ponta_x), int(y + separacao)), 3)
+    pygame.draw.circle(tela, (20, 20, 20), (int(ponta_x), int(y + separacao)), 1)
+
+    # === BANDA QUE UNE OS CANOS ===
+    meio_x = x + comprimento_arma * 0.6
+    pygame.draw.line(tela, cor_metal_claro,
+                    (meio_x, y - separacao - 2),
+                    (meio_x, y + separacao + 2), 2)
+
+    # === EFEITO DE ENERGIA LARANJA ===
     pulso = (math.sin(tempo_atual / 150) + 1) / 2
-    cor_energia = (50 + int(pulso * 200), 50 + int(pulso * 150), 255)
-    pygame.draw.line(tela, cor_energia, 
-                    (x + 8, y), 
-                    (ponta_x, ponta_y), 2 + int(pulso * 2))
+    cor_energia = (255, int(100 + pulso * 155), 0)
+    energia_width = 1 + int(pulso)
+
+    # Energia no cano superior
+    pygame.draw.line(tela, cor_energia,
+                    (corpo_x + 2, y - separacao),
+                    (ponta_x, y - separacao), energia_width)
+
+    # Energia no cano inferior
+    pygame.draw.line(tela, cor_energia,
+                    (corpo_x + 2, y + separacao),
+                    (ponta_x, y + separacao), energia_width)
 
 def desenhar_icone_metralhadora(tela, x, y, tempo_atual):
     """

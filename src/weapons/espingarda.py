@@ -61,7 +61,7 @@ def salvar_municao_espingarda(quantidade):
 def atirar_espingarda(jogador, tiros, pos_mouse, particulas=None, flashes=None, num_tiros=5):
     """
     Dispara múltiplos tiros em um padrão de espingarda e cria uma animação de partículas no cano.
-    
+
     Args:
         jogador: O objeto do jogador
         tiros: Lista onde adicionar os novos tiros
@@ -74,8 +74,12 @@ def atirar_espingarda(jogador, tiros, pos_mouse, particulas=None, flashes=None, 
     tempo_atual = pygame.time.get_ticks()
     if tempo_atual - jogador.tempo_ultimo_tiro < jogador.tempo_cooldown:
         return
-    
+
     jogador.tempo_ultimo_tiro = tempo_atual
+
+    # Adicionar efeito de recuo (tremida) ao atirar
+    jogador.recuo_espingarda = 10  # Intensidade do recuo
+    jogador.tempo_recuo = tempo_atual
     
     # Posição central do quadrado
     centro_x = jogador.x + jogador.tamanho // 2
@@ -169,144 +173,201 @@ def atirar_espingarda(jogador, tiros, pos_mouse, particulas=None, flashes=None, 
 def desenhar_espingarda(tela, jogador, tempo_atual,pos_mouse):
     """
     Desenha a espingarda na posição do jogador, orientada para a direção do mouse.
-    
+
     Args:
         tela: Superfície onde desenhar
         jogador: Objeto do jogador
         tempo_atual: Tempo atual em ms para efeitos de animação
     """
     # Obter a posição do mouse para orientar a espingarda
-    
+
     # Calcular o centro do jogador
     centro_x = jogador.x + jogador.tamanho // 2
     centro_y = jogador.y + jogador.tamanho // 2
-    
+
     # Calcular o vetor direção para o mouse
     dx = pos_mouse[0] - centro_x
     dy = pos_mouse[1] - centro_y
-    
+
     # Normalizar o vetor direção
     distancia = math.sqrt(dx**2 + dy**2)
     if distancia > 0:
         dx /= distancia
         dy /= distancia
-    
+
+    # Efeito de recuo (tremida) após atirar
+    offset_recuo_x = 0
+    offset_recuo_y = 0
+    if hasattr(jogador, 'recuo_espingarda') and hasattr(jogador, 'tempo_recuo'):
+        tempo_desde_tiro = tempo_atual - jogador.tempo_recuo
+        if tempo_desde_tiro < 200:  # Duração do efeito de recuo em ms
+            # Recuo diminui ao longo do tempo
+            intensidade = jogador.recuo_espingarda * (1 - tempo_desde_tiro / 200)
+            # Recuar na direção oposta ao tiro (para trás)
+            offset_recuo_x = -dx * intensidade
+            offset_recuo_y = -dy * intensidade
+            # Adicionar pequena tremida aleatória
+            offset_recuo_x += random.uniform(-2, 2) * (intensidade / 10)
+            offset_recuo_y += random.uniform(-2, 2) * (intensidade / 10)
+
+    # Aplicar offset de recuo ao centro
+    centro_x += offset_recuo_x
+    centro_y += offset_recuo_y
+
     # Comprimento da espingarda
-    comprimento_arma = 35  # Ligeiramente mais longo
-    
+    comprimento_arma = 40  # Espingarda mais longa
+
     # Posição da ponta da arma
     ponta_x = centro_x + dx * comprimento_arma
     ponta_y = centro_y + dy * comprimento_arma
-    
+
     # Vetor perpendicular para elementos laterais
     perp_x = -dy
     perp_y = dx
     
     # Cores da espingarda
-    cor_metal = (180, 180, 190)  # Metal prateado
-    cor_cano = (100, 100, 110)   # Cano escuro
-    cor_madeira = (120, 80, 40)  # Madeira escura
-    cor_madeira_clara = (150, 100, 50)  # Madeira clara
-    
-    # DESENHO COMPLETO DA ESPINGARDA
-    
-    # 1. Cano principal (mais grosso e com gradiente)
-    for i in range(4):
-        offset = i - 1.5
-        pygame.draw.line(tela, cor_cano, 
-                    (centro_x + perp_x * offset, centro_y + perp_y * offset), 
-                    (ponta_x + perp_x * offset, ponta_y + perp_y * offset), 3)
-    
-    # 2. Boca do cano com destaque
-    pygame.draw.circle(tela, cor_metal, (int(ponta_x), int(ponta_y)), 5)
-    pygame.draw.circle(tela, (40, 40, 40), (int(ponta_x), int(ponta_y)), 3)
-    
-    # 3. Suporte sob o cano
-    meio_cano_x = centro_x + dx * (comprimento_arma * 0.6)
-    meio_cano_y = centro_y + dy * (comprimento_arma * 0.6)
-    pygame.draw.line(tela, cor_metal, 
-                    (meio_cano_x + perp_x * 3, meio_cano_y + perp_y * 3), 
-                    (meio_cano_x - perp_x * 3, meio_cano_y - perp_y * 3), 3)
-    
-    # 4. Corpo central / Mecanismo (mais detalhado)
-    corpo_x = centro_x + dx * 8
-    corpo_y = centro_y + dy * 8
-    # Base do corpo
-    pygame.draw.circle(tela, cor_metal, (int(corpo_x), int(corpo_y)), 7)
-    # Detalhes do mecanismo
-    pygame.draw.circle(tela, (50, 50, 55), (int(corpo_x), int(corpo_y)), 4)
-    # Reflete mecanismo (brilho)
-    brilho_x = corpo_x - dx + perp_x
-    brilho_y = corpo_y - dy + perp_y
-    pygame.draw.circle(tela, (220, 220, 230), (int(brilho_x), int(brilho_y)), 2)
-    
-    # 5. Coronha mais elegante (formato mais curvado)
-    # Pontos para a coronha em formato mais curvo
-    # Base conectando ao corpo
-    coronha_base_x = corpo_x - dx * 2
-    coronha_base_y = corpo_y - dy * 2
-    
-    # Pontos superiores e inferiores no início da coronha
-    sup_inicio_x = coronha_base_x + perp_x * 6
-    sup_inicio_y = coronha_base_y + perp_y * 6
-    inf_inicio_x = coronha_base_x - perp_x * 6
-    inf_inicio_y = coronha_base_y - perp_y * 6
-    
-    # Pontos do final da coronha (mais estreitos)
-    sup_fim_x = coronha_base_x - dx * 15 + perp_x * 4
-    sup_fim_y = coronha_base_y - dy * 15 + perp_y * 4
-    inf_fim_x = coronha_base_x - dx * 15 - perp_x * 4
-    inf_fim_y = coronha_base_y - dy * 15 - perp_y * 4
-    
-    # Desenhar coronha principal
-    pygame.draw.polygon(tela, cor_madeira, [
-        (sup_inicio_x, sup_inicio_y),
-        (inf_inicio_x, inf_inicio_y),
-        (inf_fim_x, inf_fim_y),
-        (sup_fim_x, sup_fim_y)
-    ])
-    
-    # 6. Detalhes da coronha (linhas de madeira)
-    for i in range(1, 4):
-        linha_x1 = sup_inicio_x - dx * (i * 3) + perp_x * (6 - i * 0.5)
-        linha_y1 = sup_inicio_y - dy * (i * 3) + perp_y * (6 - i * 0.5)
-        linha_x2 = inf_inicio_x - dx * (i * 3) - perp_x * (6 - i * 0.5)
-        linha_y2 = inf_inicio_y - dy * (i * 3) - perp_y * (6 - i * 0.5)
-        pygame.draw.line(tela, cor_madeira_clara, 
-                        (linha_x1, linha_y1), 
-                        (linha_x2, linha_y2), 1)
-    
-    # 7. Gatilho e proteção (mais detalhados)
-    # Base do gatilho
-    gatilho_base_x = corpo_x - dx * 3
-    gatilho_base_y = corpo_y - dy * 3
-    
-    # Proteção do gatilho (arco)
-    pygame.draw.arc(tela, cor_metal, 
-                [gatilho_base_x - 5, gatilho_base_y - 5, 10, 10],
-                math.pi/2, math.pi * 1.5, 2)
-    
-    # Gatilho (linha curva)
-    gatilho_x = gatilho_base_x - perp_x * 2
-    gatilho_y = gatilho_base_y - perp_y * 2
-    pygame.draw.line(tela, (40, 40, 40), 
-                    (gatilho_base_x, gatilho_base_y), 
-                    (gatilho_x, gatilho_y), 2)
-    
-    # 8. Efeito de brilho no metal
-    pygame.draw.line(tela, (220, 220, 230), 
-                    (centro_x + perp_x * 2, centro_y + perp_y * 2), 
-                    (corpo_x + perp_x * 2, corpo_y + perp_y * 2), 1)
-    
-    # 9. Efeito de energia/carregamento (quando estiver ativa)
-    # Pulsar baseado no tempo atual
-    pulso = (math.sin(tempo_atual / 150) + 1) / 2  # Valor entre 0 e 1
-    cor_energia = (50 + int(pulso * 200), 50 + int(pulso * 150), 255)
-    
-    # Linha de energia ao longo do cano
-    energia_width = 2 + int(pulso * 2)
-    meio_cano2_x = centro_x + dx * (comprimento_arma * 0.3)
-    meio_cano2_y = centro_y + dy * (comprimento_arma * 0.3)
-    pygame.draw.line(tela, cor_energia, 
-                    (meio_cano2_x, meio_cano2_y), 
-                    (ponta_x, ponta_y), energia_width)
+    cor_metal = (60, 60, 70)  # Metal escuro
+    cor_metal_claro = (120, 120, 130)  # Metal mais claro para detalhes
+    cor_cano = (40, 40, 45)   # Cano bem escuro
+    cor_madeira = (101, 67, 33)  # Madeira marrom escura
+    cor_madeira_clara = (139, 90, 43)  # Madeira com destaque
+
+    # DESENHO COMPLETO DA ESPINGARDA DE CANO DUPLO
+
+    # === CORONHA (parte traseira de madeira) ===
+    coronha_inicio_x = centro_x - dx * 18
+    coronha_inicio_y = centro_y - dy * 18
+
+    # Polígono da coronha (formato mais largo atrás)
+    coronha_pontos = [
+        (coronha_inicio_x + perp_x * 7, coronha_inicio_y + perp_y * 7),
+        (coronha_inicio_x - perp_x * 7, coronha_inicio_y - perp_y * 7),
+        (centro_x - dx * 5 - perp_x * 5, centro_y - dy * 5 - perp_y * 5),
+        (centro_x - dx * 5 + perp_x * 5, centro_y - dy * 5 + perp_y * 5)
+    ]
+    pygame.draw.polygon(tela, cor_madeira, coronha_pontos)
+    pygame.draw.polygon(tela, cor_madeira_clara, coronha_pontos, 2)
+
+    # Detalhes da madeira (linhas)
+    for i in range(3):
+        offset_dist = -18 + i * 5
+        det_x1 = centro_x - dx * offset_dist + perp_x * 6
+        det_y1 = centro_y - dy * offset_dist + perp_y * 6
+        det_x2 = centro_x - dx * offset_dist - perp_x * 6
+        det_y2 = centro_y - dy * offset_dist - perp_y * 6
+        pygame.draw.line(tela, cor_madeira_clara, (det_x1, det_y1), (det_x2, det_y2), 1)
+
+    # === CORPO/MECANISMO DA ESPINGARDA ===
+    corpo_x = centro_x + dx * 5
+    corpo_y = centro_y + dy * 5
+
+    # Corpo principal (retangular)
+    corpo_pontos = [
+        (centro_x - dx * 5 + perp_x * 6, centro_y - dy * 5 + perp_y * 6),
+        (centro_x - dx * 5 - perp_x * 6, centro_y - dy * 5 - perp_y * 6),
+        (corpo_x - perp_x * 5, corpo_y - perp_y * 5),
+        (corpo_x + perp_x * 5, corpo_y + perp_y * 5)
+    ]
+    pygame.draw.polygon(tela, cor_metal, corpo_pontos)
+    pygame.draw.polygon(tela, cor_metal_claro, corpo_pontos, 1)
+
+    # === GATILHO ===
+    gatilho_base_x = centro_x - dx * 2
+    gatilho_base_y = centro_y - dy * 2
+    gatilho_ponta_x = gatilho_base_x - perp_x * 4
+    gatilho_ponta_y = gatilho_base_y - perp_y * 4
+
+    # Proteção do gatilho
+    pygame.draw.line(tela, cor_metal_claro,
+                    (gatilho_base_x - dx * 4, gatilho_base_y - dy * 4),
+                    (gatilho_ponta_x - dx * 3, gatilho_ponta_y - dy * 3), 2)
+    pygame.draw.line(tela, cor_metal_claro,
+                    (gatilho_ponta_x - dx * 3, gatilho_ponta_y - dy * 3),
+                    (gatilho_ponta_x, gatilho_ponta_y), 2)
+
+    # Gatilho
+    pygame.draw.line(tela, (200, 150, 0),
+                    (gatilho_base_x, gatilho_base_y),
+                    (gatilho_ponta_x - dx * 1, gatilho_ponta_y - dy * 1), 3)
+
+    # === CANO DUPLO (característica principal da espingarda) ===
+    separacao_canos = 3.5  # Distância entre os dois canos
+
+    # Início dos canos (na parte do corpo)
+    inicio_cano_x = corpo_x
+    inicio_cano_y = corpo_y
+
+    # CANO SUPERIOR
+    inicio_sup_x = inicio_cano_x + perp_x * separacao_canos
+    inicio_sup_y = inicio_cano_y + perp_y * separacao_canos
+    ponta_sup_x = ponta_x + perp_x * separacao_canos
+    ponta_sup_y = ponta_y + perp_y * separacao_canos
+
+    # Desenhar cano superior (grosso)
+    pygame.draw.line(tela, cor_cano,
+                    (inicio_sup_x, inicio_sup_y),
+                    (ponta_sup_x, ponta_sup_y), 5)
+    # Contorno do cano superior
+    pygame.draw.line(tela, cor_metal_claro,
+                    (inicio_sup_x + perp_x * 2.5, inicio_sup_y + perp_y * 2.5),
+                    (ponta_sup_x + perp_x * 2.5, ponta_sup_y + perp_y * 2.5), 1)
+    pygame.draw.line(tela, cor_metal_claro,
+                    (inicio_sup_x - perp_x * 2.5, inicio_sup_y - perp_y * 2.5),
+                    (ponta_sup_x - perp_x * 2.5, ponta_sup_y - perp_y * 2.5), 1)
+
+    # CANO INFERIOR
+    inicio_inf_x = inicio_cano_x - perp_x * separacao_canos
+    inicio_inf_y = inicio_cano_y - perp_y * separacao_canos
+    ponta_inf_x = ponta_x - perp_x * separacao_canos
+    ponta_inf_y = ponta_y - perp_y * separacao_canos
+
+    # Desenhar cano inferior (grosso)
+    pygame.draw.line(tela, cor_cano,
+                    (inicio_inf_x, inicio_inf_y),
+                    (ponta_inf_x, ponta_inf_y), 5)
+    # Contorno do cano inferior
+    pygame.draw.line(tela, cor_metal_claro,
+                    (inicio_inf_x + perp_x * 2.5, inicio_inf_y + perp_y * 2.5),
+                    (ponta_inf_x + perp_x * 2.5, ponta_inf_y + perp_y * 2.5), 1)
+    pygame.draw.line(tela, cor_metal_claro,
+                    (inicio_inf_x - perp_x * 2.5, inicio_inf_y - perp_y * 2.5),
+                    (ponta_inf_x - perp_x * 2.5, ponta_inf_y - perp_y * 2.5), 1)
+
+    # === BOCAS DOS CANOS ===
+    # Boca do cano superior
+    pygame.draw.circle(tela, cor_metal, (int(ponta_sup_x), int(ponta_sup_y)), 4)
+    pygame.draw.circle(tela, (20, 20, 20), (int(ponta_sup_x), int(ponta_sup_y)), 2)
+
+    # Boca do cano inferior
+    pygame.draw.circle(tela, cor_metal, (int(ponta_inf_x), int(ponta_inf_y)), 4)
+    pygame.draw.circle(tela, (20, 20, 20), (int(ponta_inf_x), int(ponta_inf_y)), 2)
+
+    # === SUPORTE ENTRE OS CANOS (banda que une os dois canos) ===
+    # Meio do cano
+    meio_x = centro_x + dx * (comprimento_arma * 0.5)
+    meio_y = centro_y + dy * (comprimento_arma * 0.5)
+    pygame.draw.line(tela, cor_metal_claro,
+                    (meio_x + perp_x * (separacao_canos + 2), meio_y + perp_y * (separacao_canos + 2)),
+                    (meio_x - perp_x * (separacao_canos + 2), meio_y - perp_y * (separacao_canos + 2)), 3)
+
+    # Perto da ponta
+    frente_x = centro_x + dx * (comprimento_arma * 0.85)
+    frente_y = centro_y + dy * (comprimento_arma * 0.85)
+    pygame.draw.line(tela, cor_metal_claro,
+                    (frente_x + perp_x * (separacao_canos + 2), frente_y + perp_y * (separacao_canos + 2)),
+                    (frente_x - perp_x * (separacao_canos + 2), frente_y - perp_y * (separacao_canos + 2)), 2)
+
+    # === EFEITO DE ENERGIA (quando ativa) ===
+    pulso = (math.sin(tempo_atual / 150) + 1) / 2
+    cor_energia = (255, int(100 + pulso * 155), 0)  # Laranja pulsante
+    energia_width = 1 + int(pulso * 2)
+
+    # Linha de energia no cano superior
+    pygame.draw.line(tela, cor_energia,
+                    (corpo_x + perp_x * separacao_canos, corpo_y + perp_y * separacao_canos),
+                    (ponta_sup_x, ponta_sup_y), energia_width)
+
+    # Linha de energia no cano inferior
+    pygame.draw.line(tela, cor_energia,
+                    (corpo_x - perp_x * separacao_canos, corpo_y - perp_y * separacao_canos),
+                    (ponta_inf_x, ponta_inf_y), energia_width)

@@ -204,37 +204,56 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
 
 def desenhar_icone_espingarda(tela, x, y, tempo_atual):
     """
-    Desenha um ícone simplificado de espingarda para o HUD.
-    
+    Desenha um ícone simplificado de espingarda de CANO DUPLO para o HUD.
+
     Args:
         tela: Superfície onde desenhar
         x, y: Posição central do ícone
         tempo_atual: Tempo atual para animações
     """
-    # Cores da espingarda (menores e simplificadas)
-    cor_metal = (120, 120, 130)
-    cor_cano = (80, 80, 90)
-    cor_madeira = (100, 70, 35)
-    
-    # Desenhar cano
-    pygame.draw.line(tela, cor_cano, (x - 15, y), (x + 15, y), 4)
-    
-    # Corpo central
-    pygame.draw.circle(tela, cor_metal, (x, y), 6)
-    pygame.draw.circle(tela, (40, 40, 50), (x, y), 3)
-    
-    # Coronha
+    # Cores da espingarda de cano duplo
+    cor_metal = (60, 60, 70)
+    cor_metal_claro = (120, 120, 130)
+    cor_cano = (40, 40, 45)
+    cor_madeira = (101, 67, 33)
+
+    # === CORONHA ===
     pygame.draw.polygon(tela, cor_madeira, [
-        (x - 8, y - 4),
-        (x - 8, y + 4),
+        (x - 20, y - 3),
         (x - 20, y + 3),
-        (x - 20, y - 3)
+        (x - 8, y + 2),
+        (x - 8, y - 2)
     ])
-    
-    # Efeito de energia
+
+    # === CORPO ===
+    pygame.draw.rect(tela, cor_metal, (x - 8, y - 3, 8, 6))
+    pygame.draw.rect(tela, cor_metal_claro, (x - 8, y - 3, 8, 6), 1)
+
+    # === CANO DUPLO ===
+    separacao = 2
+
+    # Cano superior
+    pygame.draw.line(tela, cor_cano, (x, y - separacao), (x + 15, y - separacao), 3)
+    pygame.draw.line(tela, cor_metal_claro, (x, y - separacao - 1), (x + 15, y - separacao - 1), 1)
+
+    # Cano inferior
+    pygame.draw.line(tela, cor_cano, (x, y + separacao), (x + 15, y + separacao), 3)
+    pygame.draw.line(tela, cor_metal_claro, (x, y + separacao + 1), (x + 15, y + separacao + 1), 1)
+
+    # Bocas dos canos
+    pygame.draw.circle(tela, cor_metal, (x + 15, y - separacao), 2)
+    pygame.draw.circle(tela, (20, 20, 20), (x + 15, y - separacao), 1)
+    pygame.draw.circle(tela, cor_metal, (x + 15, y + separacao), 2)
+    pygame.draw.circle(tela, (20, 20, 20), (x + 15, y + separacao), 1)
+
+    # Banda unindo os canos
+    pygame.draw.line(tela, cor_metal_claro, (x + 8, y - separacao - 1), (x + 8, y + separacao + 1), 2)
+
+    # Efeito de energia laranja
     pulso = (math.sin(tempo_atual / 150) + 1) / 2
-    cor_energia = (50 + int(pulso * 100), 50 + int(pulso * 75), 200)
-    pygame.draw.line(tela, cor_energia, (x - 5, y), (x + 15, y), 2)
+    cor_energia = (255, int(100 + pulso * 155), 0)
+    pygame.draw.line(tela, cor_energia, (x + 2, y - separacao), (x + 15, y - separacao), 1)
+    pygame.draw.line(tela, cor_energia, (x + 2, y + separacao), (x + 15, y + separacao), 1)
 
 
 def desenhar_icone_metralhadora(tela, x, y, tempo_atual):

@@ -9,10 +9,10 @@ VERSÃO ATUALIZADA com suporte a tela cheia e escalonamento.
 
 import pygame
 import sys
-print("✅ Pygame importado")
+print("Pygame importado")
 
 from src.config import TITULO
-print("✅ Config importado")
+print("Config importado")
 
 # NOVO: Importar o sistema de display
 from src.utils.display_manager import (
@@ -25,26 +25,26 @@ from src.utils.display_manager import (
 
 try:
     from src.game.jogo import main_game
-    print("✅ main_game importado")
+    print("main_game importado")
 except Exception as e:
-    print(f"❌ ERRO ao importar main_game: {e}")
+    print(f"ERRO ao importar main_game: {e}")
     import traceback
     traceback.print_exc()
     sys.exit(1)
 
 def main():
     """Função principal do programa com suporte a tela cheia."""
-    print("🚀 Iniciando pygame...")
+    print("Iniciando pygame...")
     
     # Inicializar o Pygame
     pygame.init()
     pygame.font.init()
     pygame.mixer.init()
-    print("✅ Pygame inicializado")
+    print("Pygame inicializado")
     
     # Configurar canais para mixagem de áudio
     pygame.mixer.set_num_channels(8)
-    print("✅ Canais de áudio configurados")
+    print("Canais de audio configurados")
     
     # NOVO: Inicializar sistema de display
     # Pode começar em tela cheia ou janela

@@ -122,6 +122,10 @@ class Quadrado:
         
         # Efeito de dano
         self.efeito_dano = 0
+
+        # Efeito de recuo da espingarda
+        self.recuo_espingarda = 0
+        self.tempo_recuo = 0
         
         # Identificador (útil para fases)
         self.id = id(self)

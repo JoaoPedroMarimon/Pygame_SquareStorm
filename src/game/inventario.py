@@ -407,40 +407,84 @@ def desenhar_icone_faca_moderno(tela, x, y, tempo_atual, tamanho=25):
         pygame.draw.line(tela, cor_brilho, start_pos, end_pos, 2)
 
 def desenhar_icone_espingarda_moderno(tela, x, y, tempo_atual, tamanho=30):
-    """Desenha ícone moderno da espingarda."""
-    cor_metal = (180, 180, 190)
-    cor_madeira = (120, 80, 40)
-    
-    # Cano principal
-    cano_rect = pygame.Rect(x - tamanho//2, y - 3, tamanho, 6)
-    pygame.draw.rect(tela, cor_metal, cano_rect, 0, 3)
-    pygame.draw.rect(tela, (200, 200, 210), cano_rect, 2, 3)
-    
-    # Boca do cano
-    pygame.draw.circle(tela, cor_metal, (x + tamanho//2, y), 5)
-    pygame.draw.circle(tela, (40, 40, 40), (x + tamanho//2, y), 3)
-    
-    # Corpo central
-    corpo_rect = pygame.Rect(x - 5, y - 6, 10, 12)
-    pygame.draw.rect(tela, cor_metal, corpo_rect, 0, 2)
-    
-    # Coronha
-    coronha_pontos = [
-        (x - tamanho//2 - 15, y - 4),
-        (x - tamanho//2 - 15, y + 4),
-        (x - tamanho//2, y + 3),
-        (x - tamanho//2, y - 3)
-    ]
-    pygame.draw.polygon(tela, cor_madeira, coronha_pontos)
-    pygame.draw.polygon(tela, (150, 100, 50), coronha_pontos, 2)
-    
-    # Efeito de energia
+    """Desenha ícone moderno da espingarda de CANO DUPLO."""
+    cor_metal = (60, 60, 70)
+    cor_metal_claro = (120, 120, 130)
+    cor_cano = (40, 40, 45)
+    cor_madeira = (101, 67, 33)
+
+    # Comprimento da arma
+    ponta_x = x + tamanho//2
+
+    # === CORONHA (parte traseira) ===
+    coronha_x = x - tamanho//2 - 12
+    pygame.draw.polygon(tela, cor_madeira, [
+        (coronha_x, y - 5),
+        (coronha_x, y + 5),
+        (x - tamanho//2, y + 4),
+        (x - tamanho//2, y - 4)
+    ])
+    pygame.draw.polygon(tela, (139, 90, 43), [
+        (coronha_x, y - 5),
+        (coronha_x, y + 5),
+        (x - tamanho//2, y + 4),
+        (x - tamanho//2, y - 4)
+    ], 1)
+
+    # === CORPO/MECANISMO ===
+    corpo_x = x - tamanho//2 + 8
+    pygame.draw.rect(tela, cor_metal, (x - tamanho//2, y - 5, 16, 10))
+    pygame.draw.rect(tela, cor_metal_claro, (x - tamanho//2, y - 5, 16, 10), 1)
+
+    # === CANO DUPLO (característica principal) ===
+    separacao = 3  # Distância entre os dois canos
+
+    # CANO SUPERIOR
+    pygame.draw.line(tela, cor_cano,
+                    (corpo_x, y - separacao),
+                    (ponta_x, y - separacao), 5)
+    pygame.draw.line(tela, cor_metal_claro,
+                    (corpo_x, y - separacao - 2),
+                    (ponta_x, y - separacao - 2), 1)
+
+    # CANO INFERIOR
+    pygame.draw.line(tela, cor_cano,
+                    (corpo_x, y + separacao),
+                    (ponta_x, y + separacao), 5)
+    pygame.draw.line(tela, cor_metal_claro,
+                    (corpo_x, y + separacao + 2),
+                    (ponta_x, y + separacao + 2), 1)
+
+    # === BOCAS DOS CANOS ===
+    # Boca superior
+    pygame.draw.circle(tela, cor_metal, (int(ponta_x), int(y - separacao)), 4)
+    pygame.draw.circle(tela, (20, 20, 20), (int(ponta_x), int(y - separacao)), 2)
+
+    # Boca inferior
+    pygame.draw.circle(tela, cor_metal, (int(ponta_x), int(y + separacao)), 4)
+    pygame.draw.circle(tela, (20, 20, 20), (int(ponta_x), int(y + separacao)), 2)
+
+    # === BANDA QUE UNE OS CANOS ===
+    meio_x = x + tamanho * 0.15
+    pygame.draw.line(tela, cor_metal_claro,
+                    (meio_x, y - separacao - 2),
+                    (meio_x, y + separacao + 2), 3)
+
+    # === EFEITO DE ENERGIA LARANJA ===
     energia_pulso = (math.sin(tempo_atual / 150) + 1) / 2
     if energia_pulso > 0.5:
-        energia_color = (50 + int(energia_pulso * 150), 50 + int(energia_pulso * 100), 255)
-        pygame.draw.line(tela, energia_color, 
-                        (x - tamanho//2 + 5, y), 
-                        (x + tamanho//2, y), 3)
+        cor_energia = (255, int(100 + energia_pulso * 155), 0)
+        energia_width = 1 + int(energia_pulso * 2)
+
+        # Energia no cano superior
+        pygame.draw.line(tela, cor_energia,
+                        (corpo_x + 3, y - separacao),
+                        (ponta_x, y - separacao), energia_width)
+
+        # Energia no cano inferior
+        pygame.draw.line(tela, cor_energia,
+                        (corpo_x + 3, y + separacao),
+                        (ponta_x, y + separacao), energia_width)
 
 def desenhar_icone_desert_eagle_moderno(tela, x, y, tempo_atual, tamanho=30):
     """Desenha ícone moderno da Desert Eagle para o inventário."""
