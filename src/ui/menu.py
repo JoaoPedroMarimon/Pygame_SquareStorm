@@ -51,13 +51,16 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     
     # Efeito de névoa colorida
     nevoa_offset = 0
-    
+
+    # Estado do menu multiplayer
+    menu_multi_aberto = False
+
     # Inicializar moeda_manager para mostrar quantidade de moedas
     try:
         moeda_manager = MoedaManager()
     except Exception as e:
         return False
-    
+
     # Loop principal
     frame_count = 0
     while True:
@@ -278,19 +281,28 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         y_inventario = y_inicial + espacamento * 2  # Posicionar entre Loja e Sair
         largura_ajustada_inventario = int(largura_botao * escala_y)
         altura_ajustada_inventario = int(altura_botao * escala_y)
-        rect_inventario = pygame.Rect(x_inventario - largura_ajustada_inventario // 2, 
-                                    y_inventario - altura_ajustada_inventario // 2, 
-                                    largura_ajustada_inventario, 
+        rect_inventario = pygame.Rect(x_inventario - largura_ajustada_inventario // 2,
+                                    y_inventario - altura_ajustada_inventario // 2,
+                                    largura_ajustada_inventario,
                                     altura_ajustada_inventario)
-        
-        # Botão Sair (ajustado para baixo)
+
+        # Botão Multiplayer (NO CANTO ESQUERDO)
+        largura_multi_btn = 200
+        altura_multi_btn = 80
+        x_multiplayer = 120  # Esquerda da tela
+        y_multiplayer = ALTURA // 2
+        rect_multiplayer = pygame.Rect(20, y_multiplayer - altura_multi_btn // 2,
+                                      largura_multi_btn,
+                                      altura_multi_btn)
+
+        # Botão Sair (DE VOLTA AO ORIGINAL)
         x_sair = LARGURA // 2
-        y_sair = y_inicial + espacamento * 3  # Em vez de espacamento * 2
+        y_sair = y_inicial + espacamento * 3  # Voltou ao original
         largura_ajustada_sair = int(largura_botao * 0.7 * escala_y)
         altura_ajustada_sair = int(altura_botao * 0.8 * escala_y)
-        rect_sair = pygame.Rect(x_sair - largura_ajustada_sair // 2, 
-                               y_sair - altura_ajustada_sair // 2, 
-                               largura_ajustada_sair, 
+        rect_sair = pygame.Rect(x_sair - largura_ajustada_sair // 2,
+                               y_sair - altura_ajustada_sair // 2,
+                               largura_ajustada_sair,
                                altura_ajustada_sair)
         
         # Botão de Seleção de Fase
@@ -312,12 +324,66 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         botao_loja = criar_botao(tela, "SHOP", x_loja, y_loja, largura_botao, altura_botao, 
                                 (150, 100, 0), (255, 180, 0), BRANCO)
         
-        botao_inventario = criar_botao(tela, "INVENTORY", x_inventario, y_inventario, largura_botao, altura_botao, 
+        botao_inventario = criar_botao(tela, "INVENTORY", x_inventario, y_inventario, largura_botao, altura_botao,
                                       (100, 50, 150), (150, 80, 200), BRANCO)
-        
-        botao_sair = criar_botao(tela, "EXIT", x_sair, y_sair, largura_botao * 0.7, altura_botao * 0.8, 
+
+        botao_sair = criar_botao(tela, "EXIT", x_sair, y_sair, largura_botao * 0.7, altura_botao * 0.8,
                                (150, 50, 50), (200, 80, 80), BRANCO)
-        
+
+        # Botão Multiplayer (Lado Esquerdo) - SEM ÍCONE
+        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
+        hover_multi = rect_multiplayer.collidepoint(mouse_pos)
+        cor_multi = (80, 200, 150) if hover_multi else (50, 150, 100)
+
+        # Fundo do botão
+        pygame.draw.rect(tela, cor_multi, rect_multiplayer, 0, 12)
+        pygame.draw.rect(tela, BRANCO, rect_multiplayer, 3, 12)
+
+        # Texto "MULTIPLAYER" centralizado (SEM ÍCONE)
+        fonte_multi = pygame.font.SysFont("Arial", 16, True)
+        texto_multi = fonte_multi.render("MULTIPLAYER", True, BRANCO)
+        texto_rect = texto_multi.get_rect(center=rect_multiplayer.center)
+        tela.blit(texto_multi, texto_rect)
+
+        # Submenu Multiplayer (aparece quando menu_multi_aberto = True)
+        rect_criar = None
+        rect_entrar = None
+        if menu_multi_aberto:
+            # Painel do submenu
+            sub_x = rect_multiplayer.right + 10
+            sub_y = rect_multiplayer.y
+            sub_largura = 180
+            sub_altura = 140
+            rect_submenu = pygame.Rect(sub_x, sub_y, sub_largura, sub_altura)
+
+            # Fundo do submenu
+            pygame.draw.rect(tela, (30, 30, 50), rect_submenu, 0, 10)
+            pygame.draw.rect(tela, (80, 200, 150), rect_submenu, 3, 10)
+
+            # Botão "Criar Sala"
+            btn_altura = 50
+            btn_margem = 15
+            rect_criar = pygame.Rect(sub_x + 10, sub_y + btn_margem, sub_largura - 20, btn_altura)
+            hover_criar = rect_criar.collidepoint(mouse_pos)
+            cor_criar = (80, 180, 130) if hover_criar else (60, 140, 100)
+            pygame.draw.rect(tela, cor_criar, rect_criar, 0, 8)
+            pygame.draw.rect(tela, BRANCO, rect_criar, 2, 8)
+
+            texto_criar = fonte_multi.render("CRIAR SALA", True, BRANCO)
+            texto_criar_rect = texto_criar.get_rect(center=rect_criar.center)
+            tela.blit(texto_criar, texto_criar_rect)
+
+            # Botão "Entrar na Sala"
+            rect_entrar = pygame.Rect(sub_x + 10, sub_y + btn_margem + btn_altura + 10, sub_largura - 20, btn_altura)
+            hover_entrar = rect_entrar.collidepoint(mouse_pos)
+            cor_entrar = (80, 180, 200) if hover_entrar else (60, 140, 160)
+            pygame.draw.rect(tela, cor_entrar, rect_entrar, 0, 8)
+            pygame.draw.rect(tela, BRANCO, rect_entrar, 2, 8)
+
+            texto_entrar = fonte_multi.render("ENTRAR NA SALA", True, BRANCO)
+            texto_entrar_rect = texto_entrar.get_rect(center=rect_entrar.center)
+            tela.blit(texto_entrar, texto_entrar_rect)
+
         # Desenhar botão de seleção de fase com ícone de menu
         mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
         hover_selecao = rect_selecao.collidepoint(mouse_pos)
@@ -357,7 +423,21 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
                     present_frame()
                     pygame.time.delay(20)
                 return "inventario"
-            
+
+            if rect_multiplayer.collidepoint(mouse_pos):
+                # Alternar menu multiplayer
+                menu_multi_aberto = not menu_multi_aberto
+
+            # Se o menu multiplayer está aberto, verificar cliques nos botões
+            if menu_multi_aberto and rect_criar and rect_entrar:
+                if rect_criar.collidepoint(mouse_pos):
+                    # Criar sala
+                    return "multiplayer_host"
+
+                if rect_entrar.collidepoint(mouse_pos):
+                    # Entrar na sala
+                    return "multiplayer_join"
+
             if rect_sair.collidepoint(mouse_pos):
                 return False
             
@@ -877,3 +957,184 @@ def tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual):
         
         present_frame()
         relogio.tick(FPS)
+
+def obter_ip_local_simples():
+    """Obtém o IP local da máquina."""
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
+
+
+def tela_criar_servidor_simples(tela, relogio, gradiente):
+    """Tela simplificada para criar servidor."""
+    fonte = pygame.font.SysFont("Arial", 32, True)
+    fonte_normal = pygame.font.SysFont("Arial", 24)
+
+    # Valores padrão
+    nome = "Host"
+    porta = "5555"
+    max_jogadores = "4"
+
+    # Botão OK
+    btn_ok = pygame.Rect(LARGURA // 2 - 100, ALTURA // 2 + 100, 200, 60)
+
+    while True:
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                return None
+
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_ESCAPE:
+                    return None
+                if evento.key == pygame.K_RETURN:
+                    return {'player_name': nome, 'port': int(porta), 'max_players': int(max_jogadores)}
+
+            if evento.type == pygame.MOUSEBUTTONDOWN:
+                if btn_ok.collidepoint(evento.pos):
+                    return {'player_name': nome, 'port': int(porta), 'max_players': int(max_jogadores)}
+
+        # Desenhar
+        tela.blit(gradiente, (0, 0))
+
+        # Título
+        titulo = fonte.render("CRIAR SALA", True, BRANCO)
+        tela.blit(titulo, (LARGURA // 2 - titulo.get_width() // 2, 100))
+
+        # Informações
+        ip = obter_ip_local_simples()
+        texto_ip = fonte_normal.render(f"Seu IP: {ip}", True, AMARELO)
+        tela.blit(texto_ip, (LARGURA // 2 - texto_ip.get_width() // 2, 200))
+
+        info = fonte_normal.render(f"Nome: {nome}", True, BRANCO)
+        tela.blit(info, (LARGURA // 2 - info.get_width() // 2, 280))
+
+        info2 = fonte_normal.render(f"Porta: {porta}", True, BRANCO)
+        tela.blit(info2, (LARGURA // 2 - info2.get_width() // 2, 320))
+
+        info3 = fonte_normal.render(f"Max Jogadores: {max_jogadores}", True, BRANCO)
+        tela.blit(info3, (LARGURA // 2 - info3.get_width() // 2, 360))
+
+        # Botão OK
+        mouse_pos = pygame.mouse.get_pos()
+        cor = VERDE if btn_ok.collidepoint(mouse_pos) else AZUL
+        pygame.draw.rect(tela, cor, btn_ok, 0, 10)
+        pygame.draw.rect(tela, BRANCO, btn_ok, 3, 10)
+        texto_ok = fonte_normal.render("CRIAR", True, BRANCO)
+        tela.blit(texto_ok, (btn_ok.centerx - texto_ok.get_width() // 2, btn_ok.centery - texto_ok.get_height() // 2))
+
+        # Instruções
+        inst = fonte_normal.render("Pressione ENTER ou clique em CRIAR", True, (150, 150, 150))
+        tela.blit(inst, (LARGURA // 2 - inst.get_width() // 2, ALTURA - 100))
+
+        inst2 = fonte_normal.render("ESC para cancelar", True, (150, 150, 150))
+        tela.blit(inst2, (LARGURA // 2 - inst2.get_width() // 2, ALTURA - 60))
+
+        pygame.display.flip()
+        relogio.tick(60)
+
+
+def tela_conectar_servidor_simples(tela, relogio, gradiente):
+    """Tela simplificada para conectar a servidor."""
+    fonte = pygame.font.SysFont("Arial", 32, True)
+    fonte_normal = pygame.font.SysFont("Arial", 24)
+
+    # Valores
+    nome = "Player"
+    ip = ""
+    porta = "5555"
+    campo_ativo = "ip"  # ip, porta
+
+    # Botão OK
+    btn_ok = pygame.Rect(LARGURA // 2 - 100, ALTURA // 2 + 120, 200, 60)
+
+    # Input boxes
+    input_ip = pygame.Rect(LARGURA // 2 - 200, 280, 400, 50)
+    input_porta = pygame.Rect(LARGURA // 2 - 200, 360, 400, 50)
+
+    while True:
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                return None
+
+            if evento.type == pygame.MOUSEBUTTONDOWN:
+                if input_ip.collidepoint(evento.pos):
+                    campo_ativo = "ip"
+                elif input_porta.collidepoint(evento.pos):
+                    campo_ativo = "porta"
+                elif btn_ok.collidepoint(evento.pos):
+                    if ip and porta:
+                        try:
+                            return {'player_name': nome, 'host': ip, 'port': int(porta)}
+                        except:
+                            pass
+
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_ESCAPE:
+                    return None
+                elif evento.key == pygame.K_RETURN:
+                    if ip and porta:
+                        try:
+                            return {'player_name': nome, 'host': ip, 'port': int(porta)}
+                        except:
+                            pass
+                elif evento.key == pygame.K_BACKSPACE:
+                    if campo_ativo == "ip":
+                        ip = ip[:-1]
+                    elif campo_ativo == "porta":
+                        porta = porta[:-1]
+                else:
+                    if campo_ativo == "ip" and len(ip) < 50:
+                        ip += evento.unicode
+                    elif campo_ativo == "porta" and len(porta) < 5 and evento.unicode.isdigit():
+                        porta += evento.unicode
+
+        # Desenhar
+        tela.blit(gradiente, (0, 0))
+
+        # Título
+        titulo = fonte.render("ENTRAR NA SALA", True, BRANCO)
+        tela.blit(titulo, (LARGURA // 2 - titulo.get_width() // 2, 100))
+
+        # Labels
+        label_ip = fonte_normal.render("IP do Servidor:", True, BRANCO)
+        tela.blit(label_ip, (LARGURA // 2 - 200, 250))
+
+        label_porta = fonte_normal.render("Porta:", True, BRANCO)
+        tela.blit(label_porta, (LARGURA // 2 - 200, 330))
+
+        # Input boxes
+        cor_ip = AZUL if campo_ativo == "ip" else AZUL_ESCURO
+        pygame.draw.rect(tela, cor_ip, input_ip, 0, 8)
+        pygame.draw.rect(tela, BRANCO, input_ip, 3, 8)
+        texto_ip = fonte_normal.render(ip if ip else "Ex: 127.0.0.1", True, BRANCO if ip else (100, 100, 100))
+        tela.blit(texto_ip, (input_ip.x + 10, input_ip.y + 12))
+
+        cor_porta = AZUL if campo_ativo == "porta" else AZUL_ESCURO
+        pygame.draw.rect(tela, cor_porta, input_porta, 0, 8)
+        pygame.draw.rect(tela, BRANCO, input_porta, 3, 8)
+        texto_porta = fonte_normal.render(porta if porta else "5555", True, BRANCO if porta else (100, 100, 100))
+        tela.blit(texto_porta, (input_porta.x + 10, input_porta.y + 12))
+
+        # Botão OK
+        mouse_pos = pygame.mouse.get_pos()
+        cor = VERDE if btn_ok.collidepoint(mouse_pos) and ip and porta else (100, 100, 100)
+        pygame.draw.rect(tela, cor, btn_ok, 0, 10)
+        pygame.draw.rect(tela, BRANCO, btn_ok, 3, 10)
+        texto_ok = fonte_normal.render("CONECTAR", True, BRANCO)
+        tela.blit(texto_ok, (btn_ok.centerx - texto_ok.get_width() // 2, btn_ok.centery - texto_ok.get_height() // 2))
+
+        # Instruções
+        inst = fonte_normal.render("Clique nos campos para editar", True, (150, 150, 150))
+        tela.blit(inst, (LARGURA // 2 - inst.get_width() // 2, ALTURA - 100))
+
+        inst2 = fonte_normal.render("ENTER para conectar | ESC para cancelar", True, (150, 150, 150))
+        tela.blit(inst2, (LARGURA // 2 - inst2.get_width() // 2, ALTURA - 60))
+
+        pygame.display.flip()
+        relogio.tick(60)
