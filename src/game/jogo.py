@@ -92,7 +92,8 @@ def main_game(game_surface=None):
             if estado_atual == "menu":
                 print("📋 Exibindo menu principal...")
                 resultado = tela_inicio(tela, relogio, gradiente_menu, fonte_titulo)
-                
+                print(f"🔄 Menu retornou: {resultado}")
+
                 # MODIFICADO: Tratar o novo formato de retorno
                 if isinstance(resultado, tuple) and resultado[0] == "jogar":
                     estado_atual = "jogar"
@@ -108,6 +109,12 @@ def main_game(game_surface=None):
                     estado_atual = "inventario"
                 elif resultado == "selecao_fase":
                     estado_atual = "selecao_fase"
+                elif resultado == "multiplayer_host":
+                    estado_atual = "multiplayer_host"
+                    print("🎮 Estado mudado para: multiplayer_host")
+                elif resultado == "multiplayer_join":
+                    estado_atual = "multiplayer_join"
+                    print("🔌 Estado mudado para: multiplayer_join")
                 elif resultado == "multiplayer":
                     estado_atual = "multiplayer"
                 elif resultado == False:
@@ -193,54 +200,75 @@ def main_game(game_surface=None):
                     estado_atual = "menu"  # Cancelou a seleção
                 
             elif estado_atual == 'multiplayer_host':
-                print("🎮 Criando servidor...")
+                print("🎮 [MULTIPLAYER_HOST] Criando servidor...")
                 config = tela_criar_servidor_simples(tela, relogio, gradiente_menu)
+                print(f"📋 [MULTIPLAYER_HOST] Config recebida: {config}")
 
                 if config:
-                    # Criar servidor
-                    servidor = GameServer(port=config['port'], max_players=config['max_players'])
-                    if servidor.start():
-                        print(f"✅ Servidor criado na porta {config['port']}")
+                    print(f"🔧 [MULTIPLAYER_HOST] Iniciando servidor na porta {config['port']}...")
+                    try:
+                        # Criar servidor
+                        servidor = GameServer(port=config['port'], max_players=config['max_players'])
+                        if servidor.start():
+                            print(f"✅ [MULTIPLAYER_HOST] Servidor criado na porta {config['port']}")
 
-                        # Host também é cliente
+                            # Host também é cliente
+                            cliente = GameClient()
+                            print(f"🔌 [MULTIPLAYER_HOST] Conectando host como cliente...")
+                            if cliente.connect('127.0.0.1', config['port'], config['player_name']):
+                                print("✅ [MULTIPLAYER_HOST] Host conectado como cliente")
+                                # Ir para o jogo multiplayer
+                                resultado = jogar_fase_multiplayer_simples(tela, relogio, cliente, config['player_name'])
+
+                                # Limpar
+                                print("🧹 [MULTIPLAYER_HOST] Limpando conexões...")
+                                cliente.disconnect()
+                                servidor.stop()
+                                estado_atual = "menu"
+                            else:
+                                print("❌ [MULTIPLAYER_HOST] Host falhou ao conectar como cliente")
+                                servidor.stop()
+                                estado_atual = "menu"
+                        else:
+                            print("❌ [MULTIPLAYER_HOST] Falha ao criar servidor")
+                            estado_atual = "menu"
+                    except Exception as e:
+                        print(f"❌ [MULTIPLAYER_HOST] ERRO: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        estado_atual = "menu"
+                else:
+                    print("⚠️ [MULTIPLAYER_HOST] Config é None - usuário cancelou")
+                    estado_atual = "menu"
+
+            elif estado_atual == 'multiplayer_join':
+                print("🔌 [MULTIPLAYER_JOIN] Conectando a servidor...")
+                config = tela_conectar_servidor_simples(tela, relogio, gradiente_menu)
+                print(f"📋 [MULTIPLAYER_JOIN] Config recebida: {config}")
+
+                if config:
+                    try:
+                        print(f"🔌 [MULTIPLAYER_JOIN] Tentando conectar a {config['host']}:{config['port']}...")
                         cliente = GameClient()
-                        if cliente.connect('127.0.0.1', config['port'], config['player_name']):
-                            print("✅ Host conectado como cliente")
+                        if cliente.connect(config['host'], config['port'], config['player_name']):
+                            print(f"✅ [MULTIPLAYER_JOIN] Conectado a {config['host']}:{config['port']}")
                             # Ir para o jogo multiplayer
                             resultado = jogar_fase_multiplayer_simples(tela, relogio, cliente, config['player_name'])
 
                             # Limpar
+                            print("🧹 [MULTIPLAYER_JOIN] Limpando conexões...")
                             cliente.disconnect()
-                            servidor.stop()
                             estado_atual = "menu"
                         else:
-                            print("❌ Host falhou ao conectar como cliente")
-                            servidor.stop()
-                            estado_atual = "multiplayer"
-                    else:
-                        print("❌ Falha ao criar servidor")
+                            print("❌ [MULTIPLAYER_JOIN] Falha ao conectar")
+                            estado_atual = "menu"
+                    except Exception as e:
+                        print(f"❌ [MULTIPLAYER_JOIN] ERRO: {e}")
+                        import traceback
+                        traceback.print_exc()
                         estado_atual = "menu"
                 else:
-                    estado_atual = "menu"
-
-            elif estado_atual == 'multiplayer_join':
-                print("🔌 Conectando a servidor...")
-                config = tela_conectar_servidor_simples(tela, relogio, gradiente_menu)
-
-                if config:
-                    cliente = GameClient()
-                    if cliente.connect(config['host'], config['port'], config['player_name']):
-                        print(f"✅ Conectado a {config['host']}:{config['port']}")
-                        # Ir para o jogo multiplayer
-                        resultado = jogar_fase_multiplayer_simples(tela, relogio, cliente, config['player_name'])
-
-                        # Limpar
-                        cliente.disconnect()
-                        estado_atual = "menu"
-                    else:
-                        print("❌ Falha ao conectar")
-                        estado_atual = "menu"
-                else:
+                    print("⚠️ [MULTIPLAYER_JOIN] Config é None - usuário cancelou")
                     estado_atual = "menu"
 
             elif estado_atual == "game_over":

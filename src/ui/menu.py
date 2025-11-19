@@ -427,15 +427,19 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             if rect_multiplayer.collidepoint(mouse_pos):
                 # Alternar menu multiplayer
                 menu_multi_aberto = not menu_multi_aberto
+                print(f"🎮 Menu multiplayer {'ABERTO' if menu_multi_aberto else 'FECHADO'}")
 
             # Se o menu multiplayer está aberto, verificar cliques nos botões
             if menu_multi_aberto and rect_criar and rect_entrar:
+                print(f"📍 Checando cliques no submenu: rect_criar={rect_criar}, rect_entrar={rect_entrar}, mouse_pos={mouse_pos}")
                 if rect_criar.collidepoint(mouse_pos):
                     # Criar sala
+                    print("✅ Botão CRIAR SALA clicado!")
                     return "multiplayer_host"
 
                 if rect_entrar.collidepoint(mouse_pos):
                     # Entrar na sala
+                    print("✅ Botão ENTRAR NA SALA clicado!")
                     return "multiplayer_join"
 
             if rect_sair.collidepoint(mouse_pos):
@@ -973,6 +977,7 @@ def obter_ip_local_simples():
 
 def tela_criar_servidor_simples(tela, relogio, gradiente):
     """Tela simplificada para criar servidor."""
+    print("🎮 [CRIAR SERVIDOR] Tela aberta")
     fonte = pygame.font.SysFont("Arial", 32, True)
     fonte_normal = pygame.font.SysFont("Arial", 24)
 
@@ -991,12 +996,15 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
 
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_ESCAPE:
+                    print("⚠️ [CRIAR SERVIDOR] Cancelado (ESC)")
                     return None
                 if evento.key == pygame.K_RETURN:
+                    print(f"✅ [CRIAR SERVIDOR] Confirmado (ENTER): porta={porta}, max={max_jogadores}")
                     return {'player_name': nome, 'port': int(porta), 'max_players': int(max_jogadores)}
 
             if evento.type == pygame.MOUSEBUTTONDOWN:
                 if btn_ok.collidepoint(evento.pos):
+                    print(f"✅ [CRIAR SERVIDOR] Confirmado (CLICK): porta={porta}, max={max_jogadores}")
                     return {'player_name': nome, 'port': int(porta), 'max_players': int(max_jogadores)}
 
         # Desenhar
@@ -1035,12 +1043,13 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
         inst2 = fonte_normal.render("ESC para cancelar", True, (150, 150, 150))
         tela.blit(inst2, (LARGURA // 2 - inst2.get_width() // 2, ALTURA - 60))
 
-        pygame.display.flip()
+        present_frame()
         relogio.tick(60)
 
 
 def tela_conectar_servidor_simples(tela, relogio, gradiente):
     """Tela simplificada para conectar a servidor."""
+    print("🔌 [CONECTAR] Tela aberta")
     fonte = pygame.font.SysFont("Arial", 32, True)
     fonte_normal = pygame.font.SysFont("Arial", 24)
 
@@ -1060,6 +1069,7 @@ def tela_conectar_servidor_simples(tela, relogio, gradiente):
     while True:
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
+                print("⚠️ [CONECTAR] Janela fechada")
                 return None
 
             if evento.type == pygame.MOUSEBUTTONDOWN:
@@ -1070,18 +1080,23 @@ def tela_conectar_servidor_simples(tela, relogio, gradiente):
                 elif btn_ok.collidepoint(evento.pos):
                     if ip and porta:
                         try:
+                            print(f"✅ [CONECTAR] Confirmado (CLICK): ip={ip}, porta={porta}")
                             return {'player_name': nome, 'host': ip, 'port': int(porta)}
-                        except:
+                        except Exception as e:
+                            print(f"❌ [CONECTAR] Erro ao converter porta: {e}")
                             pass
 
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_ESCAPE:
+                    print("⚠️ [CONECTAR] Cancelado (ESC)")
                     return None
                 elif evento.key == pygame.K_RETURN:
                     if ip and porta:
                         try:
+                            print(f"✅ [CONECTAR] Confirmado (ENTER): ip={ip}, porta={porta}")
                             return {'player_name': nome, 'host': ip, 'port': int(porta)}
-                        except:
+                        except Exception as e:
+                            print(f"❌ [CONECTAR] Erro ao converter porta: {e}")
                             pass
                 elif evento.key == pygame.K_BACKSPACE:
                     if campo_ativo == "ip":
@@ -1136,5 +1151,5 @@ def tela_conectar_servidor_simples(tela, relogio, gradiente):
         inst2 = fonte_normal.render("ENTER para conectar | ESC para cancelar", True, (150, 150, 150))
         tela.blit(inst2, (LARGURA // 2 - inst2.get_width() // 2, ALTURA - 60))
 
-        pygame.display.flip()
+        present_frame()
         relogio.tick(60)
