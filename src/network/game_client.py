@@ -102,7 +102,7 @@ class GameClient:
 
             # Criar socket
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(5.0)  # Timeout de 5 segundos para conexão
+            self.socket.settimeout(10.0)  # Timeout de 10 segundos para conexão
 
             # Conectar
             self.socket.connect((host, port))
@@ -133,6 +133,10 @@ class GameClient:
 
         except Exception as e:
             print(f"❌ Erro ao conectar: {e}")
+            if "timed out" in str(e):
+                print("⚠️ FIREWALL: Verifique se a porta está liberada no firewall do host!")
+                print("   Windows: Painel de Controle > Sistema e Segurança > Firewall do Windows")
+                print(f"   Libere a porta {port} TCP para entrada")
             self.connected = False
             return False
 

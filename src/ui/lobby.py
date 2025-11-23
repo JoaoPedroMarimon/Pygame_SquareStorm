@@ -138,12 +138,12 @@ def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
         # Eventos
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                return ("cancel", None, None)
+                return ("cancel", None)
 
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_ESCAPE:
                     print("[LOBBY] Cancelado")
-                    return ("cancel", None, None)
+                    return ("cancel", None)
                 if evento.key == pygame.K_RETURN:
                     customizacao = {
                         'cor': cores_disponiveis[cor_selecionada_index][1],
@@ -173,7 +173,7 @@ def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
 
                 # Botão Cancelar
                 if btn_cancelar.collidepoint(mouse_click_pos):
-                    return ("cancel", None, None)
+                    return ("cancel", None)
 
                 # Botão Adicionar Bot
                 if btn_add_bot.collidepoint(mouse_click_pos):
