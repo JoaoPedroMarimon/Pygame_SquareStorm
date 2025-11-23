@@ -158,9 +158,9 @@ def atirar_espingarda(jogador, tiros, pos_mouse, particulas=None, flashes=None, 
         # Calcular direção com o novo ângulo
         tiro_dx = math.cos(angulo_atual)
         tiro_dy = math.sin(angulo_atual)
-        
-        # Criar tiro com a direção calculada
-        tiros.append(Tiro(centro_x, centro_y, tiro_dx, tiro_dy, AZUL, 8))
+
+        # Criar tiro com a direção calculada (usar a cor do jogador)
+        tiros.append(Tiro(centro_x, centro_y, tiro_dx, tiro_dy, jogador.cor, 8))
     
     # Reduzir contador de tiros apenas se jogador for passado como parâmetro
     if hasattr(jogador, 'tiros_espingarda'):

@@ -11,6 +11,7 @@ import math
 from src.config import *
 from src.entities.quadrado import Quadrado
 from src.network import GameClient
+from src.utils.display_manager import present_frame, convert_mouse_position
 
 def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
     """
@@ -25,7 +26,7 @@ def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
     Returns:
         "menu" para voltar ao menu
     """
-    print(f"🎮 Iniciando fase multiplayer como {nome_jogador}")
+    print(f"[MULTIPLAYER] Iniciando fase multiplayer como {nome_jogador}")
 
     # Criar jogador local (apenas visual inicial)
     jogador_x = LARGURA // 2
@@ -43,7 +44,7 @@ def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
     # Cores para jogadores remotos
     cores_remotos = [AZUL, CIANO, ROXO, LARANJA]
 
-    print(f"✅ Fase multiplayer iniciada. ID local: {cliente.local_player_id}")
+    print(f"[MULTIPLAYER] Fase multiplayer iniciada. ID local: {cliente.local_player_id}")
 
     while rodando:
         delta_time = relogio.tick(60) / 1000.0
@@ -65,12 +66,12 @@ def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
             texto = fonte_grande.render("PAUSADO - P para continuar", True, BRANCO)
             rect = texto.get_rect(center=(LARGURA // 2, ALTURA // 2))
             tela.blit(texto, rect)
-            pygame.display.flip()
+            present_frame()
             continue
 
         # 2. CAPTURAR INPUT LOCAL
         keys = pygame.key.get_pressed()
-        mouse_x, mouse_y = pygame.mouse.get_pos()
+        mouse_x, mouse_y = convert_mouse_position(pygame.mouse.get_pos())
         shooting = pygame.mouse.get_pressed()[0]
 
         # Movimento local (predição do cliente)
@@ -98,11 +99,11 @@ def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
             try:
                 cliente.send_player_input(keys_dict, mouse_x, mouse_y, shooting)
             except Exception as e:
-                print(f"❌ Erro ao enviar input: {e}")
+                print(f" Erro ao enviar input: {e}")
                 return "menu"
         else:
             # Perdeu conexão
-            print("⚠️ Conexão perdida com o servidor")
+            print(" Conexão perdida com o servidor")
             return "menu"
 
         # 4. ATUALIZAR INTERPOLAÇÃO DOS REMOTOS
@@ -187,6 +188,6 @@ def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
         tela.blit(texto_instrucoes, (info_x, instrucoes_y))
 
         # 7. ATUALIZAR DISPLAY
-        pygame.display.flip()
+        present_frame()
 
     return "menu"

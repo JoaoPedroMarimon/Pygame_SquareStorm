@@ -50,18 +50,18 @@ def main():
     # Pode começar em tela cheia ou janela
     start_fullscreen = True  # Mude para True se quiser começar em tela cheia
     game_surface = initialize_game_display(fullscreen=start_fullscreen)
-    print(f"✅ Display inicializado ({'Tela Cheia' if start_fullscreen else 'Janela'})")
+    print(f"[OK] Display inicializado ({'Tela Cheia' if start_fullscreen else 'Janela'})")
     
     try:
-        print("🎮 Chamando main_game()...")
+        print("Chamando main_game()...")
         # Iniciar o jogo principal passando a superfície correta
         main_game(game_surface)
     except Exception as e:
-        print(f"❌ ERRO em main_game(): {e}")
+        print(f"ERRO em main_game(): {e}")
         import traceback
         traceback.print_exc()
     finally:
-        print("🔚 Encerrando pygame...")
+        print("Encerrando pygame...")
         # Encerrar o Pygame ao sair
         pygame.quit()
         sys.exit()

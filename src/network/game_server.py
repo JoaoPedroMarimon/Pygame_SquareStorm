@@ -195,6 +195,14 @@ class GameServer:
 
                 player = PlayerConnection(player_id, client_socket, address)
                 player.player_name = packet_data.get('player_name', f'Player{player_id}')
+
+                # Posição inicial aleatória
+                import random
+                player.x = random.randint(200, 1080)
+                player.y = random.randint(200, 500)
+                player.health = 5
+                player.alive = True
+
                 self.players[player_id] = player
 
             print(f"✅ Jogador {player.player_name} conectado (ID: {player_id})")
@@ -447,12 +455,42 @@ class GameServer:
         Args:
             delta_time: Tempo desde a última atualização
         """
-        # TODO: Implementar lógica do jogo
-        # - Mover jogadores baseado no input
-        # - Atualizar inimigos
-        # - Detectar colisões
-        # - etc.
-        pass
+        # Atualizar movimento dos jogadores baseado no input
+        with self.players_lock:
+            for player in self.players.values():
+                if not player.alive:
+                    continue
+
+                # Velocidade de movimento
+                velocidade = 5.0
+
+                # Processar teclas de movimento (WASD)
+                dx = 0
+                dy = 0
+
+                if player.keys.get('w', False):
+                    dy -= velocidade
+                if player.keys.get('s', False):
+                    dy += velocidade
+                if player.keys.get('a', False):
+                    dx -= velocidade
+                if player.keys.get('d', False):
+                    dx += velocidade
+
+                # Normalizar movimento diagonal
+                if dx != 0 and dy != 0:
+                    import math
+                    fator = velocidade / math.sqrt(dx**2 + dy**2)
+                    dx *= fator
+                    dy *= fator
+
+                # Atualizar posição
+                player.x += dx
+                player.y += dy
+
+                # Limitar às bordas da arena (assumindo 1280x720)
+                player.x = max(25, min(1255, player.x))
+                player.y = max(25, min(595, player.y))
 
     def _sync_game_state(self):
         """Sincroniza o estado do jogo com todos os clientes."""
@@ -495,3 +533,23 @@ class GameServer:
                 'max_players': self.max_players,
                 'player_names': [p.player_name for p in self.players.values()]
             }
+
+    def get_connected_players(self) -> List[Dict]:
+        """
+        Retorna lista de jogadores conectados.
+
+        Returns:
+            Lista de dicionários com informações dos jogadores
+        """
+        with self.players_lock:
+            return [
+                {
+                    'id': pid,
+                    'name': player.player_name,
+                    'x': player.x,
+                    'y': player.y,
+                    'health': player.health,
+                    'alive': player.alive
+                }
+                for pid, player in self.players.items()
+            ]

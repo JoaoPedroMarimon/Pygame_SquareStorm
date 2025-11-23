@@ -83,7 +83,8 @@ def atirar_desert_eagle(jogador, tiros, pos_mouse, particulas=None, flashes=None
     # Criar tiro poderoso da Desert Eagle
     # Velocidade: 15 (50% mais rápido que o normal de 10)
     # Dano: 3 (definido no atributo do tiro)
-    tiro = Tiro(ponta_cano_x, ponta_cano_y, dx, dy, AMARELO, velocidade=15)
+    # Usar a cor do jogador
+    tiro = Tiro(ponta_cano_x, ponta_cano_y, dx, dy, jogador.cor, velocidade=15)
     tiro.dano = 3  # Dano triplo!
     tiro.raio = 4  # Projétil um pouco maior para destacar
     tiros.append(tiro)

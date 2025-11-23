@@ -976,18 +976,32 @@ def obter_ip_local_simples():
 
 
 def tela_criar_servidor_simples(tela, relogio, gradiente):
-    """Tela simplificada para criar servidor."""
-    print("🎮 [CRIAR SERVIDOR] Tela aberta")
+    """Tela de configuração completa para criar servidor multiplayer."""
+    print("[CRIAR SERVIDOR] Tela aberta")
     fonte = pygame.font.SysFont("Arial", 32, True)
     fonte_normal = pygame.font.SysFont("Arial", 24)
+    fonte_pequena = pygame.font.SysFont("Arial", 18)
 
     # Valores padrão
     nome = "Host"
     porta = "5555"
     max_jogadores = "4"
+    modo_jogo_index = 0
+    modos_jogo = ["Cooperativo", "Versus", "Survival"]
+    campo_ativo = None  # nome, porta, max_jogadores
 
-    # Botão OK
-    btn_ok = pygame.Rect(LARGURA // 2 - 100, ALTURA // 2 + 100, 200, 60)
+    # Botões e campos
+    btn_criar = pygame.Rect(LARGURA // 2 - 120, ALTURA - 120, 240, 60)
+    btn_cancelar = pygame.Rect(60, ALTURA - 80, 180, 50)
+
+    # Campos de input
+    input_nome = pygame.Rect(LARGURA // 2 - 200, 220, 400, 50)
+    input_porta = pygame.Rect(LARGURA // 2 - 200, 300, 400, 50)
+    input_max = pygame.Rect(LARGURA // 2 - 200, 380, 400, 50)
+
+    # Botões de modo de jogo
+    btn_modo_esq = pygame.Rect(LARGURA // 2 - 150, 460, 40, 40)
+    btn_modo_dir = pygame.Rect(LARGURA // 2 + 110, 460, 40, 40)
 
     while True:
         for evento in pygame.event.get():
@@ -996,52 +1010,161 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
 
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_ESCAPE:
-                    print("⚠️ [CRIAR SERVIDOR] Cancelado (ESC)")
+                    print("[CRIAR SERVIDOR] Cancelado (ESC)")
                     return None
-                if evento.key == pygame.K_RETURN:
-                    print(f"✅ [CRIAR SERVIDOR] Confirmado (ENTER): porta={porta}, max={max_jogadores}")
-                    return {'player_name': nome, 'port': int(porta), 'max_players': int(max_jogadores)}
+
+                if evento.key == pygame.K_RETURN and campo_ativo is None:
+                    # Criar servidor
+                    try:
+                        print(f"[CRIAR SERVIDOR] Criando: porta={porta}, max={max_jogadores}, modo={modos_jogo[modo_jogo_index]}")
+                        return {
+                            'player_name': nome,
+                            'port': int(porta),
+                            'max_players': int(max_jogadores),
+                            'game_mode': modos_jogo[modo_jogo_index]
+                        }
+                    except ValueError:
+                        print("[CRIAR SERVIDOR] Erro: valores invalidos")
+
+                elif evento.key == pygame.K_BACKSPACE:
+                    if campo_ativo == "nome":
+                        nome = nome[:-1]
+                    elif campo_ativo == "porta":
+                        porta = porta[:-1]
+                    elif campo_ativo == "max_jogadores":
+                        max_jogadores = max_jogadores[:-1]
+
+                elif campo_ativo and evento.unicode:
+                    if campo_ativo == "nome" and len(nome) < 20:
+                        nome += evento.unicode
+                    elif campo_ativo == "porta" and len(porta) < 5 and evento.unicode.isdigit():
+                        porta += evento.unicode
+                    elif campo_ativo == "max_jogadores" and len(max_jogadores) < 2 and evento.unicode.isdigit():
+                        max_jogadores += evento.unicode
 
             if evento.type == pygame.MOUSEBUTTONDOWN:
-                if btn_ok.collidepoint(evento.pos):
-                    print(f"✅ [CRIAR SERVIDOR] Confirmado (CLICK): porta={porta}, max={max_jogadores}")
-                    return {'player_name': nome, 'port': int(porta), 'max_players': int(max_jogadores)}
+                mouse_click_pos = convert_mouse_position(evento.pos)
+
+                # Verificar campos de input
+                if input_nome.collidepoint(mouse_click_pos):
+                    campo_ativo = "nome"
+                elif input_porta.collidepoint(mouse_click_pos):
+                    campo_ativo = "porta"
+                elif input_max.collidepoint(mouse_click_pos):
+                    campo_ativo = "max_jogadores"
+                else:
+                    campo_ativo = None
+
+                # Verificar botões de modo
+                if btn_modo_esq.collidepoint(mouse_click_pos):
+                    modo_jogo_index = (modo_jogo_index - 1) % len(modos_jogo)
+                elif btn_modo_dir.collidepoint(mouse_click_pos):
+                    modo_jogo_index = (modo_jogo_index + 1) % len(modos_jogo)
+
+                # Verificar botões principais
+                if btn_criar.collidepoint(mouse_click_pos):
+                    try:
+                        print(f"[CRIAR SERVIDOR] Criando: porta={porta}, max={max_jogadores}, modo={modos_jogo[modo_jogo_index]}")
+                        return {
+                            'player_name': nome,
+                            'port': int(porta),
+                            'max_players': int(max_jogadores),
+                            'game_mode': modos_jogo[modo_jogo_index]
+                        }
+                    except ValueError:
+                        print("[CRIAR SERVIDOR] Erro: valores invalidos")
+
+                if btn_cancelar.collidepoint(mouse_click_pos):
+                    return None
 
         # Desenhar
         tela.blit(gradiente, (0, 0))
+        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
 
         # Título
-        titulo = fonte.render("CRIAR SALA", True, BRANCO)
-        tela.blit(titulo, (LARGURA // 2 - titulo.get_width() // 2, 100))
+        titulo = fonte.render("CONFIGURAR SERVIDOR", True, BRANCO)
+        tela.blit(titulo, (LARGURA // 2 - titulo.get_width() // 2, 80))
 
-        # Informações
+        # Seu IP
         ip = obter_ip_local_simples()
-        texto_ip = fonte_normal.render(f"Seu IP: {ip}", True, AMARELO)
-        tela.blit(texto_ip, (LARGURA // 2 - texto_ip.get_width() // 2, 200))
+        texto_ip = fonte_pequena.render(f"Seu IP Local: {ip}", True, AMARELO)
+        tela.blit(texto_ip, (LARGURA // 2 - texto_ip.get_width() // 2, 150))
 
-        info = fonte_normal.render(f"Nome: {nome}", True, BRANCO)
-        tela.blit(info, (LARGURA // 2 - info.get_width() // 2, 280))
+        # Campo Nome
+        label_nome = fonte_normal.render("Nome do Host:", True, BRANCO)
+        tela.blit(label_nome, (LARGURA // 2 - 200, 190))
+        cor_nome = AZUL if campo_ativo == "nome" else AZUL_ESCURO
+        pygame.draw.rect(tela, cor_nome, input_nome, 0, 8)
+        pygame.draw.rect(tela, BRANCO, input_nome, 3, 8)
+        texto_nome = fonte_normal.render(nome if nome else "Digite seu nome", True, BRANCO if nome else (100, 100, 100))
+        tela.blit(texto_nome, (input_nome.x + 10, input_nome.y + 12))
 
-        info2 = fonte_normal.render(f"Porta: {porta}", True, BRANCO)
-        tela.blit(info2, (LARGURA // 2 - info2.get_width() // 2, 320))
+        # Campo Porta
+        label_porta = fonte_normal.render("Porta:", True, BRANCO)
+        tela.blit(label_porta, (LARGURA // 2 - 200, 270))
+        cor_porta = AZUL if campo_ativo == "porta" else AZUL_ESCURO
+        pygame.draw.rect(tela, cor_porta, input_porta, 0, 8)
+        pygame.draw.rect(tela, BRANCO, input_porta, 3, 8)
+        texto_porta = fonte_normal.render(porta if porta else "5555", True, BRANCO if porta else (100, 100, 100))
+        tela.blit(texto_porta, (input_porta.x + 10, input_porta.y + 12))
 
-        info3 = fonte_normal.render(f"Max Jogadores: {max_jogadores}", True, BRANCO)
-        tela.blit(info3, (LARGURA // 2 - info3.get_width() // 2, 360))
+        # Campo Max Jogadores
+        label_max = fonte_normal.render("Max Jogadores (2-8):", True, BRANCO)
+        tela.blit(label_max, (LARGURA // 2 - 200, 350))
+        cor_max = AZUL if campo_ativo == "max_jogadores" else AZUL_ESCURO
+        pygame.draw.rect(tela, cor_max, input_max, 0, 8)
+        pygame.draw.rect(tela, BRANCO, input_max, 3, 8)
+        texto_max = fonte_normal.render(max_jogadores if max_jogadores else "4", True, BRANCO if max_jogadores else (100, 100, 100))
+        tela.blit(texto_max, (input_max.x + 10, input_max.y + 12))
 
-        # Botão OK
-        mouse_pos = pygame.mouse.get_pos()
-        cor = VERDE if btn_ok.collidepoint(mouse_pos) else AZUL
-        pygame.draw.rect(tela, cor, btn_ok, 0, 10)
-        pygame.draw.rect(tela, BRANCO, btn_ok, 3, 10)
-        texto_ok = fonte_normal.render("CRIAR", True, BRANCO)
-        tela.blit(texto_ok, (btn_ok.centerx - texto_ok.get_width() // 2, btn_ok.centery - texto_ok.get_height() // 2))
+        # Modo de Jogo
+        label_modo = fonte_normal.render("Modo de Jogo:", True, BRANCO)
+        tela.blit(label_modo, (LARGURA // 2 - label_modo.get_width() // 2, 430))
+
+        # Botão esquerda
+        hover_esq = btn_modo_esq.collidepoint(mouse_pos)
+        pygame.draw.rect(tela, VERDE if hover_esq else AZUL, btn_modo_esq, 0, 8)
+        pygame.draw.polygon(tela, BRANCO, [
+            (btn_modo_esq.centerx + 5, btn_modo_esq.centery),
+            (btn_modo_esq.centerx - 5, btn_modo_esq.centery - 8),
+            (btn_modo_esq.centerx - 5, btn_modo_esq.centery + 8)
+        ])
+
+        # Nome do modo
+        modo_rect = pygame.Rect(LARGURA // 2 - 100, 460, 200, 40)
+        pygame.draw.rect(tela, (40, 40, 80), modo_rect, 0, 8)
+        pygame.draw.rect(tela, CIANO, modo_rect, 2, 8)
+        texto_modo = fonte_normal.render(modos_jogo[modo_jogo_index], True, BRANCO)
+        tela.blit(texto_modo, (modo_rect.centerx - texto_modo.get_width() // 2, modo_rect.centery - texto_modo.get_height() // 2))
+
+        # Botão direita
+        hover_dir = btn_modo_dir.collidepoint(mouse_pos)
+        pygame.draw.rect(tela, VERDE if hover_dir else AZUL, btn_modo_dir, 0, 8)
+        pygame.draw.polygon(tela, BRANCO, [
+            (btn_modo_dir.centerx - 5, btn_modo_dir.centery),
+            (btn_modo_dir.centerx + 5, btn_modo_dir.centery - 8),
+            (btn_modo_dir.centerx + 5, btn_modo_dir.centery + 8)
+        ])
+
+        # Botão Criar
+        hover_criar = btn_criar.collidepoint(mouse_pos)
+        cor_criar = VERDE if hover_criar else (40, 120, 40)
+        pygame.draw.rect(tela, cor_criar, btn_criar, 0, 10)
+        pygame.draw.rect(tela, BRANCO, btn_criar, 3, 10)
+        texto_criar = fonte_normal.render("CRIAR SERVIDOR", True, BRANCO)
+        tela.blit(texto_criar, (btn_criar.centerx - texto_criar.get_width() // 2, btn_criar.centery - texto_criar.get_height() // 2))
+
+        # Botão Cancelar
+        hover_cancelar = btn_cancelar.collidepoint(mouse_pos)
+        cor_cancelar = VERMELHO if hover_cancelar else (120, 40, 40)
+        pygame.draw.rect(tela, cor_cancelar, btn_cancelar, 0, 10)
+        pygame.draw.rect(tela, BRANCO, btn_cancelar, 3, 10)
+        texto_cancelar = fonte_pequena.render("CANCELAR", True, BRANCO)
+        tela.blit(texto_cancelar, (btn_cancelar.centerx - texto_cancelar.get_width() // 2, btn_cancelar.centery - texto_cancelar.get_height() // 2))
 
         # Instruções
-        inst = fonte_normal.render("Pressione ENTER ou clique em CRIAR", True, (150, 150, 150))
-        tela.blit(inst, (LARGURA // 2 - inst.get_width() // 2, ALTURA - 100))
-
-        inst2 = fonte_normal.render("ESC para cancelar", True, (150, 150, 150))
-        tela.blit(inst2, (LARGURA // 2 - inst2.get_width() // 2, ALTURA - 60))
+        inst = fonte_pequena.render("Clique nos campos para editar | ESC para cancelar", True, (150, 150, 150))
+        tela.blit(inst, (LARGURA // 2 - inst.get_width() // 2, ALTURA - 30))
 
         present_frame()
         relogio.tick(60)
@@ -1049,7 +1172,7 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
 
 def tela_conectar_servidor_simples(tela, relogio, gradiente):
     """Tela simplificada para conectar a servidor."""
-    print("🔌 [CONECTAR] Tela aberta")
+    print("[CONECTAR] Tela aberta")
     fonte = pygame.font.SysFont("Arial", 32, True)
     fonte_normal = pygame.font.SysFont("Arial", 24)
 
@@ -1069,34 +1192,35 @@ def tela_conectar_servidor_simples(tela, relogio, gradiente):
     while True:
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
-                print("⚠️ [CONECTAR] Janela fechada")
+                print("[CONECTAR] Janela fechada")
                 return None
 
             if evento.type == pygame.MOUSEBUTTONDOWN:
-                if input_ip.collidepoint(evento.pos):
+                mouse_click_pos = convert_mouse_position(evento.pos)
+                if input_ip.collidepoint(mouse_click_pos):
                     campo_ativo = "ip"
-                elif input_porta.collidepoint(evento.pos):
+                elif input_porta.collidepoint(mouse_click_pos):
                     campo_ativo = "porta"
-                elif btn_ok.collidepoint(evento.pos):
+                elif btn_ok.collidepoint(mouse_click_pos):
                     if ip and porta:
                         try:
-                            print(f"✅ [CONECTAR] Confirmado (CLICK): ip={ip}, porta={porta}")
+                            print(f"[CONECTAR] Confirmado (CLICK): ip={ip}, porta={porta}")
                             return {'player_name': nome, 'host': ip, 'port': int(porta)}
                         except Exception as e:
-                            print(f"❌ [CONECTAR] Erro ao converter porta: {e}")
+                            print(f"[CONECTAR] Erro ao converter porta: {e}")
                             pass
 
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_ESCAPE:
-                    print("⚠️ [CONECTAR] Cancelado (ESC)")
+                    print("[CONECTAR] Cancelado (ESC)")
                     return None
                 elif evento.key == pygame.K_RETURN:
                     if ip and porta:
                         try:
-                            print(f"✅ [CONECTAR] Confirmado (ENTER): ip={ip}, porta={porta}")
+                            print(f"[CONECTAR] Confirmado (ENTER): ip={ip}, porta={porta}")
                             return {'player_name': nome, 'host': ip, 'port': int(porta)}
                         except Exception as e:
-                            print(f"❌ [CONECTAR] Erro ao converter porta: {e}")
+                            print(f"[CONECTAR] Erro ao converter porta: {e}")
                             pass
                 elif evento.key == pygame.K_BACKSPACE:
                     if campo_ativo == "ip":
@@ -1137,7 +1261,7 @@ def tela_conectar_servidor_simples(tela, relogio, gradiente):
         tela.blit(texto_porta, (input_porta.x + 10, input_porta.y + 12))
 
         # Botão OK
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
         cor = VERDE if btn_ok.collidepoint(mouse_pos) and ip and porta else (100, 100, 100)
         pygame.draw.rect(tela, cor, btn_ok, 0, 10)
         pygame.draw.rect(tela, BRANCO, btn_ok, 3, 10)

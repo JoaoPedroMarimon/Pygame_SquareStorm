@@ -166,8 +166,8 @@ def atirar_metralhadora(jogador, tiros, pos_mouse, particulas=None, flashes=None
         }
         flashes.append(flash)
     
-    # Criar tiro com velocidade ligeiramente maior
-    tiros.append(Tiro(centro_x, centro_y, dx, dy, LARANJA, 10))  # Velocidade 10 (mais rápido)
+    # Criar tiro com velocidade ligeiramente maior (usar a cor do jogador)
+    tiros.append(Tiro(centro_x, centro_y, dx, dy, jogador.cor, 10))  # Velocidade 10 (mais rápido)
     
     # Reduzir contador de munição
     if hasattr(jogador, 'tiros_metralhadora'):

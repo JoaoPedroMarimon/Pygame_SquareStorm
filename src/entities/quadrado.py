@@ -246,10 +246,16 @@ class Quadrado:
     def _gerar_cor_escura(self, cor):
         """Gera uma versão mais escura da cor."""
         return tuple(max(0, c - 50) for c in cor)
-    
+
     def _gerar_cor_brilhante(self, cor):
         """Gera uma versão mais brilhante da cor."""
         return tuple(min(255, c + 70) for c in cor)
+
+    def atualizar_cor(self, nova_cor):
+        """Atualiza a cor e recalcula cores derivadas."""
+        self.cor = nova_cor
+        self.cor_escura = self._gerar_cor_escura(nova_cor)
+        self.cor_brilhante = self._gerar_cor_brilhante(nova_cor)
 
     def desenhar(self, tela, tempo_atual=None):
         """
@@ -633,8 +639,8 @@ class Quadrado:
         
         # Criar tiro com a direção calcul
 # Criar tiro com a direção calculada
-        if self.cor == AZUL:  # Se for o jogador
-            tiros.append(Tiro(centro_x, centro_y, dx, dy, AZUL, 8))
+        if self.cor == AZUL or self.nome:  # Se for o jogador (checando também se tem nome)
+            tiros.append(Tiro(centro_x, centro_y, dx, dy, self.cor, 8))
         else:
             # Cor do tiro varia com a cor do inimigo (manter lógica original)
             cor_tiro = VERDE

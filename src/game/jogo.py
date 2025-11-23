@@ -25,7 +25,8 @@ from src.ui.menu import (
     tela_criar_servidor_simples,
     tela_conectar_servidor_simples
 )
-from src.game.fase_multiplayer import jogar_fase_multiplayer_simples
+from src.game.fase_multiplayer_nova import jogar_fase_multiplayer
+from src.ui.lobby import tela_lobby_servidor
 
 # NOVO: Importações para o sistema de tela cheia
 from src.utils.display_manager import (
@@ -43,22 +44,22 @@ def main_game(game_surface=None):
     Args:
         game_surface: Superfície onde desenhar o jogo (fornecida pelo display manager)
     """
-    print("🎮 Iniciando main_game...")
+    print(" Iniciando main_game...")
     
     # Se não foi fornecida uma superfície, criar uma padrão (compatibilidade)
     if game_surface is None:
-        print("⚠️ Usando modo compatibilidade - criando superfície padrão")
+        print(" Usando modo compatibilidade - criando superfície padrão")
         tela = pygame.display.set_mode((LARGURA, ALTURA))
         pygame.display.set_caption(TITULO)
     else:
-        print("✅ Usando superfície do display manager")
+        print(" Usando superfície do display manager")
         tela = game_surface
     
     # Inicializar o relógio
     relogio = pygame.time.Clock()
     
     # Criar gradientes para diferentes telas
-    print("🎨 Criando gradientes...")
+    print(" Criando gradientes...")
     gradiente_menu = criar_gradiente((20, 0, 40), (0, 20, 60))
     gradiente_jogo = criar_gradiente((10, 0, 30), (0, 10, 40))
     gradiente_jogo_toxico = criar_gradiente((0, 30, 10), (10, 60, 20))  # Gradiente tóxico para fases 11+
@@ -68,12 +69,12 @@ def main_game(game_surface=None):
     gradiente_selecao = criar_gradiente((15, 0, 25), (30, 10, 50))
     
     # Criar fontes
-    print("📝 Criando fontes...")
+    print(" Criando fontes...")
     try:
         fonte_titulo = pygame.font.SysFont("Arial", 72, True)
         fonte_normal = pygame.font.SysFont("Arial", 24)
     except Exception as e:
-        print(f"⚠️ Erro ao criar fontes: {e}")
+        print(f" Erro ao criar fontes: {e}")
         fonte_titulo = pygame.font.Font(None, 72)
         fonte_normal = pygame.font.Font(None, 24)
     
@@ -84,21 +85,21 @@ def main_game(game_surface=None):
     estado_atual = "menu"  # menu, jogar, loja, inventario, selecao_fase, game_over
     fase_atual = 1
     
-    print("🚀 Entrando no loop principal...")
+    print(" Entrando no loop principal...")
     
     # Loop principal do jogo
     while True:
         try:
             if estado_atual == "menu":
-                print("📋 Exibindo menu principal...")
+                print(" Exibindo menu principal...")
                 resultado = tela_inicio(tela, relogio, gradiente_menu, fonte_titulo)
-                print(f"🔄 Menu retornou: {resultado}")
+                print(f" Menu retornou: {resultado}")
 
                 # MODIFICADO: Tratar o novo formato de retorno
                 if isinstance(resultado, tuple) and resultado[0] == "jogar":
                     estado_atual = "jogar"
                     fase_atual = resultado[1]  # Usar a fase retornada pelo menu
-                    print(f"🎯 Iniciando na fase {fase_atual}...")
+                    print(f" Iniciando na fase {fase_atual}...")
                 elif resultado == "jogar":
                     # Compatibilidade com retorno antigo (caso não seja tupla)
                     estado_atual = "jogar"
@@ -111,18 +112,18 @@ def main_game(game_surface=None):
                     estado_atual = "selecao_fase"
                 elif resultado == "multiplayer_host":
                     estado_atual = "multiplayer_host"
-                    print("🎮 Estado mudado para: multiplayer_host")
+                    print(" Estado mudado para: multiplayer_host")
                 elif resultado == "multiplayer_join":
                     estado_atual = "multiplayer_join"
-                    print("🔌 Estado mudado para: multiplayer_join")
+                    print(" Estado mudado para: multiplayer_join")
                 elif resultado == "multiplayer":
                     estado_atual = "multiplayer"
                 elif resultado == False:
-                    print("👋 Saindo do jogo...")
+                    print(" Saindo do jogo...")
                     break
                 
             elif estado_atual == "jogar":
-                print(f"🎯 Iniciando fase {fase_atual}...")
+                print(f" Iniciando fase {fase_atual}...")
                 # Selecionar gradiente baseado na fase (fases 11+ usam tema tóxico)
                 gradiente_fase = gradiente_jogo_toxico if fase_atual >= 11 else gradiente_jogo
                 # CORRIGIDO: Usar a função correta jogar_fase
@@ -130,14 +131,14 @@ def main_game(game_surface=None):
                 
                 if resultado == True:
                     # Fase completada com sucesso
-                    print(f"✅ Fase {fase_atual} completada!")
+                    print(f" Fase {fase_atual} completada!")
                     
                     # Atualizar progresso
                     progress_manager.atualizar_progresso(fase_atual + 1)
                     
                     # Verificar se chegou ao final do jogo
                     if fase_atual >= MAX_FASES:
-                        print("🎉 Jogo completado!")
+                        print(" Jogo completado!")
                         resultado_vitoria = tela_vitoria_fase(tela, relogio, gradiente_vitoria, fase_atual)
                         if resultado_vitoria == "menu":
                             estado_atual = "menu"
@@ -157,7 +158,7 @@ def main_game(game_surface=None):
                 
                 elif resultado == False:
                     # Jogador perdeu
-                    print(f"💀 Jogador derrotado na fase {fase_atual}")
+                    print(f" Jogador derrotado na fase {fase_atual}")
                     resultado_derrota = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, False, fase_atual)
                     
                     if resultado_derrota:
@@ -170,21 +171,21 @@ def main_game(game_surface=None):
                     estado_atual = "menu"
                 
             elif estado_atual == "loja":
-                print("🏪 Exibindo loja...")
+                print(" Exibindo loja...")
                 resultado = tela_loja(tela, relogio, gradiente_loja)
                 
                 if resultado == "menu":
                     estado_atual = "menu"
                 
             elif estado_atual == "inventario":
-                print("🎒 Exibindo inventário...")
+                print(" Exibindo inventário...")
                 resultado = tela_inventario(tela, relogio, gradiente_loja, fonte_titulo, fonte_normal)
                     
                 if resultado == "menu":
                     estado_atual = "menu"
                 
             elif estado_atual == "selecao_fase":
-                print("🎯 Exibindo seleção de fase...")
+                print(" Exibindo seleção de fase...")
                 fase_selecionada = tela_selecao_fase(tela, relogio, gradiente_selecao, fonte_titulo, fonte_normal)
                 
                 if fase_selecionada is not None:
@@ -192,87 +193,112 @@ def main_game(game_surface=None):
                     if progress_manager.pode_jogar_fase(fase_selecionada):
                         fase_atual = fase_selecionada
                         estado_atual = "jogar"
-                        print(f"🎯 Fase {fase_selecionada} selecionada pelo jogador...")
+                        print(f" Fase {fase_selecionada} selecionada pelo jogador...")
                     else:
-                        print(f"🔒 Fase {fase_selecionada} ainda não foi desbloqueada!")
+                        print(f" Fase {fase_selecionada} ainda não foi desbloqueada!")
                         estado_atual = "menu"  # Voltar ao menu
                 else:
                     estado_atual = "menu"  # Cancelou a seleção
                 
             elif estado_atual == 'multiplayer_host':
-                print("🎮 [MULTIPLAYER_HOST] Criando servidor...")
+                print(" [MULTIPLAYER_HOST] Criando servidor...")
                 config = tela_criar_servidor_simples(tela, relogio, gradiente_menu)
-                print(f"📋 [MULTIPLAYER_HOST] Config recebida: {config}")
+                print(f" [MULTIPLAYER_HOST] Config recebida: {config}")
 
                 if config:
-                    print(f"🔧 [MULTIPLAYER_HOST] Iniciando servidor na porta {config['port']}...")
+                    print(f" [MULTIPLAYER_HOST] Iniciando servidor na porta {config['port']}...")
                     try:
                         # Criar servidor
                         servidor = GameServer(port=config['port'], max_players=config['max_players'])
                         if servidor.start():
-                            print(f"✅ [MULTIPLAYER_HOST] Servidor criado na porta {config['port']}")
+                            print(f" [MULTIPLAYER_HOST] Servidor criado na porta {config['port']}")
 
                             # Host também é cliente
                             cliente = GameClient()
-                            print(f"🔌 [MULTIPLAYER_HOST] Conectando host como cliente...")
+                            print(f" [MULTIPLAYER_HOST] Conectando host como cliente...")
                             if cliente.connect('127.0.0.1', config['port'], config['player_name']):
-                                print("✅ [MULTIPLAYER_HOST] Host conectado como cliente")
-                                # Ir para o jogo multiplayer
-                                resultado = jogar_fase_multiplayer_simples(tela, relogio, cliente, config['player_name'])
+                                print(" [MULTIPLAYER_HOST] Host conectado como cliente")
 
-                                # Limpar
-                                print("🧹 [MULTIPLAYER_HOST] Limpando conexões...")
-                                cliente.disconnect()
-                                servidor.stop()
-                                estado_atual = "menu"
+                                # NOVO: Mostrar tela de lobby aguardando jogadores
+                                print("[LOBBY] Exibindo tela de lobby...")
+                                resultado_lobby, customizacao = tela_lobby_servidor(tela, relogio, gradiente_menu, servidor, cliente, config)
+                                print(f"[LOBBY] Lobby retornou: {resultado_lobby}")
+
+                                if resultado_lobby == "start":
+                                    # Ir para o jogo multiplayer (sempre modo Versus)
+                                    print(f"[MULTIPLAYER_HOST] Iniciando partida - Modo: Versus")
+                                    print(f"[MULTIPLAYER_HOST] Customizacao: {customizacao}")
+
+                                    # Aplicar customização ao jogador
+                                    config['cor_personagem'] = customizacao['cor']
+
+                                    resultado = jogar_fase_multiplayer(
+                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                        cliente, config['player_name'], customizacao
+                                    )
+
+                                    # Limpar
+                                    print(" [MULTIPLAYER_HOST] Limpando conexões...")
+                                    cliente.disconnect()
+                                    servidor.stop()
+                                    estado_atual = "menu"
+                                else:
+                                    # Cancelou o lobby
+                                    print("[LOBBY] Lobby cancelado")
+                                    cliente.disconnect()
+                                    servidor.stop()
+                                    estado_atual = "menu"
                             else:
-                                print("❌ [MULTIPLAYER_HOST] Host falhou ao conectar como cliente")
+                                print(" [MULTIPLAYER_HOST] Host falhou ao conectar como cliente")
                                 servidor.stop()
                                 estado_atual = "menu"
                         else:
-                            print("❌ [MULTIPLAYER_HOST] Falha ao criar servidor")
+                            print(" [MULTIPLAYER_HOST] Falha ao criar servidor")
                             estado_atual = "menu"
                     except Exception as e:
-                        print(f"❌ [MULTIPLAYER_HOST] ERRO: {e}")
+                        print(f" [MULTIPLAYER_HOST] ERRO: {e}")
                         import traceback
                         traceback.print_exc()
                         estado_atual = "menu"
                 else:
-                    print("⚠️ [MULTIPLAYER_HOST] Config é None - usuário cancelou")
+                    print(" [MULTIPLAYER_HOST] Config é None - usuário cancelou")
                     estado_atual = "menu"
 
             elif estado_atual == 'multiplayer_join':
-                print("🔌 [MULTIPLAYER_JOIN] Conectando a servidor...")
+                print(" [MULTIPLAYER_JOIN] Conectando a servidor...")
                 config = tela_conectar_servidor_simples(tela, relogio, gradiente_menu)
-                print(f"📋 [MULTIPLAYER_JOIN] Config recebida: {config}")
+                print(f" [MULTIPLAYER_JOIN] Config recebida: {config}")
 
                 if config:
                     try:
-                        print(f"🔌 [MULTIPLAYER_JOIN] Tentando conectar a {config['host']}:{config['port']}...")
+                        print(f" [MULTIPLAYER_JOIN] Tentando conectar a {config['host']}:{config['port']}...")
                         cliente = GameClient()
                         if cliente.connect(config['host'], config['port'], config['player_name']):
-                            print(f"✅ [MULTIPLAYER_JOIN] Conectado a {config['host']}:{config['port']}")
+                            print(f" [MULTIPLAYER_JOIN] Conectado a {config['host']}:{config['port']}")
                             # Ir para o jogo multiplayer
-                            resultado = jogar_fase_multiplayer_simples(tela, relogio, cliente, config['player_name'])
+                            resultado = jogar_fase_multiplayer(
+                                tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                cliente, config['player_name']
+                            )
 
                             # Limpar
-                            print("🧹 [MULTIPLAYER_JOIN] Limpando conexões...")
+                            print(" [MULTIPLAYER_JOIN] Limpando conexões...")
                             cliente.disconnect()
                             estado_atual = "menu"
                         else:
-                            print("❌ [MULTIPLAYER_JOIN] Falha ao conectar")
+                            print(" [MULTIPLAYER_JOIN] Falha ao conectar")
                             estado_atual = "menu"
                     except Exception as e:
-                        print(f"❌ [MULTIPLAYER_JOIN] ERRO: {e}")
+                        print(f" [MULTIPLAYER_JOIN] ERRO: {e}")
                         import traceback
                         traceback.print_exc()
                         estado_atual = "menu"
                 else:
-                    print("⚠️ [MULTIPLAYER_JOIN] Config é None - usuário cancelou")
+                    print(" [MULTIPLAYER_JOIN] Config é None - usuário cancelou")
                     estado_atual = "menu"
 
             elif estado_atual == "game_over":
-                print("💀 Exibindo tela de game over...")
+                print(" Exibindo tela de game over...")
                 resultado = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, False, fase_atual)
 
                 if resultado:
@@ -281,27 +307,27 @@ def main_game(game_surface=None):
                     break  # Sair do jogo
 
             else:
-                print(f"⚠️ Estado desconhecido: {estado_atual}")
+                print(f" Estado desconhecido: {estado_atual}")
                 estado_atual = "menu"  # Voltar ao menu por segurança
                 
         except KeyboardInterrupt:
-            print("\n👋 Interrompido pelo usuário...")
+            print("\n Interrompido pelo usuário...")
             break
         except Exception as e:
-            print(f"❌ Erro no loop principal: {e}")
+            print(f" Erro no loop principal: {e}")
             import traceback
             traceback.print_exc()
             # Tentar continuar voltando ao menu
             estado_atual = "menu"
     
-    print("🔚 main_game finalizado")
+    print(" main_game finalizado")
 
 
 # Função auxiliar para debugging
 def debug_display_info():
     """Exibe informações sobre o display atual."""
     manager = get_display_manager()
-    print(f"🖥️ Informações do Display:")
+    print(f" Informações do Display:")
     print(f"   Modo: {'Tela Cheia' if manager.is_fullscreen() else 'Janela'}")
     print(f"   Resolução da tela: {manager.screen_width}x{manager.screen_height}")
     print(f"   Resolução do jogo: {manager.BASE_WIDTH}x{manager.BASE_HEIGHT}")
@@ -364,12 +390,12 @@ def debug_mouse_position():
     """Exibe informações sobre a posição do mouse (para debug)."""
     raw_pos = pygame.mouse.get_pos()
     game_pos = get_game_mouse_pos()
-    print(f"🖱️ Mouse - Tela: {raw_pos}, Jogo: {game_pos}")
+    print(f" Mouse - Tela: {raw_pos}, Jogo: {game_pos}")
 
 
 if __name__ == "__main__":
     # Se executar diretamente este arquivo (para testes)
-    print("⚠️ Executando jogo.py diretamente - use main.py para execução normal")
+    print(" Executando jogo.py diretamente - use main.py para execução normal")
     
     # Inicializar pygame básico
     pygame.init()
