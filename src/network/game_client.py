@@ -77,7 +77,8 @@ class GameClient:
             'on_disconnected': None,
             'on_player_joined': None,
             'on_player_left': None,
-            'on_game_state_update': None
+            'on_game_state_update': None,
+            'on_game_start': None  # Callback quando o host inicia a partida
         }
 
         # Medição de latência
@@ -256,6 +257,10 @@ class GameClient:
             # Resposta de ping
             self._handle_pong(data)
 
+        elif packet_type == PacketType.GAME_START:
+            # Host iniciou a partida
+            self._handle_game_start(data)
+
     def _handle_full_sync(self, data: Dict):
         """
         Processa sincronização completa.
@@ -397,6 +402,19 @@ class GameClient:
         timestamp = data.get('timestamp', 0)
         if timestamp > 0:
             self.latency = (time.time() - timestamp) * 1000  # Em milissegundos
+
+    def _handle_game_start(self, data: Dict):
+        """
+        Processa sinal de início de partida enviado pelo host.
+
+        Args:
+            data: Dados do início
+        """
+        print(f"[CLIENT] 🎮 Host iniciou a partida! {data.get('message', '')}")
+
+        # Chamar callback
+        if self.callbacks['on_game_start']:
+            self.callbacks['on_game_start'](data)
 
     def send_player_input(self, keys: Dict[str, bool], mouse_x: int, mouse_y: int, shooting: bool):
         """

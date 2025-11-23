@@ -35,6 +35,7 @@ class PacketType(IntEnum):
     WAVE_START = 32
     WAVE_END = 33
     PHASE_COMPLETE = 34
+    GAME_START = 35  # Host inicia a partida
 
     # Sincronização
     FULL_SYNC = 40

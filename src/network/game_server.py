@@ -553,3 +553,14 @@ class GameServer:
                 }
                 for pid, player in self.players.items()
             ]
+
+    def broadcast_game_start(self):
+        """
+        Envia sinal para todos os clientes que a partida está iniciando.
+        Deve ser chamado pelo host quando clicar em INICIAR.
+        """
+        print("[SERVER] Broadcasting GAME_START para todos os clientes...")
+        packet = NetworkProtocol.create_packet(PacketType.GAME_START, {
+            'message': 'Host iniciou a partida'
+        })
+        self._broadcast_packet(packet)

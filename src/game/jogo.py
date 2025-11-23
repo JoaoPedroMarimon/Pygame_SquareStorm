@@ -275,16 +275,30 @@ def main_game(game_surface=None):
                         cliente = GameClient()
                         if cliente.connect(config['host'], config['port'], config['player_name']):
                             print(f" [MULTIPLAYER_JOIN] Conectado a {config['host']}:{config['port']}")
-                            # Ir para o jogo multiplayer
-                            resultado = jogar_fase_multiplayer(
-                                tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
-                                cliente, config['player_name']
-                            )
 
-                            # Limpar
-                            print(" [MULTIPLAYER_JOIN] Limpando conexões...")
-                            cliente.disconnect()
-                            estado_atual = "menu"
+                            # Ir para o lobby de espera
+                            from src.ui.lobby import tela_lobby_cliente
+                            print("[LOBBY_CLIENT] Exibindo tela de lobby...")
+                            resultado_lobby, customizacao = tela_lobby_cliente(tela, relogio, gradiente_menu, cliente, config)
+                            print(f"[LOBBY_CLIENT] Lobby retornou: {resultado_lobby}")
+
+                            if resultado_lobby == "start":
+                                # Ir para o jogo multiplayer
+                                print(f"[MULTIPLAYER_JOIN] Iniciando partida multiplayer...")
+                                resultado = jogar_fase_multiplayer(
+                                    tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                    cliente, config['player_name'], customizacao
+                                )
+
+                                # Limpar
+                                print(" [MULTIPLAYER_JOIN] Limpando conexões...")
+                                cliente.disconnect()
+                                estado_atual = "menu"
+                            else:
+                                # Cancelou o lobby
+                                print("[LOBBY_CLIENT] Lobby cancelado")
+                                cliente.disconnect()
+                                estado_atual = "menu"
                         else:
                             print(" [MULTIPLAYER_JOIN] Falha ao conectar")
                             estado_atual = "menu"

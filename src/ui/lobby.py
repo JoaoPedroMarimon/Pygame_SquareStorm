@@ -151,6 +151,9 @@ def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
                         'bots': bots  # Passar lista de bots
                     }
                     print(f"[LOBBY] Iniciando - Modo: Versus, Cor: {customizacao['cor_nome']}, Bots: {len(bots)}")
+                    # Enviar sinal para todos os clientes que a partida está iniciando
+                    print("[LOBBY_HOST] Enviando GAME_START para todos os clientes...")
+                    servidor.broadcast_game_start()
                     return ("start", customizacao)
 
             if evento.type == pygame.MOUSEBUTTONDOWN:
@@ -163,6 +166,9 @@ def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
                         'cor_nome': cores_disponiveis[cor_selecionada_index][0],
                         'bots': bots  # Passar lista de bots
                     }
+                    # Enviar sinal para todos os clientes que a partida está iniciando
+                    print("[LOBBY_HOST] Enviando GAME_START para todos os clientes...")
+                    servidor.broadcast_game_start()
                     return ("start", customizacao)
 
                 # Botão Cancelar
@@ -337,6 +343,189 @@ def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
 
         # Instruções
         inst = fonte_pequena.render("ENTER para iniciar | ESC para sair", True, (150, 150, 150))
+        tela.blit(inst, (LARGURA // 2 - inst.get_width() // 2, ALTURA - 30))
+
+        present_frame()
+        relogio.tick(60)
+
+
+def tela_lobby_cliente(tela, relogio, gradiente, cliente, config):
+    """
+    Tela de lobby para CLIENTES (quem se conecta).
+    Aguarda o host iniciar a partida.
+
+    Returns:
+        ("start", customizacao) se o host iniciar
+        ("cancel", None) se cancelar
+    """
+    print("[LOBBY_CLIENT] Aguardando host iniciar...")
+
+    fonte_grande = pygame.font.SysFont("Arial", 48, True)
+    fonte_titulo = pygame.font.SysFont("Arial", 32, True)
+    fonte_normal = pygame.font.SysFont("Arial", 24)
+    fonte_pequena = pygame.font.SysFont("Arial", 18)
+
+    # Partículas de fundo
+    particulas = []
+    for _ in range(50):
+        particulas.append({
+            'x': random.randint(0, LARGURA),
+            'y': random.randint(0, ALTURA_JOGO),
+            'velocidade': random.uniform(0.5, 2),
+            'tamanho': random.randint(1, 3)
+        })
+
+    # Cores disponíveis
+    cores_disponiveis = [
+        ("Azul", AZUL),
+        ("Vermelho", VERMELHO),
+        ("Verde", VERDE),
+        ("Roxo", ROXO),
+        ("Laranja", LARANJA),
+        ("Ciano", CIANO),
+        ("Amarelo", AMARELO),
+        ("Rosa", (255, 105, 180))
+    ]
+    cor_selecionada_index = 0
+
+    # Botões
+    btn_cancelar = pygame.Rect(LARGURA // 2 - 100, ALTURA - 100, 200, 50)
+
+    # Cards
+    card_info = pygame.Rect(LARGURA // 2 - 400, 150, 300, 450)
+    card_customizacao = pygame.Rect(LARGURA // 2 + 100, 150, 300, 450)
+
+    bots = []  # Lista de bots (se o host adicionar)
+
+    # Flag para saber quando o host iniciou
+    game_started = [False]  # Lista para poder modificar dentro do callback
+
+    # Configurar callback para detectar início de partida
+    def on_game_start(data):
+        print("[LOBBY_CLIENT] Recebido sinal de início da partida!")
+        game_started[0] = True
+
+    cliente.set_callback('on_game_start', on_game_start)
+
+    while True:
+        tempo_atual = pygame.time.get_ticks()
+        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
+
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                return ("cancel", None)
+
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_ESCAPE:
+                    print("[LOBBY_CLIENT] Cancelado")
+                    return ("cancel", None)
+
+            if evento.type == pygame.MOUSEBUTTONDOWN:
+                mouse_click_pos = convert_mouse_position(evento.pos)
+
+                # Botão Cancelar
+                if btn_cancelar.collidepoint(mouse_click_pos):
+                    return ("cancel", None)
+
+                # Seletor de cores
+                y_cores = card_customizacao.y + 180
+                for i, (nome_cor, cor) in enumerate(cores_disponiveis):
+                    cor_rect = pygame.Rect(card_customizacao.x + 20, y_cores + i * 40, 30, 30)
+                    if cor_rect.collidepoint(mouse_click_pos):
+                        cor_selecionada_index = i
+                        print(f"[LOBBY_CLIENT] Cor alterada para: {nome_cor}")
+
+        # ========== VERIFICAR SE O HOST INICIOU ==========
+        if game_started[0]:
+            print("[LOBBY_CLIENT] Host iniciou! Entrando na partida...")
+            customizacao = {
+                'cor': cores_disponiveis[cor_selecionada_index][1],
+                'cor_nome': cores_disponiveis[cor_selecionada_index][0],
+                'bots': []  # Clientes não têm bots
+            }
+            return ("start", customizacao)
+
+        # ========== DESENHAR ==========
+
+        # Fundo com gradiente
+        tela.blit(gradiente, (0, 0))
+
+        # Partículas animadas
+        for p in particulas:
+            p['y'] += p['velocidade']
+            if p['y'] > ALTURA_JOGO:
+                p['y'] = 0
+                p['x'] = random.randint(0, LARGURA)
+            pygame.draw.circle(tela, (100, 100, 150, 80), (int(p['x']), int(p['y'])), p['tamanho'])
+
+        # Título principal
+        pulso = math.sin(tempo_atual / 500) * 5
+        titulo_surf = fonte_grande.render("AGUARDANDO HOST", True, BRANCO)
+        tela.blit(titulo_surf, (LARGURA // 2 - titulo_surf.get_width() // 2, 40 + pulso))
+
+        # ========== CARD 1: INFORMAÇÕES ==========
+        desenhar_card(tela, card_info, (30, 30, 50), (100, 100, 200), "SERVIDOR", fonte_titulo)
+
+        # IP do servidor
+        try:
+            server_info = f"{config['host']}:{config['port']}"
+            ip_surf = fonte_normal.render(f"IP: {server_info}", True, AMARELO)
+            tela.blit(ip_surf, (card_info.x + 20, card_info.y + 70))
+        except:
+            pass
+
+        # Status de conexão
+        status_surf = fonte_normal.render("Status: Conectado", True, VERDE)
+        tela.blit(status_surf, (card_info.x + 20, card_info.y + 110))
+
+        # Mensagem piscante
+        pulso_alpha = int(100 + (math.sin(tempo_atual / 300) + 1) / 2 * 155)
+        texto_aguardando = fonte_titulo.render("Aguardando...", True, (pulso_alpha, pulso_alpha, 255))
+        tela.blit(texto_aguardando, (card_info.x + 20, card_info.y + 200))
+
+        msg_surf = fonte_pequena.render("O host iniciará a partida", True, (150, 150, 150))
+        tela.blit(msg_surf, (card_info.x + 20, card_info.y + 250))
+
+        # ========== CARD 2: CUSTOMIZAÇÃO ==========
+        desenhar_card(tela, card_customizacao, (30, 30, 50), (100, 100, 200), "PERSONAGEM", fonte_titulo)
+
+        # Preview do personagem
+        preview_size = 120
+        preview_x = card_customizacao.centerx - preview_size // 2
+        preview_y = card_customizacao.y + 80
+        desenhar_avatar_jogador(
+            tela, preview_x, preview_y, preview_size,
+            cores_disponiveis[cor_selecionada_index][1],
+            None
+        )
+
+        # Seletor de cores
+        y_cores = card_customizacao.y + 180
+        label_cor = fonte_normal.render("Sua Cor:", True, BRANCO)
+        tela.blit(label_cor, (card_customizacao.x + 20, y_cores - 30))
+
+        for i, (nome_cor, cor) in enumerate(cores_disponiveis):
+            cor_rect = pygame.Rect(card_customizacao.x + 20, y_cores + i * 40, 30, 30)
+
+            # Desenhar quadrado da cor
+            pygame.draw.rect(tela, cor, cor_rect, 0, 5)
+            pygame.draw.rect(tela, BRANCO if i == cor_selecionada_index else (100, 100, 100), cor_rect, 3 if i == cor_selecionada_index else 1, 5)
+
+            # Nome da cor
+            texto_cor = fonte_pequena.render(nome_cor, True, BRANCO if i == cor_selecionada_index else (150, 150, 150))
+            tela.blit(texto_cor, (card_customizacao.x + 60, y_cores + i * 40 + 5))
+
+        # ========== BOTÃO CANCELAR ==========
+        hover_cancelar = btn_cancelar.collidepoint(mouse_pos)
+        cor_cancelar = (200, 60, 60) if hover_cancelar else (150, 40, 40)
+        pygame.draw.rect(tela, cor_cancelar, btn_cancelar, 0, 15)
+        pygame.draw.rect(tela, BRANCO, btn_cancelar, 3, 15)
+
+        texto_cancelar = fonte_normal.render("SAIR", True, BRANCO)
+        tela.blit(texto_cancelar, (btn_cancelar.centerx - texto_cancelar.get_width() // 2, btn_cancelar.centery - texto_cancelar.get_height() // 2))
+
+        # Instruções
+        inst = fonte_pequena.render("ESC para sair", True, (150, 150, 150))
         tela.blit(inst, (LARGURA // 2 - inst.get_width() // 2, ALTURA - 30))
 
         present_frame()

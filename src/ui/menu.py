@@ -1204,8 +1204,18 @@ def tela_conectar_servidor_simples(tela, relogio, gradiente):
                 elif btn_ok.collidepoint(mouse_click_pos):
                     if ip and porta:
                         try:
-                            print(f"[CONECTAR] Confirmado (CLICK): ip={ip}, porta={porta}")
-                            return {'player_name': nome, 'host': ip, 'port': int(porta)}
+                            # Separar IP e porta se foram digitados juntos (ex: 192.168.1.1:5555)
+                            host_final = ip
+                            porta_final = porta
+
+                            if ':' in ip:
+                                partes = ip.split(':')
+                                host_final = partes[0]
+                                if len(partes) > 1 and partes[1].isdigit():
+                                    porta_final = partes[1]
+
+                            print(f"[CONECTAR] Confirmado (CLICK): ip={host_final}, porta={porta_final}")
+                            return {'player_name': nome, 'host': host_final, 'port': int(porta_final)}
                         except Exception as e:
                             print(f"[CONECTAR] Erro ao converter porta: {e}")
                             pass
@@ -1217,8 +1227,18 @@ def tela_conectar_servidor_simples(tela, relogio, gradiente):
                 elif evento.key == pygame.K_RETURN:
                     if ip and porta:
                         try:
-                            print(f"[CONECTAR] Confirmado (ENTER): ip={ip}, porta={porta}")
-                            return {'player_name': nome, 'host': ip, 'port': int(porta)}
+                            # Separar IP e porta se foram digitados juntos (ex: 192.168.1.1:5555)
+                            host_final = ip
+                            porta_final = porta
+
+                            if ':' in ip:
+                                partes = ip.split(':')
+                                host_final = partes[0]
+                                if len(partes) > 1 and partes[1].isdigit():
+                                    porta_final = partes[1]
+
+                            print(f"[CONECTAR] Confirmado (ENTER): ip={host_final}, porta={porta_final}")
+                            return {'player_name': nome, 'host': host_final, 'port': int(porta_final)}
                         except Exception as e:
                             print(f"[CONECTAR] Erro ao converter porta: {e}")
                             pass
