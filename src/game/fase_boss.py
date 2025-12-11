@@ -270,6 +270,11 @@ class FaseBoss(FaseBase):
         boss_x, boss_y = self.cutscene.get_boss_spawn_position()
         self.boss = self.boss_info['boss_class'](boss_x, boss_y)
 
+        # BUGFIX: Garantir que boss começa ativo (resetar qualquer flag de congelamento)
+        self.boss.congelado_por_morte_jogador = False
+        self.boss.invulneravel = False
+        self.boss.carregando_ataque = False
+
         # Efeito de aparição
         for _ in range(15):
             x = boss_x + random.randint(-100, 100)
@@ -437,8 +442,9 @@ class FaseBoss(FaseBase):
         """Verifica condições de fim do boss fight."""
         # Jogador morreu - VERIFICAR PRIMEIRO para tornar boss imune
         if self.verificar_jogador_morto():
-            # Tornar boss imune para evitar que morra após o jogador
+            # BUGFIX: Congelar boss temporariamente (será resetado ao reiniciar fase)
             if self.boss and not self.boss_derrotado:
+                self.boss.congelado_por_morte_jogador = True
                 self.boss.invulneravel = True
                 # Marcar para que não possa mais morrer
                 self.boss.vidas = max(self.boss.vidas, 1)  # Garantir pelo menos 1 vida

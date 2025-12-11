@@ -34,11 +34,14 @@ class BossFusion:
         self.cor_principal = (120, 0, 120)
         self.cor_secundaria = (200, 0, 0)
         self.cor_brilho = (255, 100, 255)
-        
+
         # Sistema de vida com fases - AJUSTADO
         self.vidas_max = 40  # REDUZIDO: era 50
         self.vidas = self.vidas_max
         self.fase_boss = 1
+
+        # IMPORTANTE: Boss começa ativo (não congelado após morte do jogador)
+        self.congelado_por_morte_jogador = False
         
         # Posicionamento
         self.rect = pygame.Rect(x, y, self.tamanho, self.tamanho)
@@ -344,6 +347,10 @@ class BossFusion:
     
     def atualizar_sistema_ataques(self, tempo_atual, jogador, inimigos):
         """Sistema de ataques melhorado - um ataque por vez."""
+        # BUGFIX: Não atacar se boss estiver congelado
+        if self.congelado_por_morte_jogador:
+            return
+
         # Só iniciar novo ataque se não estiver carregando
         if not self.carregando_ataque and tempo_atual - self.tempo_ultimo_ataque > self.cooldown_ataque:
             self.iniciar_ataque(tempo_atual)
