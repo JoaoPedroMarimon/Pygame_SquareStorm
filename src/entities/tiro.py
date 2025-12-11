@@ -71,18 +71,51 @@ class Tiro:
 
     def desenhar(self, tela):
         """Desenha o tiro e seu rastro de partículas."""
+        # Verificar se é uma bola de fogo especial
+        if hasattr(self, 'tipo_bola_fogo') and self.tipo_bola_fogo:
+            self._desenhar_bola_fogo(tela)
+            return
+
         # Desenhar partículas de rastro
         for particula in self.particulas:
             alpha = int(255 * (particula['vida'] / 15))
             raio = int(particula['raio'])
             if raio > 0:
                 pygame.draw.circle(tela, self.cor, (int(particula['x']), int(particula['y'])), raio)
-        
+
         # Desenhar brilho externo
         pygame.draw.circle(tela, self.cor, (int(self.x), int(self.y)), self.raio + 2)
-        
+
         # Desenhar tiro principal
         pygame.draw.circle(tela, self.cor_interna, (int(self.x), int(self.y)), self.raio)
+
+    def _desenhar_bola_fogo(self, tela):
+        """Desenha uma bola de fogo com efeito especial."""
+        tempo_atual = pygame.time.get_ticks()
+
+        # Desenhar partículas de rastro (mais intensas)
+        for particula in self.particulas:
+            alpha = int(255 * (particula['vida'] / 15))
+            raio = int(particula['raio'])
+            if raio > 0:
+                # Cor gradiente do fogo (laranja -> vermelho)
+                cor_particula = (255, int(100 * (particula['vida'] / 15)), 0)
+                pygame.draw.circle(tela, cor_particula, (int(particula['x']), int(particula['y'])), raio)
+
+        # Núcleo da bola de fogo (pulsante)
+        pulso = int(2 * abs(math.sin(tempo_atual / 100)))
+
+        # Camada externa (vermelha escura)
+        pygame.draw.circle(tela, (200, 50, 0), (int(self.x), int(self.y)), self.raio + pulso)
+
+        # Camada média (laranja)
+        pygame.draw.circle(tela, (255, 100, 0), (int(self.x), int(self.y)), self.raio - 2 + pulso)
+
+        # Camada interna (amarela brilhante)
+        pygame.draw.circle(tela, (255, 200, 0), (int(self.x), int(self.y)), self.raio - 4 + pulso)
+
+        # Núcleo branco super quente
+        pygame.draw.circle(tela, (255, 255, 200), (int(self.x), int(self.y)), max(2, self.raio - 6))
 
     def fora_da_tela(self):
         """Verifica se o tiro saiu dos limites da tela de jogo."""

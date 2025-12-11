@@ -181,6 +181,9 @@ class FaseNormal(FaseBase):
         for inimigo in self.inimigos:
             if inimigo.vidas > 0:
                 inimigo.desenhar(self.tela, tempo_atual)
+                # Desenhar cajado do mago (se for mago)
+                if hasattr(inimigo, 'tipo_mago') and inimigo.tipo_mago:
+                    inimigo.desenhar_cajado(self.tela, tempo_atual, self.jogador)
 
         # Desenhar timer de congelamento
         segundos_restantes = max(0, self.tempo_congelamento // FPS)
@@ -200,6 +203,11 @@ class FaseNormal(FaseBase):
     def _atualizar_inimigos(self, tempo_atual, fator_tempo):
         """Atualiza IA de todos os inimigos."""
         for idx, inimigo in enumerate(self.inimigos):
+            # BUGFIX: Sincronizar lista de tempo_movimento DENTRO do loop
+            # (necessário quando inimigos são adicionados dinamicamente durante o loop, ex: invocações do mago)
+            while len(self.tempo_movimento_inimigos) <= idx:
+                self.tempo_movimento_inimigos.append(0)
+
             # Aplicar fator de tempo ao inimigo
             velocidade_original = inimigo.velocidade
             inimigo.velocidade *= fator_tempo

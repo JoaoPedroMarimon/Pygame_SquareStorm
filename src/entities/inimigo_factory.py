@@ -9,6 +9,7 @@ Este arquivo facilita a criação de diversos tipos de inimigos para as fases.
 from src.config import *
 from src.entities.quadrado import Quadrado
 from src.entities.inimigo_metralhadora import InimigoMetralhadora
+from src.entities.inimigo_mago import InimigoMago
 
 class InimigoFactory:
     """
@@ -131,3 +132,18 @@ class InimigoFactory:
             Objeto InimigoMetralhadora configurado
         """
         return InimigoMetralhadora(x, y)
+
+    @staticmethod
+    def criar_inimigo_mago(x, y):
+        """
+        Cria um inimigo mago branco.
+        Possui escudo protetor cíclico (4s ativo, 4s inativo),
+        atira bolas de fogo e invoca 3 inimigos básicos após 4-15 tiros.
+
+        Args:
+            x, y: Posição inicial do inimigo
+
+        Returns:
+            Objeto InimigoMago configurado
+        """
+        return InimigoMago(x, y)

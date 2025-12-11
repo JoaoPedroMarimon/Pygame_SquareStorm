@@ -565,6 +565,9 @@ class FaseBase:
                 # Se for inimigo metralhadora, desenhar a arma
                 if hasattr(alvo, 'tipo_metralhadora') and alvo.tipo_metralhadora:
                     alvo.desenhar_metralhadora_inimigo(self.tela, tempo_atual, self.jogador)
+                # Se for inimigo mago, desenhar o cajado
+                elif hasattr(alvo, 'tipo_mago') and alvo.tipo_mago:
+                    alvo.desenhar_cajado(self.tela, tempo_atual, self.jogador)
 
         # Tiros
         for tiro in self.tiros_jogador:

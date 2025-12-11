@@ -40,7 +40,16 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
     # Se o inimigo foi derrotado, pular
     if inimigo.vidas <= 0:
         return tempo_movimento_inimigos[idx]
-    
+
+    # Verificar se é inimigo mago e atualizar sistemas especiais
+    if hasattr(inimigo, 'tipo_mago') and inimigo.tipo_mago:
+        # Atualizar escudo cíclico
+        inimigo.atualizar_escudo()
+
+        # Atualizar invocação (se estiver invocando)
+        if inimigo.esta_invocando:
+            inimigo.atualizar_invocacao(inimigos)
+
     # Verificar se é um inimigo perseguidor
     if hasattr(inimigo, 'perseguidor') and inimigo.perseguidor:
         # Calcular vetor direto para o jogador
@@ -156,7 +165,11 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
     # Modificar o intervalo de movimento de cada inimigo com base em seu ID
     # Isso faz com que inimigos iguais atualizem seu movimento em momentos diferentes
     intervalo_ajustado = intervalo_movimento * (0.8 + offset_fator * 0.4)  # 80%-120% do valor original
-    
+
+    # BUGFIX: Verificar se idx está dentro dos limites (proteção contra invocações durante loop)
+    if idx >= len(tempo_movimento_inimigos):
+        return 0  # Retornar timestamp padrão para novos inimigos
+
     # Atualizar comportamento a cada intervalo ajustado
     if tempo_atual - tempo_movimento_inimigos[idx] > intervalo_ajustado + (idx * 100):
         tempo_movimento_inimigos[idx] = tempo_atual
@@ -226,6 +239,9 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
             # Verificar se é inimigo metralhadora para usar método específico
             if hasattr(inimigo, 'tipo_metralhadora') and inimigo.tipo_metralhadora:
                 inimigo.atirar_metralhadora(jogador, tiros_inimigo, particulas, flashes)
+            # Verificar se é inimigo mago para usar método específico
+            elif hasattr(inimigo, 'tipo_mago') and inimigo.tipo_mago:
+                inimigo.atirar_bola_fogo(jogador, tiros_inimigo, particulas, flashes)
             else:
                 inimigo.atirar(tiros_inimigo, (dir_tiro_x, dir_tiro_y))
         

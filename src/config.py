@@ -9,7 +9,7 @@ LARGURA_JOGO, ALTURA_JOGO = 1480, 820-80  # Dimensões da área jogável
 ALTURA_HUD = 80  # Altura da barra de HUD
 TITULO = "SquareStorm"
 FPS = 60
-MAX_FASES = 11  # Atualizado para incluir a Fase 11 (Inimigos Metralhadora)
+MAX_FASES = 13  # Atualizado para incluir a Fase 11 (Inimigos Metralhadora)
 
 # Cores
 PRETO = (0, 0, 0)
