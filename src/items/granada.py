@@ -145,40 +145,41 @@ class Granada:
                 
             # Explodir quando o tempo acabar
             if self.tempo_explosao <= 0:
-                self.explodir(particulas, flashes)
-        
+                self.explodir(particulas, flashes, None)  # Não tem lista de tiros aqui
+
         # Decrementar tempo de vida geral
         self.tempo_vida -= 1
-        
+
         # Se o tempo de vida acabou, explodir
         if self.tempo_vida <= 0:
-            self.explodir(particulas, flashes)
+            self.explodir(particulas, flashes, None)  # Não tem lista de tiros aqui
             
         return not self.explodiu
     
-    def explodir(self, particulas=None, flashes=None):
+    def explodir(self, particulas=None, flashes=None, tiros=None):
         """
-        Faz a granada explodir, criando efeitos visuais e a lógica de dano.
-        
+        Faz a granada explodir, criando efeitos visuais, lógica de dano e projéteis em círculo.
+
         Args:
             particulas: Lista de partículas para efeito visual
             flashes: Lista de flashes para efeito visual
+            tiros: Lista de tiros para adicionar os projéteis da explosão
         """
         self.explodiu = True
-        
+
         # Criar explosão visual se as listas foram fornecidas
         if particulas is not None and flashes is not None:
             # Cores da explosão (tons de vermelho, laranja e amarelo)
             cores = [(255, 100, 0), (255, 200, 0), (255, 50, 0)]
-            
+
             # Criar várias explosões em sucessão para efeito mais dramático
             for i in range(3):
                 offset_x = random.uniform(-10, 10)
                 offset_y = random.uniform(-10, 10)
-                flash = criar_explosao(self.x + offset_x, self.y + offset_y, 
+                flash = criar_explosao(self.x + offset_x, self.y + offset_y,
                                      random.choice(cores), particulas, 40)
                 flashes.append(flash)
-            
+
             # Explosão central maior
             flash_principal = {
                 'x': self.x,
@@ -188,7 +189,7 @@ class Granada:
                 'cor': (255, 255, 200)  # Branco amarelado
             }
             flashes.append(flash_principal)
-            
+
             # Criar onda de choque (círculo expandindo)
             for i in range(1, 5):
                 delay = i * 3
@@ -200,6 +201,27 @@ class Granada:
                     'cor': (255, 255, 255, 128)  # Branco semi-transparente
                 }
                 flashes.append(flash_onda)
+
+        # Criar projéteis em círculo quando explodir
+        if tiros is not None:
+            from src.entities.tiro import Tiro
+
+            # Número de projéteis no círculo
+            num_projeteis = 16  # 16 direções (360° / 16 = 22.5° entre cada)
+            velocidade_projetil = 8  # Velocidade dos projéteis
+
+            for i in range(num_projeteis):
+                # Calcular ângulo para este projétil
+                angulo = (2 * math.pi * i) / num_projeteis
+
+                # Calcular direção (vetor normalizado)
+                dx = math.cos(angulo)
+                dy = math.sin(angulo)
+
+                # Criar projétil na posição da explosão
+                cor_projetil = (255, 150, 0)  # Laranja fogo
+                projetil = Tiro(self.x, self.y, dx, dy, cor_projetil, velocidade_projetil)
+                tiros.append(projetil)
     
     def desenhar(self, tela):
         """
@@ -355,17 +377,18 @@ def lancar_granada(jogador, granadas_lista, pos_mouse, particulas=None, flashes=
     if jogador.granadas <= 0:
         jogador.granada_selecionada = False
 
-def processar_granadas(granadas, particulas, flashes, inimigos, moeda_manager):
+def processar_granadas(granadas, particulas, flashes, inimigos, moeda_manager, tiros_jogador=None):
     """
     Processa todas as granadas na lista, atualizando-as e verificando colisões.
-    
+
     Args:
         granadas: Lista de granadas ativas
         particulas: Lista de partículas para efeitos visuais
         flashes: Lista de flashes para efeitos visuais
         inimigos: Lista de inimigos para verificar colisão
         moeda_manager: Gerenciador de moedas para adicionar moedas quando inimigos são derrotados
-        
+        tiros_jogador: Lista de tiros do jogador (para adicionar projéteis da explosão)
+
     Returns:
         None (modifica as listas diretamente)
     """
@@ -373,6 +396,21 @@ def processar_granadas(granadas, particulas, flashes, inimigos, moeda_manager):
     for granada in granadas[:]:
         # Atualizar a granada e verificar se ainda está ativa
         if not granada.atualizar(particulas, flashes):
+            # Se a granada explodiu, criar projéteis em círculo
+            if granada.explodiu and tiros_jogador is not None:
+                # Criar projéteis da explosão
+                from src.entities.tiro import Tiro
+                num_projeteis = 8  # Reduzido de 16 para 8
+                velocidade_projetil = 8
+
+                for i in range(num_projeteis):
+                    angulo = (2 * math.pi * i) / num_projeteis
+                    dx = math.cos(angulo)
+                    dy = math.sin(angulo)
+                    cor_projetil = (255, 150, 0)
+                    projetil = Tiro(granada.x, granada.y, dx, dy, cor_projetil, velocidade_projetil)
+                    tiros_jogador.append(projetil)
+
             # Verificar dano a inimigos se a granada explodiu
             if granada.explodiu:
                 for inimigo in inimigos:
@@ -429,10 +467,74 @@ def obter_intervalo_lancamento():
     """
     return 500 
 
+def calcular_trajetoria_granada(centro_x, centro_y, dx, dy):
+    """
+    Calcula a trajetória prevista da granada.
+
+    Args:
+        centro_x: Posição X do centro do jogador
+        centro_y: Posição Y do centro do jogador
+        dx: Direção X normalizada
+        dy: Direção Y normalizada
+
+    Returns:
+        Lista de pontos (x, y) representando a trajetória
+    """
+    # Simular a física da granada
+    velocidade_base = 10.0
+    vel_x = dx * velocidade_base
+    vel_y = dy * velocidade_base
+    fricao = 0.99
+    elasticidade = 0.9
+
+    # Posição inicial (assumir tamanho padrão de 30 para o jogador)
+    tamanho_jogador = 30
+    pos_x = centro_x + dx * tamanho_jogador
+    pos_y = centro_y + dy * tamanho_jogador
+
+    trajetoria = []
+    raio = 10
+
+    # Simular até 90 frames (tempo_vida da granada)
+    for _ in range(90):
+        # Aplicar fricção
+        vel_x *= fricao
+        vel_y *= fricao
+
+        # Mover
+        pos_x += vel_x
+        pos_y += vel_y
+
+        # Verificar colisão com bordas
+        if pos_x - raio < 0:
+            pos_x = raio
+            vel_x = abs(vel_x) * elasticidade
+        elif pos_x + raio > LARGURA:
+            pos_x = LARGURA - raio
+            vel_x = -abs(vel_x) * elasticidade
+
+        if pos_y - raio < 0:
+            pos_y = raio
+            vel_y = abs(vel_y) * elasticidade
+        elif pos_y + raio > ALTURA_JOGO:
+            pos_y = ALTURA_JOGO - raio
+            vel_y = -abs(vel_y) * elasticidade
+
+        # Adicionar ponto à trajetória (a cada 3 frames para não ficar muito denso)
+        if _ % 3 == 0:
+            trajetoria.append((int(pos_x), int(pos_y)))
+
+        # Parar se a velocidade for muito baixa
+        velocidade_total = math.sqrt(vel_x**2 + vel_y**2)
+        if velocidade_total < 0.5:
+            break
+
+    return trajetoria
+
 def desenhar_granada_selecionada(tela, jogador, tempo_atual):
     """
-    Desenha a granada selecionada pelo jogador.
-    
+    Desenha a granada selecionada pelo jogador com trajetória prevista.
+
     Args:
         tela: Superfície onde desenhar
         jogador: Objeto do jogador
@@ -440,24 +542,53 @@ def desenhar_granada_selecionada(tela, jogador, tempo_atual):
     """
     # Obter a posição do mouse para orientar a direção de lançamento
     pos_mouse = convert_mouse_position(pygame.mouse.get_pos())
-    
+
     # Calcular o centro do jogador
     centro_x = jogador.x + jogador.tamanho // 2
     centro_y = jogador.y + jogador.tamanho // 2
-    
+
     # Calcular o vetor direção para o mouse
     dx = pos_mouse[0] - centro_x
     dy = pos_mouse[1] - centro_y
-    
+
     # Normalizar o vetor direção
     distancia = math.sqrt(dx**2 + dy**2)
     if distancia > 0:
         dx /= distancia
         dy /= distancia
-    
+
+    # Calcular e desenhar trajetória prevista
+    trajetoria = calcular_trajetoria_granada(centro_x, centro_y, dx, dy)
+
+    # Desenhar linha da trajetória (pontilhada)
+    if len(trajetoria) > 1:
+        for i in range(len(trajetoria) - 1):
+            # Desenhar linha pontilhada (pular de 2 em 2)
+            if i % 2 == 0:
+                pygame.draw.line(tela, (150, 255, 150, 180), trajetoria[i], trajetoria[i + 1], 2)
+
+        # Desenhar indicador de explosão no ponto final
+        if trajetoria:
+            pos_final = trajetoria[-1]
+            raio_explosao_visual = 150  # Raio da área de dano
+
+            # Círculo pulsante mostrando área de explosão
+            pulso = int(10 * abs(math.sin(tempo_atual / 200)))
+            pygame.draw.circle(tela, (255, 100, 100, 100), pos_final, raio_explosao_visual // 2 + pulso, 2)
+            pygame.draw.circle(tela, (255, 150, 0, 80), pos_final, raio_explosao_visual // 3 + pulso, 1)
+
+            # X marcando o ponto de explosão
+            tamanho_x = 15
+            pygame.draw.line(tela, (255, 50, 50),
+                           (pos_final[0] - tamanho_x, pos_final[1] - tamanho_x),
+                           (pos_final[0] + tamanho_x, pos_final[1] + tamanho_x), 3)
+            pygame.draw.line(tela, (255, 50, 50),
+                           (pos_final[0] + tamanho_x, pos_final[1] - tamanho_x),
+                           (pos_final[0] - tamanho_x, pos_final[1] + tamanho_x), 3)
+
     # Distância do jogador onde a granada será desenhada
     distancia_desenho = 25
-    
+
     # Posição da granada
     granada_x = centro_x + dx * distancia_desenho
     granada_y = centro_y + dy * distancia_desenho

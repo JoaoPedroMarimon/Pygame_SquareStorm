@@ -62,8 +62,7 @@ def atirar_metralhadora(jogador, tiros, pos_mouse, particulas=None, flashes=None
         particulas: Lista de partículas para efeitos visuais (opcional)
         flashes: Lista de flashes para efeitos visuais (opcional)
     """
-    # Cooldown extremamente baixo para disparos rápidos (50ms = ~20 tiros por segundo)
-    cooldown_metralhadora = 50
+    cooldown_metralhadora = 200
     
     # Verificar cooldown
     tempo_atual = pygame.time.get_ticks()

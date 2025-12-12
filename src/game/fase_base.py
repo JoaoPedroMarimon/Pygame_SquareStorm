@@ -154,10 +154,9 @@ class FaseBase:
             if evento.type == pygame.QUIT:
                 return "sair"
 
-            # Controles durante o jogo (não permitir controles durante transições)
+            # Controles durante o jogo (permitir movimento durante vitória, bloquear apenas durante derrota)
             if (not self.mostrando_inicio and not self.pausado and not self.jogador_morto and
-                not self.em_congelamento and self.tempo_transicao_vitoria is None and
-                self.tempo_transicao_derrota is None):
+                not self.em_congelamento and self.tempo_transicao_derrota is None):
                 resultado = self._processar_controles_jogo(evento, tempo_atual, pos_mouse)
                 if resultado:
                     return resultado
@@ -168,8 +167,9 @@ class FaseBase:
                 if resultado:
                     return resultado
 
-        # Tiro contínuo da metralhadora
-        if not self.mostrando_inicio and not self.pausado and not self.jogador_morto and not self.em_congelamento:
+        # Tiro contínuo da metralhadora (permitir durante vitória)
+        if (not self.mostrando_inicio and not self.pausado and not self.jogador_morto and
+            not self.em_congelamento and self.tempo_transicao_derrota is None):
             self._processar_tiro_continuo_metralhadora(pos_mouse)
 
         return None
@@ -186,8 +186,8 @@ class FaseBase:
             elif evento.key == pygame.K_d:
                 self.movimento_x = 1
             elif evento.key == pygame.K_ESCAPE:
-                # Não permitir pause durante transição de vitória ou derrota
-                if self.tempo_transicao_vitoria is None and self.tempo_transicao_derrota is None:
+                # Não permitir pause durante transição de derrota (permitir durante vitória)
+                if self.tempo_transicao_derrota is None:
                     self.pausado = True
                     pygame.mixer.pause()
                     pygame.mouse.set_visible(True)
@@ -469,7 +469,7 @@ class FaseBase:
 
     def processar_granadas(self, alvos):
         """Processa granadas."""
-        processar_granadas(self.granadas, self.particulas, self.flashes, alvos, self.moeda_manager)
+        processar_granadas(self.granadas, self.particulas, self.flashes, alvos, self.moeda_manager, self.tiros_jogador)
 
     def atualizar_efeitos_visuais(self):
         """Atualiza partículas, flashes e estrelas."""

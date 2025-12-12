@@ -38,7 +38,7 @@ class InimigoMago(Quadrado):
         # Sistema de escudo protetor (cicla 4s ativo, 4s inativo)
         self.duracao_escudo_ativo = 4000  # 4 segundos
         self.duracao_escudo_inativo = 4000  # 4 segundos
-        self.escudo_ativo = True  # Começa com escudo
+        self.escudo_ativo = False  # Começa com escudo
         self.tempo_inicio_ciclo_escudo = pygame.time.get_ticks()
 
         # Propriedades do escudo
@@ -59,7 +59,7 @@ class InimigoMago(Quadrado):
         self.invocacao_completa = False
 
         # Cajado (reto, segue o jogador como sabre de luz)
-        self.comprimento_cajado = 40
+        self.comprimento_cajado = 60  # Aumentado de 40 para 60
         self.largura_cajado = 4
         self.cor_cajado = (101, 67, 33)  # Marrom madeira escuro
         self.cor_cajado_claro = (139, 90, 43)  # Marrom mais claro para detalhes
