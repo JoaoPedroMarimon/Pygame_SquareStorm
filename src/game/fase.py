@@ -175,6 +175,67 @@ class FaseNormal(FaseBase):
         from src.utils.visual import desenhar_estrelas
         desenhar_estrelas(self.tela, self.estrelas)
 
+        # Desenhar espinhos com animação (fases 11+)
+        if self.numero_fase >= 11:
+            # Iniciar animação dos espinhos
+            if not self.animacao_espinhos_iniciada:
+                self.animacao_espinhos_iniciada = True
+                self.tempo_inicio_animacao_espinhos = self.tempo_congelamento
+
+                # Criar efeitos visuais dramáticos em todas as bordas
+                from src.entities.particula import criar_explosao
+                # Explosões nas bordas da tela (espaçadas)
+                for i in range(10):
+                    # Borda superior
+                    criar_explosao(i * (LARGURA // 10), 0, (200, 50, 50), self.particulas, 50)
+                    # Borda inferior
+                    criar_explosao(i * (LARGURA // 10), ALTURA_JOGO, (200, 50, 50), self.particulas, 50)
+                for i in range(8):
+                    # Borda esquerda
+                    criar_explosao(0, i * (ALTURA_JOGO // 8), (200, 50, 50), self.particulas, 50)
+                    # Borda direita
+                    criar_explosao(LARGURA, i * (ALTURA_JOGO // 8), (200, 50, 50), self.particulas, 50)
+
+            # Calcular progresso da animação (0.0 a 1.0)
+            frames_decorridos = self.tempo_inicio_animacao_espinhos - self.tempo_congelamento
+            progresso = min(1.0, frames_decorridos / self.duracao_animacao_espinhos)
+
+            # Efeito de borda vermelha pulsante durante toda a animação
+            if progresso < 1.0:
+                # Criar overlay nas bordas com intensidade baseada no progresso
+                intensidade_base = int(80 * (1 - progresso))
+                # Adicionar pulsação
+                pulso = abs(math.sin(frames_decorridos / 15))
+                intensidade = int(intensidade_base * (0.5 + 0.5 * pulso))
+
+                # Bordas superior e inferior
+                overlay_h = pygame.Surface((LARGURA, 40))
+                overlay_h.fill((200, 0, 0))
+                overlay_h.set_alpha(intensidade)
+                self.tela.blit(overlay_h, (0, 0))  # Superior
+                self.tela.blit(overlay_h, (0, ALTURA_JOGO - 40))  # Inferior
+
+                # Bordas esquerda e direita
+                overlay_v = pygame.Surface((40, ALTURA_JOGO))
+                overlay_v.fill((200, 0, 0))
+                overlay_v.set_alpha(intensidade)
+                self.tela.blit(overlay_v, (0, 0))  # Esquerda
+                self.tela.blit(overlay_v, (LARGURA - 40, 0))  # Direita
+
+                # Efeito de tremor da tela nos primeiros frames
+                if frames_decorridos < 20:
+                    import random
+                    offset_x = random.randint(-3, 3)
+                    offset_y = random.randint(-3, 3)
+                    # Aplicar tremor movendo temporariamente o gradiente
+                    temp_surf = pygame.Surface((LARGURA, ALTURA_JOGO))
+                    temp_surf.blit(self.tela, (offset_x, offset_y))
+                    self.tela.blit(temp_surf, (0, 0))
+
+            # Desenhar espinhos com animação
+            for espinho in self.espinhos:
+                espinho.desenhar(self.tela, tempo_atual, progresso)
+
         # Desenhar jogador e inimigos (sem movimento)
         if self.jogador.vidas > 0:
             self.jogador.desenhar(self.tela, tempo_atual)

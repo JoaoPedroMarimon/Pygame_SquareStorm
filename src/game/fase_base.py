@@ -99,6 +99,11 @@ class FaseBase:
         self.tempo_congelamento = 240  # 4 segundos a 60 FPS
         self.fade_in = 255
 
+        # Sistema de animação dos espinhos
+        self.animacao_espinhos_iniciada = False
+        self.tempo_inicio_animacao_espinhos = 0
+        self.duracao_animacao_espinhos = 240  # 4 segundos a 60 FPS (duração completa do congelamento)
+
     def _inicializar_ambiente(self):
         """Inicializa elementos visuais do ambiente."""
         # Criar estrelas com cores temáticas para fases 11+
@@ -119,11 +124,16 @@ class FaseBase:
             self.tempo_inicio_relampago = 0
             self.duracao_relampago = 0
             self.proximo_relampago = None
+
+            # Sistema de espinhos para fases 11-20
+            from src.entities.espinho import criar_espinhos_bordas
+            self.espinhos = criar_espinhos_bordas(espessura=30)
         else:
             # Estrelas brancas padrão
             self.estrelas = criar_estrelas(NUM_ESTRELAS_JOGO)
             self.relampago_ativo = False
             self.proximo_relampago = None
+            self.espinhos = []  # Sem espinhos nas fases 1-10
 
     def _inicializar_controles(self):
         """Inicializa sistema de controles."""
@@ -345,6 +355,21 @@ class FaseBase:
                 self.jogador.y = ALTURA_JOGO - self.jogador.tamanho
                 self.jogador.rect.y = self.jogador.y
 
+            # Verificar colisão com espinhos (dano de 1 vida para fases 11+)
+            if self.numero_fase >= 11 and not self.jogador.invulneravel:
+                for espinho in self.espinhos:
+                    if self.jogador.rect.colliderect(espinho.rect):
+                        # Aplicar dano (usa o sistema de invulnerabilidade do jogador)
+                        if self.jogador.tomar_dano():
+                            # Efeitos visuais de dano
+                            flash = criar_explosao(self.jogador.x + self.jogador.tamanho // 2,
+                                                   self.jogador.y + self.jogador.tamanho // 2,
+                                                   VERMELHO, self.particulas, 30)
+                            self.flashes.append(flash)
+                            from src.utils.sound import gerar_som_dano
+                            pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_dano()))
+                        break
+
             # Atualizar sabre de luz
             if hasattr(self.jogador, 'sabre_equipado') and self.jogador.sabre_equipado:
                 from src.weapons.sabre_luz import atualizar_sabre_arremessado
@@ -553,6 +578,11 @@ class FaseBase:
         for flash in self.flashes:
             if flash['y'] < ALTURA_JOGO:
                 pygame.draw.circle(self.tela, flash['cor'], (int(flash['x']), int(flash['y'])), int(flash['raio']))
+
+        # Espinhos (desenhar primeiro para ficar no fundo)
+        if self.numero_fase >= 11:
+            for espinho in self.espinhos:
+                espinho.desenhar(self.tela, tempo_atual)
 
         # Jogador
         if self.jogador.vidas > 0:
