@@ -322,7 +322,8 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
             "cor_hover": (80, 160, 80),
             "cor_texto": (150, 220, 150),
             "cor_resultado": VERDE,
-            "icone_func": "granada"
+            "icone_func": "granada",
+            "dano": 1
         },
         {
             "key": "ampulheta",
@@ -336,7 +337,8 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
             "cor_hover": (80, 80, 200),
             "cor_texto": (150, 150, 255),
             "cor_resultado": AZUL,
-            "icone_func": "ampulheta"
+            "icone_func": "ampulheta",
+            "dano": 1
         },
         {
             "key": "faca",
@@ -350,7 +352,8 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
             "cor_hover": (160, 80, 80),
             "cor_texto": (220, 150, 150),
             "cor_resultado": (220, 150, 150),
-            "icone_func": "faca"
+            "icone_func": "faca",
+            "dano": 1
         }
     ]
     
@@ -471,15 +474,15 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
         
         # Informações de limite do sistema de pricing
         info_limite = item.get("info_limite", "")
-        desenhar_texto(conteudo_surf, info_limite, 12, (180, 180, 180), 
+        desenhar_texto(conteudo_surf, info_limite, 12, (180, 180, 180),
                       item_rect.x + 170, y_item_relativo + 56)
-        
-        # Próximo preço (se houver)
-        if item.get("proximo_preco") and item.get("pode_comprar", True):
-            desenhar_texto(conteudo_surf, f"Next: {item['proximo_preco']} coins", 11, (200, 200, 100), 
+
+        # Mostrar dano do item
+        if item.get("pode_comprar", True):
+            desenhar_texto(conteudo_surf, f"Damage: {item.get('dano', 1)}", 16, (255, 200, 100),
                           item_rect.x + 170, y_item_relativo + 73)
-        elif not item.get("pode_comprar", True):
-            desenhar_texto(conteudo_surf, "SOLD OUT", 14, VERMELHO, 
+        else:
+            desenhar_texto(conteudo_surf, "SOLD OUT", 14, VERMELHO,
                           item_rect.x + 170, y_item_relativo + 73)
         
         # Informações adicionais do item

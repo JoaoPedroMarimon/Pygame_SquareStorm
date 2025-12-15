@@ -311,7 +311,7 @@ class NivelFactory:
         inimigos = []
 
         # Inimigo metralhadora 1 - parte superior
-        pos_x1 = LARGURA - 150
+        pos_x1 = 100
         pos_y1 = ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x1, pos_y1))
 
@@ -321,7 +321,7 @@ class NivelFactory:
         inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x2, pos_y2))
 
         # Posição inicial do jogador
-        pos_jogador = (100, ALTURA_JOGO // 2)
+        pos_jogador = (700, 1.2*ALTURA_JOGO // 2)
 
         return {
             'inimigos': inimigos,
@@ -380,12 +380,10 @@ class NivelFactory:
 
         inimigos = []
 
-        # Inimigo metralhadora 1 - parte superior
         pos_x1 = LARGURA - 150
         pos_y1 = ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x1, pos_y1))
 
-        # Inimigo metralhadora 2 - parte inferior
         pos_x2 = LARGURA - 150
         pos_y2 = 2 * ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_mago(pos_x2, pos_y2))

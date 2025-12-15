@@ -485,7 +485,8 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_hover": (220, 140, 60),
             "cor_texto": (255, 150, 150),
             "cor_resultado": VERDE,
-            "icone_func": "espingarda"
+            "icone_func": "espingarda",
+            "dano": 1
         },
         {
             "key": "metralhadora",
@@ -499,7 +500,8 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_hover": (220, 150, 50),
             "cor_texto": (255, 180, 70),
             "cor_resultado": VERDE,
-            "icone_func": "metralhadora"
+            "icone_func": "metralhadora",
+            "dano": 1
         },
         {
             "key": "desert_eagle",
@@ -514,7 +516,8 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_texto": (255, 220, 120),
             "cor_resultado": AMARELO,
             "icone_func": "desert_eagle",
-            "custo": 100
+            "custo": 100,
+            "dano": 1
         },
         {
             "key": "sabre_luz",
@@ -528,7 +531,8 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_hover": (80, 150, 255),
             "cor_texto": (150, 200, 255),
             "cor_resultado": CIANO,
-            "icone_func": "sabre_luz"
+            "icone_func": "sabre_luz",
+            "dano": 1
         }
     ]
     
@@ -623,15 +627,15 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
         
         # Informações de limite e próximo preço
         info_limite = arma.get("info_limite", "")
-        desenhar_texto(conteudo_surf, info_limite, 12, (180, 180, 180), 
+        desenhar_texto(conteudo_surf, info_limite, 12, (180, 180, 180),
                       item_rect.x + 170, y_item_relativo + 58)
-        
-        # Próximo preço (se houver)
-        if arma.get("proximo_preco") and arma.get("pode_comprar", True):
-            desenhar_texto(conteudo_surf, f"Next: {arma['proximo_preco']} coins", 11, (200, 200, 100), 
+
+        # Mostrar dano da arma
+        if arma.get("pode_comprar", True):
+            desenhar_texto(conteudo_surf, f"Damage: {arma.get('dano', 1)}", 16, (255, 200, 100),
                           item_rect.x + 170, y_item_relativo + 75)
-        elif not arma.get("pode_comprar", True):
-            desenhar_texto(conteudo_surf, "SOLD OUT", 14, VERMELHO, 
+        else:
+            desenhar_texto(conteudo_surf, "SOLD OUT", 14, VERMELHO,
                           item_rect.x + 170, y_item_relativo + 75)
         
         # Informações adicionais da arma
