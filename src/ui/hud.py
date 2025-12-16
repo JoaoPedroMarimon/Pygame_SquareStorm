@@ -145,6 +145,14 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
 
             municao = str(jogador.ampulheta_uses)
             tem_arma_especial = True
+
+        # NOVO: Suporte ao Dimensional Hop - APENAS SE SELECIONADO
+        elif hasattr(jogador, 'dimensional_hop_selecionado') and jogador.dimensional_hop_selecionado and hasattr(jogador, 'dimensional_hop_uses') and jogador.dimensional_hop_uses > 0:
+            arma_ativa = "DIMENSIONAL HOP"
+            cor_fundo = (40, 20, 60)
+            cor_borda = (200, 150, 255)
+            municao = str(jogador.dimensional_hop_uses)
+            tem_arma_especial = True
                 
         # Desenhar fundo do indicador de arma
         pygame.draw.rect(tela, cor_fundo, (pos_equipamento - 100, ALTURA_JOGO + 10, 200, ALTURA_HUD - 20), 0, 10)
@@ -184,7 +192,10 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             elif hasattr(jogador, 'ampulheta_selecionada') and jogador.ampulheta_selecionada:
                 # Desenhar ícone da ampulheta
                 desenhar_icone_ampulheta_hud(icone_surface, 30, 20, tempo_atual)
-            
+            elif hasattr(jogador, 'dimensional_hop_selecionado') and jogador.dimensional_hop_selecionado:
+                # Desenhar ícone do dimensional hop
+                desenhar_icone_dimensional_hop_hud(icone_surface, 30, 20, tempo_atual)
+
             # Aplicar o ícone na posição correta do HUD
             tela.blit(icone_surface, (pos_equipamento - 30, centro_y - 20))
         else:
@@ -424,7 +435,7 @@ def desenhar_icone_amuleto_hud(tela, x, y, tempo_atual):
 def desenhar_icone_ampulheta_hud(tela, x, y, tempo_atual):
     """
     Desenha um ícone simplificado de ampulheta para o HUD (versão ativa).
-    
+
     Args:
         tela: Superfície onde desenhar
         x, y: Posição central do ícone
@@ -435,11 +446,11 @@ def desenhar_icone_ampulheta_hud(tela, x, y, tempo_atual):
     cor_areia = (255, 255, 100)     # Areia brilhante
     cor_brilho = (150, 200, 255)    # Brilho azul temporal
     cor_estrutura_escura = (80, 65, 45)
-    
+
     # Tamanhos reduzidos para o HUD
     largura = 12
     altura = 16
-    
+
     # Corpo da ampulheta (dois triângulos)
     # Triângulo superior
     pygame.draw.polygon(tela, cor_estrutura, [
@@ -447,43 +458,91 @@ def desenhar_icone_ampulheta_hud(tela, x, y, tempo_atual):
         (x + largura//2, y - altura//2),  # topo direito
         (x, y)  # centro
     ])
-    
-    # Triângulo inferior  
+
+    # Triângulo inferior
     pygame.draw.polygon(tela, cor_estrutura, [
         (x, y),  # centro
         (x - largura//2, y + altura//2),  # base esquerda
         (x + largura//2, y + altura//2)   # base direita
     ])
-    
+
     # Bordas
     pygame.draw.polygon(tela, cor_estrutura_escura, [
         (x - largura//2, y - altura//2),
         (x + largura//2, y - altura//2),
         (x, y)
     ], 1)
-    
+
     pygame.draw.polygon(tela, cor_estrutura_escura, [
         (x, y),
         (x - largura//2, y + altura//2),
         (x + largura//2, y + altura//2)
     ], 1)
-    
+
     # Areia flutuando no meio (efeito ativo)
     for i in range(2):
         areia_y = y + (i - 0.5) * 2
         pygame.draw.circle(tela, cor_areia, (x, int(areia_y)), 1)
-    
+
     # Suportes (topo e base)
-    pygame.draw.rect(tela, cor_estrutura_escura, 
+    pygame.draw.rect(tela, cor_estrutura_escura,
                     (x - largura//2 - 1, y - altura//2 - 2, largura + 2, 2))
-    pygame.draw.rect(tela, cor_estrutura_escura, 
+    pygame.draw.rect(tela, cor_estrutura_escura,
                     (x - largura//2 - 1, y + altura//2, largura + 2, 2))
-    
+
     # Efeito de brilho pulsante
     pulso = (math.sin(tempo_atual / 150) + 1) / 2
     if pulso > 0.5:
         # Brilho ao redor
         pygame.draw.circle(tela, cor_brilho, (x, y), largura, 1)
+
+
+def desenhar_icone_dimensional_hop_hud(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone simplificado do Dimensional Hop para o HUD.
+
+    Args:
+        tela: Superfície onde desenhar
+        x, y: Posição central do ícone
+        tempo_atual: Tempo atual para animações
+    """
+    # Cores retrofuturísticas
+    cor_portal_externo = (200, 50, 255)  # Magenta
+    cor_portal_interno = (100, 200, 255)  # Ciano
+    cor_particulas = (255, 150, 255)  # Rosa neon
+
+    # Animação de pulsação
+    pulso = (math.sin(tempo_atual / 150) + 1) / 2
+
+    # Portal principal com anéis concêntricos
+    raio_portal = 10
+    for i in range(3):
+        raio_anel = raio_portal - i * 3
+        cor_anel = (
+            int(cor_portal_externo[0] * (1 - i/3) + cor_portal_interno[0] * (i/3)),
+            int(cor_portal_externo[1] * (1 - i/3) + cor_portal_interno[1] * (i/3)),
+            int(cor_portal_externo[2] * (1 - i/3) + cor_portal_interno[2] * (i/3))
+        )
+        pygame.draw.circle(tela, cor_anel, (int(x), int(y)), int(raio_anel + pulso * 2), 1)
+
+    # Núcleo central brilhante
+    raio_nucleo = int(3 + pulso * 2)
+    pygame.draw.circle(tela, (255, 255, 255), (int(x), int(y)), raio_nucleo)
+    pygame.draw.circle(tela, cor_portal_interno, (int(x), int(y)), raio_nucleo - 1)
+
+    # Partículas orbitando
+    num_particulas = 4
+    for i in range(num_particulas):
+        angulo = (2 * math.pi * i / num_particulas) + (tempo_atual / 200)
+        raio_orbita = raio_portal + 3
+
+        part_x = x + math.cos(angulo) * raio_orbita
+        part_y = y + math.sin(angulo) * raio_orbita
+
+        tamanho_part = 2
+        pygame.draw.rect(tela, cor_particulas,
+                       (int(part_x - tamanho_part/2), int(part_y - tamanho_part/2),
+                        tamanho_part, tamanho_part))
 
 
 def aplicar_fade(tela, fade_in):

@@ -80,6 +80,13 @@ class PricingManager:
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 5
+            },
+            "dimensional_hop": {
+                "preco_base": 60,
+                "compras_realizadas": 0,
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0, # Preço não aumenta
+                "quantidade_por_compra": 3
             }
         }
         

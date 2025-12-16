@@ -259,7 +259,7 @@ class InimigoMago(Quadrado):
 
     def invocar_inimigos(self, inimigos):
         """
-        Invoca 3 inimigos básicos em volta do mago.
+        Invoca 2 perseguidores e 1 inimigo básico em volta do mago.
 
         Args:
             inimigos: Lista de inimigos para adicionar os invocados
@@ -273,6 +273,7 @@ class InimigoMago(Quadrado):
         raio_invocacao = 80
 
         # Criar 3 inimigos em círculo ao redor do mago
+        # 2 perseguidores e 1 básico
         for i in range(3):
             angulo = (2 * math.pi * i) / 3  # Dividir círculo em 3 partes
 
@@ -283,12 +284,16 @@ class InimigoMago(Quadrado):
             pos_x = max(TAMANHO_QUADRADO, min(pos_x, LARGURA - TAMANHO_QUADRADO))
             pos_y = max(TAMANHO_QUADRADO, min(pos_y, ALTURA_JOGO - TAMANHO_QUADRADO))
 
-            # Criar inimigo básico
-            inimigo = InimigoFactory.criar_inimigo_basico(pos_x, pos_y)
+            # Criar perseguidor para i=0 e i=1, básico para i=2
+            if i < 2:
+                inimigo = InimigoFactory.criar_inimigo_perseguidor(pos_x, pos_y)
+            else:
+                inimigo = InimigoFactory.criar_inimigo_basico(pos_x, pos_y)
+
             inimigo.invocado_por_mago = True
             inimigos.append(inimigo)
 
-        print(f"🧙 Mago invocou 3 inimigos!")
+        print(f"🧙 Mago invocou 2 perseguidores e 1 inimigo básico!")
 
     def atualizar_angulo_cajado(self, jogador):
         """

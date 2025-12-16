@@ -18,6 +18,7 @@ from src.weapons.espingarda import carregar_upgrade_espingarda,desenhar_espingar
 from src.weapons.metralhadora import carregar_upgrade_metralhadora, desenhar_metralhadora
 from src.utils.display_manager import convert_mouse_position
 from src.weapons.sabre_luz import carregar_upgrade_sabre, desenhar_sabre
+from src.items.dimensional_hop import carregar_upgrade_dimensional_hop, desenhar_dimensional_hop_selecionado, DimensionalHop
 
 class Quadrado:
     """
@@ -52,6 +53,11 @@ class Quadrado:
             # SISTEMA DE ITENS (sempre inativos no início)
             self.granadas = carregar_upgrade_granada()
             self.granada_selecionada = False  # Jogador usa Q para ativar
+
+            # Dimensional Hop
+            self.dimensional_hop_uses = carregar_upgrade_dimensional_hop()
+            self.dimensional_hop_selecionado = False
+            self.dimensional_hop_obj = DimensionalHop() if self.dimensional_hop_uses > 0 else None
             
             # SISTEMA DE ARMAS (sempre inativas no início)
             self.espingarda_ativa = False
@@ -373,6 +379,8 @@ class Quadrado:
                 desenhar_desert_eagle(tela, self, pos_mouse)
             elif hasattr(self, 'granada_selecionada') and self.granada_selecionada and self.granadas > 0:
                 desenhar_granada_selecionada(tela, self, tempo_atual)
+            elif hasattr(self, 'dimensional_hop_selecionado') and self.dimensional_hop_selecionado and self.dimensional_hop_uses > 0:
+                desenhar_dimensional_hop_selecionado(tela, self, tempo_atual)
             elif hasattr(self, 'ampulheta_selecionada') and self.ampulheta_selecionada and self.ampulheta_uses > 0:
                 from src.items.ampulheta import desenhar_ampulheta_selecionada
                 desenhar_ampulheta_selecionada(tela, self, tempo_atual)
@@ -553,6 +561,11 @@ class Quadrado:
         # Sempre inicializar granada (sistema separado - ativada com Q)
         self.granadas = carregar_upgrade_granada()
         self.granada_selecionada = False
+
+        # Inicializar Dimensional Hop
+        self.dimensional_hop_uses = carregar_upgrade_dimensional_hop()
+        self.dimensional_hop_selecionado = False
+        self.dimensional_hop_obj = DimensionalHop() if self.dimensional_hop_uses > 0 else None
         
         # Sempre permitir tiro normal (não vai no inventário)
         # Tiro normal é sempre disponível
@@ -668,6 +681,12 @@ class Quadrado:
         itens_guardados = False
         if self.granada_selecionada:
             self.granada_selecionada = False
+            itens_guardados = True
+
+        if hasattr(self, 'dimensional_hop_selecionado') and self.dimensional_hop_selecionado:
+            self.dimensional_hop_selecionado = False
+            if self.dimensional_hop_obj:
+                self.dimensional_hop_obj.desativar()
             itens_guardados = True
 
         if hasattr(self, 'ampulheta_selecionada') and self.ampulheta_selecionada:
@@ -798,6 +817,31 @@ class Quadrado:
             else:
                 return "sem_ampulhetas"
 
+        # DIMENSIONAL HOP: Se selecionado no inventário, Q ativa
+        elif item_selecionado == "dimensional_hop":
+            if hasattr(self, 'dimensional_hop_uses') and self.dimensional_hop_uses > 0:
+                self.dimensional_hop_selecionado = not self.dimensional_hop_selecionado
+
+                # Desativar outros itens se dimensional hop for ativado
+                if self.dimensional_hop_selecionado:
+                    self.granada_selecionada = False
+                    if hasattr(self, 'ampulheta_selecionada'):
+                        self.ampulheta_selecionada = False
+                    if hasattr(self, 'amuleto_ativo'):
+                        self.amuleto_ativo = False
+
+                    # Ativar o objeto
+                    if self.dimensional_hop_obj:
+                        self.dimensional_hop_obj.ativar()
+                else:
+                    # Desativar o objeto
+                    if self.dimensional_hop_obj:
+                        self.dimensional_hop_obj.desativar()
+
+                return "dimensional_hop_toggle" if self.dimensional_hop_selecionado else "dimensional_hop_guardado"
+            else:
+                return "sem_dimensional_hop"
+
         # COMBAT KNIFE: Se selecionada no inventário, Q ativa amuleto
         elif item_selecionado == "faca":
             if hasattr(self, 'facas') and self.facas > 0:
@@ -840,7 +884,10 @@ class Quadrado:
         
         if self.granada_selecionada and self.granadas > 0:
             return "granada"
-        
+
+        if hasattr(self, 'dimensional_hop_selecionado') and self.dimensional_hop_selecionado and self.dimensional_hop_uses > 0:
+            return "dimensional_hop"
+
         if hasattr(self, 'ampulheta_selecionada') and self.ampulheta_selecionada and self.ampulheta_uses > 0:
             return "ampulheta"
         
@@ -866,6 +913,13 @@ class Quadrado:
                 "quantidade": self.granadas,
                 "ativo": self.granada_selecionada,
                 "tecla": "Q"
+            },
+            "dimensional_hop": {
+                "disponivel": hasattr(self, 'dimensional_hop_uses') and self.dimensional_hop_uses > 0,
+                "quantidade": getattr(self, 'dimensional_hop_uses', 0),
+                "ativo": hasattr(self, 'dimensional_hop_selecionado') and self.dimensional_hop_selecionado,
+                "selecionado_inventario": item_selecionado == "dimensional_hop",
+                "tecla": "Q (segurar) + Clique (teletransportar)"
             },
             "ampulheta": {
                 "disponivel": hasattr(self, 'ampulheta_uses') and self.ampulheta_uses > 0,

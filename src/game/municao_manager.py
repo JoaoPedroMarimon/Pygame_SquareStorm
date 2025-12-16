@@ -46,6 +46,9 @@ def salvar_todas_municoes(jogador):
         if hasattr(jogador, 'ampulheta_uses'):
             upgrades["ampulheta"] = max(0, jogador.ampulheta_uses)
 
+        if hasattr(jogador, 'dimensional_hop_uses'):
+            upgrades["dimensional_hop"] = max(0, jogador.dimensional_hop_uses)
+
         # Criar diretório se não existir
         os.makedirs("data", exist_ok=True)
 
@@ -57,7 +60,8 @@ def salvar_todas_municoes(jogador):
               f"MachineGun={upgrades.get('metralhadora', 0)}, "
               f"DesertEagle={upgrades.get('desert_eagle', 0)}, "
               f"Grenades={upgrades.get('granada', 0)}, "
-              f"Chucky={upgrades.get('faca', 0)}")
+              f"Chucky={upgrades.get('faca', 0)}, "
+              f"DimensionalHop={upgrades.get('dimensional_hop', 0)}")
 
     except Exception as e:
         print(f"❌ Erro ao salvar munições: {e}")

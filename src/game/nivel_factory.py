@@ -311,13 +311,13 @@ class NivelFactory:
         inimigos = []
 
         # Inimigo metralhadora 1 - parte superior
-        pos_x1 = 100
+        pos_x1 = 80
         pos_y1 = ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x1, pos_y1))
 
         # Inimigo metralhadora 2 - parte inferior
         pos_x2 = LARGURA - 150
-        pos_y2 = 2 * ALTURA_JOGO // 3
+        pos_y2 = 1.5 * ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x2, pos_y2))
 
         # Posição inicial do jogador
@@ -335,7 +335,7 @@ class NivelFactory:
         inimigos = []
 
         # Inimigo metralhadora 1 - parte superior
-        pos_x1 = LARGURA - 150
+        pos_x1 = LARGURA - 500
         pos_y1 = ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x1, pos_y1))
 
@@ -344,7 +344,7 @@ class NivelFactory:
         pos_y2 = 2 * ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_perseguidor(pos_x2, pos_y2))
 
-        pos_x3 = LARGURA - 150
+        pos_x3 = LARGURA - 500
         pos_y3 = 2.5*ALTURA_JOGO // 3
         inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x3, pos_y3))
 
@@ -399,6 +399,60 @@ class NivelFactory:
             'inimigos': inimigos,
             'pos_jogador': pos_jogador
         }
+    
+    @staticmethod
+    def criar_fase_15():
+
+        inimigos = []
+
+        pos_x1 = LARGURA - 150
+        pos_y1 = ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x1, pos_y1))
+
+        pos_x2 = LARGURA - 150
+        pos_y2 = 2 * ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_mago(pos_x2, pos_y2))
+
+        pos_x3 = LARGURA - 150
+        pos_y3 = 2.5*ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x3, pos_y3))
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
+    @staticmethod
+    def criar_fase_16():
+        """
+        Fase 11: Inimigos com metralhadora - nova mecânica de combate.
+        2 inimigos que usam metralhadora com sistema de recarga.
+        """
+        inimigos = []
+
+        # Inimigo metralhadora 1 - parte superior
+        pos_x1 = 80
+        pos_y1 = ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_mago(pos_x1, pos_y1))
+
+        # Inimigo metralhadora 2 - parte inferior
+        pos_x2 = 700
+        pos_y2 = 0.6 * ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_mago(pos_x2, pos_y2))
+
+        pos_x3 = LARGURA - 150
+        pos_y3 = ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_mago(pos_x3, pos_y3))
+
+        # Posição inicial do jogador
+        pos_jogador = (700, 1.2*ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }    
     
     @staticmethod
     def e_boss_fight(resultado_fase):

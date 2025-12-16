@@ -255,7 +255,21 @@ class FaseBase:
                     self.tempo_ultimo_lancamento_granada = tempo_atual
                     lancar_granada(self.jogador, self.granadas, pos_mouse, self.particulas, self.flashes)
 
-            # PRIORIDADE 3: Ampulheta
+            # PRIORIDADE 3: Dimensional Hop
+            elif hasattr(self.jogador, 'dimensional_hop_selecionado') and self.jogador.dimensional_hop_selecionado and self.jogador.dimensional_hop_uses > 0:
+                if self.jogador.dimensional_hop_obj:
+                    if self.jogador.dimensional_hop_obj.usar(self.jogador, pos_mouse, self.particulas, self.flashes):
+                        self.jogador.dimensional_hop_uses -= 1
+                        criar_texto_flutuante("TELETRANSPORTE!", LARGURA // 2, ALTURA_JOGO // 4,
+                                             (200, 150, 255), self.particulas, 120, 32)
+
+                        # Desativar se não tiver mais usos
+                        if self.jogador.dimensional_hop_uses <= 0:
+                            self.jogador.dimensional_hop_selecionado = False
+                            if self.jogador.dimensional_hop_obj:
+                                self.jogador.dimensional_hop_obj.desativar()
+
+            # PRIORIDADE 4: Ampulheta
             elif hasattr(self.jogador, 'ampulheta_selecionada') and self.jogador.ampulheta_selecionada:
                 if usar_ampulheta(self.jogador, self.particulas, self.flashes):
                     criar_texto_flutuante("TEMPO DESACELERADO!", LARGURA // 2, ALTURA_JOGO // 4,
@@ -265,7 +279,7 @@ class FaseBase:
                         criar_texto_flutuante("AMPULHETA JÁ ATIVA!", LARGURA // 2, ALTURA_JOGO // 4,
                                              AMARELO, self.particulas, 120, 32)
 
-            # PRIORIDADE 4: Sabre de Luz (ativar, arremessar ou retornar)
+            # PRIORIDADE 5: Sabre de Luz (ativar, arremessar ou retornar)
             elif hasattr(self.jogador, 'sabre_equipado') and self.jogador.sabre_equipado:
                 from src.weapons.sabre_luz import arremessar_sabre, forcar_retorno_sabre
 
@@ -406,6 +420,64 @@ class FaseBase:
                             self.moeda_manager.salvar_moedas()
                             criar_texto_flutuante(f"+{moedas_bonus}", alvo.x + alvo.tamanho//2,
                                                  alvo.y, AMARELO, self.particulas)
+
+                            # Se é um perseguidor, criar explosão grande (como granada)
+                            if hasattr(alvo, 'perseguidor') and alvo.perseguidor:
+                                import math
+                                import random
+                                from src.entities.tiro import Tiro
+
+                                centro_explosao_x = alvo.x + alvo.tamanho//2
+                                centro_explosao_y = alvo.y + alvo.tamanho//2
+                                raio_explosao_dano = 150  # Mesmo raio da granada
+
+                                # Cores da explosão
+                                cores = [(255, 100, 0), (255, 200, 0), (255, 50, 0)]
+
+                                # Criar várias explosões em sucessão
+                                for i in range(3):
+                                    offset_x = random.uniform(-10, 10)
+                                    offset_y = random.uniform(-10, 10)
+                                    flash = criar_explosao(centro_explosao_x + offset_x,
+                                                         centro_explosao_y + offset_y,
+                                                         random.choice(cores), self.particulas, 40)
+                                    self.flashes.append(flash)
+
+                                # Explosão central maior
+                                flash_principal = {
+                                    'x': centro_explosao_x,
+                                    'y': centro_explosao_y,
+                                    'raio': 60,
+                                    'vida': 20,
+                                    'cor': (255, 255, 200)
+                                }
+                                self.flashes.append(flash_principal)
+
+                                # Criar projéteis em círculo (como granada)
+                                num_projeteis = 8
+                                velocidade_projetil = 8
+
+                                for i in range(num_projeteis):
+                                    angulo = (2 * math.pi * i) / num_projeteis
+                                    dx = math.cos(angulo)
+                                    dy = math.sin(angulo)
+                                    cor_projetil = (255, 150, 0)  # Laranja fogo
+                                    projetil = Tiro(centro_explosao_x, centro_explosao_y, dx, dy, cor_projetil, velocidade_projetil)
+                                    self.tiros_inimigo.append(projetil)
+
+                                # Verificar dano ao jogador pela explosão
+                                dx_jogador = self.jogador.x + self.jogador.tamanho//2 - centro_explosao_x
+                                dy_jogador = self.jogador.y + self.jogador.tamanho//2 - centro_explosao_y
+                                distancia_jogador = math.sqrt(dx_jogador**2 + dy_jogador**2)
+
+                                if distancia_jogador <= raio_explosao_dano:
+                                    if self.jogador.tomar_dano():
+                                        # Efeito visual no jogador
+                                        flash_dano = criar_explosao(self.jogador.x + self.jogador.tamanho//2,
+                                                                   self.jogador.y + self.jogador.tamanho//2,
+                                                                   LARANJA, self.particulas, 25)
+                                        self.flashes.append(flash_dano)
+                                        pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_dano()))
 
                         # Efeitos visuais
                         flash = criar_explosao(tiro.x, tiro.y, VERMELHO, self.particulas, 25)

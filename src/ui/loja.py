@@ -398,7 +398,8 @@ def carregar_upgrades():
         "sabre_luz": 0,
         "granada": 0,
         "ampulheta": 0,
-        "faca": 0
+        "faca": 0,
+        "dimensional_hop": 0
     }
     
     try:

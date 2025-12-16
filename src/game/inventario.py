@@ -175,6 +175,19 @@ class InventarioManager:
                 "raridade": "Epic",
                 "efeito": "Summon Ally",
                 "duracao": "15 seconds"
+            },
+            "dimensional_hop": {
+                "nome": "Dimensional Hop",
+                "quantidade": 0,
+                "cor": (200, 150, 255),
+                "descricao": "Teleport instantly to cursor position",
+                "tipo": "item",
+                "categoria": "item",
+                "tecla": "Q",
+                "key": "dimensional_hop",
+                "raridade": "Legendary",
+                "efeito": "Teleportation",
+                "duracao": "Instant"
             }
         }
         
@@ -362,6 +375,61 @@ def desenhar_icone_granada_moderno(tela, x, y, tempo_atual, tamanho=25):
         pygame.draw.circle(explosion_surf, (255, 100, 0, explosion_alpha), 
                          (explosion_radius, explosion_radius), explosion_radius)
         tela.blit(explosion_surf, (x - explosion_radius, y - explosion_radius))
+
+def desenhar_icone_dimensional_hop_moderno(tela, x, y, tempo_atual, tamanho=25):
+    """Desenha ícone moderno do Dimensional Hop com efeitos retrofuturísticos."""
+    # Cores retrofuturísticas
+    cor_portal_externo = (200, 50, 255)  # Magenta
+    cor_portal_interno = (100, 200, 255)  # Ciano
+    cor_particulas = (255, 150, 255)  # Rosa neon
+
+    # Animação de pulsação
+    pulso = (math.sin(tempo_atual / 150) + 1) / 2
+
+    # Portal principal com anéis concêntricos
+    raio_portal = tamanho
+    for i in range(3):
+        raio_anel = raio_portal - i * (tamanho // 4)
+        cor_anel = (
+            int(cor_portal_externo[0] * (1 - i/3) + cor_portal_interno[0] * (i/3)),
+            int(cor_portal_externo[1] * (1 - i/3) + cor_portal_interno[1] * (i/3)),
+            int(cor_portal_externo[2] * (1 - i/3) + cor_portal_interno[2] * (i/3))
+        )
+        pygame.draw.circle(tela, cor_anel, (int(x), int(y)), int(raio_anel + pulso * 3), 2)
+
+    # Núcleo central brilhante
+    raio_nucleo = int((tamanho // 3) + pulso * 3)
+    pygame.draw.circle(tela, (255, 255, 255), (int(x), int(y)), raio_nucleo)
+    pygame.draw.circle(tela, cor_portal_interno, (int(x), int(y)), raio_nucleo - 2)
+
+    # Partículas orbitando
+    num_particulas = 6
+    for i in range(num_particulas):
+        angulo = (2 * math.pi * i / num_particulas) + (tempo_atual / 200)
+        raio_orbita = raio_portal + 5
+
+        part_x = x + math.cos(angulo) * raio_orbita
+        part_y = y + math.sin(angulo) * raio_orbita
+
+        tamanho_part = 3 + int(pulso * 2)
+        pygame.draw.rect(tela, cor_particulas,
+                       (int(part_x - tamanho_part/2), int(part_y - tamanho_part/2),
+                        tamanho_part, tamanho_part))
+
+    # Raios de energia
+    num_raios = 4
+    for i in range(num_raios):
+        angulo = (2 * math.pi * i / num_raios) + (tempo_atual / 300)
+        comprimento_raio = 8 + pulso * 4
+
+        raio_start_x = x + math.cos(angulo) * raio_portal
+        raio_start_y = y + math.sin(angulo) * raio_portal
+        raio_end_x = x + math.cos(angulo) * (raio_portal + comprimento_raio)
+        raio_end_y = y + math.sin(angulo) * (raio_portal + comprimento_raio)
+
+        pygame.draw.line(tela, cor_portal_externo,
+                        (int(raio_start_x), int(raio_start_y)),
+                        (int(raio_end_x), int(raio_end_y)), 2)
 
 def desenhar_icone_faca_moderno(tela, x, y, tempo_atual, tamanho=25):
     """Desenha ícone moderno da faca com efeitos de brilho."""
@@ -624,6 +692,8 @@ def desenhar_card_item_moderno(tela, item_data, item_key, x, y, largura, altura,
         desenhar_icone_granada_moderno(tela, icone_x, icone_y, tempo_atual)
     elif item_key == "faca":
         desenhar_icone_faca_moderno(tela, icone_x, icone_y, tempo_atual)
+    elif item_key == "dimensional_hop":
+        desenhar_icone_dimensional_hop_moderno(tela, icone_x, icone_y, tempo_atual)
     elif item_key == "espingarda":
         desenhar_icone_espingarda_moderno(tela, icone_x, icone_y, tempo_atual)
     elif item_key == "metralhadora":
