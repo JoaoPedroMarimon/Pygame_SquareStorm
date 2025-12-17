@@ -32,12 +32,12 @@ class InimigoMago(Quadrado):
         super().__init__(x, y, TAMANHO_QUADRADO, cor_mago, velocidade)
 
         # Atributos básicos
-        self.vidas = 6
-        self.vidas_max = 6
+        self.vidas = 5
+        self.vidas_max = 5
 
         # Sistema de escudo protetor (cicla 4s ativo, 4s inativo)
         self.duracao_escudo_ativo = 4000  # 4 segundos
-        self.duracao_escudo_inativo = 4000  # 4 segundos
+        self.duracao_escudo_inativo = 6000  # 4 segundos
         self.escudo_ativo = False  # Começa com escudo
         self.tempo_inicio_ciclo_escudo = pygame.time.get_ticks()
 
@@ -52,10 +52,10 @@ class InimigoMago(Quadrado):
 
         # Sistema de invocação
         self.tiros_desde_invocacao = 0
-        self.tiros_para_invocar = random.randint(4, 15)  # Quantidade aleatória entre 4-15
+        self.tiros_para_invocar = random.randint(8, 30)  # Quantidade aleatória entre 4-15
         self.esta_invocando = False
         self.tempo_inicio_invocacao = 0
-        self.duracao_invocacao = 2000  # 2 segundos invocando
+        self.duracao_invocacao = 3000  # 2 segundos invocando
         self.invocacao_completa = False
 
         # Cajado (reto, segue o jogador como sabre de luz)
@@ -251,7 +251,7 @@ class InimigoMago(Quadrado):
         if tempo_decorrido >= self.duracao_invocacao:
             self.esta_invocando = False
             self.tiros_desde_invocacao = 0
-            self.tiros_para_invocar = random.randint(4, 15)  # Novo alvo aleatório
+            self.tiros_para_invocar = random.randint(8, 30)  # Novo alvo aleatório
             print(f"🧙 Mago terminou invocação! Próxima em {self.tiros_para_invocar} tiros")
             return True
 
