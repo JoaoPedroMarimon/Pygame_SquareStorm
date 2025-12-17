@@ -157,10 +157,37 @@ def main_game(game_surface=None):
                             break  # Sair do jogo
                 
                 elif resultado == False:
-                    # Jogador perdeu
+                    # Jogador perdeu - Sistema de checkpoint
                     print(f" Jogador derrotado na fase {fase_atual}")
+
+                    # Verificar se o jogador está jogando uma fase antiga ou nova
+                    fase_maxima_atual = progress_manager.obter_fase_maxima()
+
+                    # Só aplicar checkpoint se estiver jogando fases novas (fase atual >= fase_maxima)
+                    if fase_atual >= fase_maxima_atual:
+                        # Determinar fase de checkpoint baseado no bloco de 10 fases
+                        if fase_atual <= 10:
+                            fase_checkpoint = 1  # Fases 1-10 voltam para fase 1
+                        elif fase_atual <= 20:
+                            fase_checkpoint = 11  # Fases 11-20 voltam para fase 11
+                        elif fase_atual <= 30:
+                            fase_checkpoint = 21  # Fases 21-30 voltam para fase 21
+                        else:
+                            # Para fases acima de 30, voltar para o início do bloco de 10
+                            fase_checkpoint = ((fase_atual - 1) // 10) * 10 + 1
+
+                        print(f" Sistema de checkpoint: voltando para fase {fase_checkpoint}")
+
+                        # Atualizar o progresso para o checkpoint
+                        progress_manager.definir_checkpoint(fase_checkpoint)
+                        fase_atual = fase_checkpoint
+                    else:
+                        # Jogador está rejogando fase antiga - não alterar progresso
+                        print(f" Rejogando fase antiga - progresso mantido em {fase_maxima_atual}")
+                        fase_atual = fase_maxima_atual  # Voltar para a fase máxima alcançada
+
                     resultado_derrota = tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, False, fase_atual)
-                    
+
                     if resultado_derrota:
                         estado_atual = "menu"
                     else:

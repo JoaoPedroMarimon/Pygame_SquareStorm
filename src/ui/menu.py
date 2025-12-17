@@ -613,7 +613,7 @@ def tela_game_over(tela, relogio, gradiente_vitoria, gradiente_derrota, vitoria,
         
         # Mensagem de fase com estilo
         if fase_atual > 1:
-            msg = f"Você chegou até a fase {fase_atual}"
+            msg = "O inimigo te derrotou!"
         else:
             msg = "O inimigo te derrotou!"
             

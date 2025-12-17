@@ -43,3 +43,8 @@ class ProgressManager:
     def obter_fase_maxima(self):
         """Retorna a fase máxima alcançada."""
         return self.fase_maxima
+
+    def definir_checkpoint(self, fase_checkpoint):
+        """Define a fase atual como checkpoint (usado quando o jogador morre)."""
+        self.fase_maxima = fase_checkpoint
+        self._salvar_progresso()

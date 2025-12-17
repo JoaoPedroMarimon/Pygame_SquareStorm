@@ -382,7 +382,7 @@ class NivelFactory:
 
         pos_x1 = LARGURA - 150
         pos_y1 = ALTURA_JOGO // 3
-        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x1, pos_y1))
+        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x1, pos_y1))
 
         pos_x2 = LARGURA - 150
         pos_y2 = 2 * ALTURA_JOGO // 3
@@ -390,7 +390,7 @@ class NivelFactory:
 
         pos_x3 = LARGURA - 150
         pos_y3 = 2.5*ALTURA_JOGO // 3
-        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x3, pos_y3))
+        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x3, pos_y3))
 
         # Posição inicial do jogador
         pos_jogador = (100, ALTURA_JOGO // 2)
@@ -407,7 +407,7 @@ class NivelFactory:
 
         pos_x1 = LARGURA - 150
         pos_y1 = ALTURA_JOGO // 3
-        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x1, pos_y1))
+        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x1, pos_y1))
 
         pos_x2 = LARGURA - 150
         pos_y2 = 2 * ALTURA_JOGO // 3
@@ -415,7 +415,7 @@ class NivelFactory:
 
         pos_x3 = LARGURA - 150
         pos_y3 = 2.5*ALTURA_JOGO // 3
-        inimigos.append(InimigoFactory.criar_inimigo_elite(pos_x3, pos_y3))
+        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x3, pos_y3))
 
         # Posição inicial do jogador
         pos_jogador = (100, ALTURA_JOGO // 2)

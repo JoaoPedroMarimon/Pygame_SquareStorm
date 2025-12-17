@@ -465,20 +465,6 @@ class FaseBase:
                                     projetil = Tiro(centro_explosao_x, centro_explosao_y, dx, dy, cor_projetil, velocidade_projetil)
                                     self.tiros_inimigo.append(projetil)
 
-                                # Verificar dano ao jogador pela explosão
-                                dx_jogador = self.jogador.x + self.jogador.tamanho//2 - centro_explosao_x
-                                dy_jogador = self.jogador.y + self.jogador.tamanho//2 - centro_explosao_y
-                                distancia_jogador = math.sqrt(dx_jogador**2 + dy_jogador**2)
-
-                                if distancia_jogador <= raio_explosao_dano:
-                                    if self.jogador.tomar_dano():
-                                        # Efeito visual no jogador
-                                        flash_dano = criar_explosao(self.jogador.x + self.jogador.tamanho//2,
-                                                                   self.jogador.y + self.jogador.tamanho//2,
-                                                                   LARANJA, self.particulas, 25)
-                                        self.flashes.append(flash_dano)
-                                        pygame.mixer.Channel(2).play(pygame.mixer.Sound(gerar_som_dano()))
-
                         # Efeitos visuais
                         flash = criar_explosao(tiro.x, tiro.y, VERMELHO, self.particulas, 25)
                         self.flashes.append(flash)
