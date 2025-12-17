@@ -52,10 +52,10 @@ class PricingManager:
 
             # UPGRADES SHOP
             "vida": {
-                "preco_base": 20,
+                "preco_base": 120,
                 "compras_realizadas": 0,
-                "limite_maximo": 10,  # Máximo 10 compras
-                "multiplicador": 1.5, # Preço aumenta 50% a cada compra
+                "limite_maximo": 5,  # Máximo 10 compras
+                "multiplicador": 7.5, # Preço aumenta 50% a cada compra
                 "quantidade_por_compra": 1
             },
 

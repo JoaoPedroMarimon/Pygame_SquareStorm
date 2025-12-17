@@ -424,8 +424,39 @@ class NivelFactory:
             'inimigos': inimigos,
             'pos_jogador': pos_jogador
         }
+    
+
     @staticmethod
     def criar_fase_16():
+
+        inimigos = []
+
+        pos_x1 = 80
+        pos_y1 = ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x1, pos_y1))
+
+        # Inimigo metralhadora 2 - parte inferior
+        pos_x2 = LARGURA - 150
+        pos_y2 = 1.5 * ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_especial(pos_x2, pos_y2))
+
+        pos_x3 = 700
+        pos_y3 = 2.6*ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x3, pos_y3))
+
+        pos_x4 = 700
+        pos_y4 = 0.4*ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x4, pos_y4))
+
+        # Posição inicial do jogador
+        pos_jogador = (700, 1*ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
+    @staticmethod
+    def criar_fase_17():
         """
         Fase 11: Inimigos com metralhadora - nova mecânica de combate.
         2 inimigos que usam metralhadora com sistema de recarga.
