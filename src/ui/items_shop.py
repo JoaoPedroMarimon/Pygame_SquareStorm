@@ -167,6 +167,90 @@ def desenhar_icone_ampulheta(tela, x, y, tempo_atual):
             (cristal_x - tamanho_cristal, cristal_y)
         ])
 
+def desenhar_icone_dimensional_hop(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone de Dimensional Hop com visual retrofuturístico arcade.
+
+    Args:
+        tela: Superfície onde desenhar
+        x, y: Posição central do ícone
+        tempo_atual: Tempo atual para animações
+    """
+    # Cores retrofuturísticas (roxo/magenta/ciano neon)
+    cor_portal_externo = (200, 50, 255)  # Magenta brilhante
+    cor_portal_interno = (100, 200, 255)  # Ciano
+    cor_particulas = (255, 150, 255)  # Rosa neon
+    cor_grid = (150, 80, 200)  # Roxo
+
+    # Animação de pulsação
+    pulso = (math.sin(tempo_atual / 150) + 1) / 2
+
+    # Portal principal (círculo com efeito de distorção espacial)
+    raio_portal = 18
+
+    # Desenhar anéis concêntricos do portal (efeito túnel)
+    for i in range(4):
+        raio_anel = raio_portal - i * 4
+        alpha = int(200 - i * 50)
+        cor_anel = (
+            int(cor_portal_externo[0] * (1 - i/4) + cor_portal_interno[0] * (i/4)),
+            int(cor_portal_externo[1] * (1 - i/4) + cor_portal_interno[1] * (i/4)),
+            int(cor_portal_externo[2] * (1 - i/4) + cor_portal_interno[2] * (i/4))
+        )
+
+        # Efeito de rotação
+        offset_rotacao = (tempo_atual / 100 + i * 30) % 360
+
+        pygame.draw.circle(tela, cor_anel, (int(x), int(y)), int(raio_anel + pulso * 2), 2)
+
+    # Núcleo central brilhante
+    raio_nucleo = int(6 + pulso * 3)
+    pygame.draw.circle(tela, (255, 255, 255), (int(x), int(y)), raio_nucleo)
+    pygame.draw.circle(tela, cor_portal_interno, (int(x), int(y)), raio_nucleo - 2)
+
+    # Partículas orbitando (efeito arcade)
+    num_particulas = 8
+    for i in range(num_particulas):
+        angulo = (2 * math.pi * i / num_particulas) + (tempo_atual / 200)
+        raio_orbita = 22 + math.sin(tempo_atual / 100 + i) * 3
+
+        part_x = x + math.cos(angulo) * raio_orbita
+        part_y = y + math.sin(angulo) * raio_orbita
+
+        # Tamanho variável da partícula
+        tamanho_part = 3 + int(pulso * 2)
+
+        # Desenhar partícula pixelada (estilo arcade)
+        pygame.draw.rect(tela, cor_particulas,
+                        (int(part_x - tamanho_part/2), int(part_y - tamanho_part/2),
+                         tamanho_part, tamanho_part))
+
+    # Grid de fundo (efeito retrofuturístico)
+    for i in range(3):
+        for j in range(3):
+            grid_x = x - 12 + i * 12
+            grid_y = y - 12 + j * 12
+
+            # Pequenos quadrados do grid
+            if (i + j) % 2 == 0:
+                pygame.draw.rect(tela, cor_grid, (int(grid_x), int(grid_y), 2, 2))
+
+    # Raios de energia saindo do portal (efeito neon)
+    num_raios = 4
+    for i in range(num_raios):
+        angulo = (2 * math.pi * i / num_raios) + (tempo_atual / 300)
+        comprimento_raio = 12 + pulso * 6
+
+        raio_start_x = x + math.cos(angulo) * raio_portal
+        raio_start_y = y + math.sin(angulo) * raio_portal
+        raio_end_x = x + math.cos(angulo) * (raio_portal + comprimento_raio)
+        raio_end_y = y + math.sin(angulo) * (raio_portal + comprimento_raio)
+
+        # Raio com gradiente
+        pygame.draw.line(tela, cor_portal_externo,
+                        (int(raio_start_x), int(raio_start_y)),
+                        (int(raio_end_x), int(raio_end_y)), 2)
+
 def desenhar_icone_faca(tela, x, y, tempo_atual):
     """
     Desenha um ícone de faca de combate com efeitos visuais.
@@ -354,6 +438,22 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
             "cor_resultado": (220, 150, 150),
             "icone_func": "faca",
             "dano": 1
+        },
+        {
+            "key": "dimensional_hop",
+            "nome": "DIMENSIONAL HOP",
+            "descricao": "",
+            "instrucoes": "Press Q to hold, Click to teleport",
+            "info_extra": "Instant teleportation to cursor position",
+            "cor_fundo": (40, 20, 60),
+            "cor_borda": (150, 80, 200),
+            "cor_botao": (100, 50, 150),
+            "cor_hover": (140, 80, 200),
+            "cor_texto": (200, 150, 255),
+            "cor_resultado": (200, 150, 255),
+            "icone_func": "dimensional_hop",
+            "dano": 1,
+            "custo": 60
         }
     ]
     
@@ -451,9 +551,12 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
             
         elif item["icone_func"] == "ampulheta":
             desenhar_icone_ampulheta(conteudo_surf, icone_x, icone_y, tempo_atual)
-            
+
         elif item["icone_func"] == "faca":
             desenhar_icone_faca(conteudo_surf, icone_x, icone_y, tempo_atual)
+
+        elif item["icone_func"] == "dimensional_hop":
+            desenhar_icone_dimensional_hop(conteudo_surf, icone_x, icone_y, tempo_atual)
         
         # Nome do item (ajustado para o novo tamanho)
         cor_texto = item["cor_texto"] if item.get("pode_comprar", True) else (100, 100, 100)
