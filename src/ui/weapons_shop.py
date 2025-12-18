@@ -478,7 +478,7 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "nome": "SHOTGUN",
             "descricao": "",
             "instrucoes": "Press R to switch weapon type",
-            "info_extra": "High damage spread shot",
+            "info_extra": "Four shots at once!",
             "cor_fundo": (50, 30, 30),
             "cor_borda": (150, 70, 70),
             "cor_botao": (180, 100, 50),
@@ -508,7 +508,7 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "nome": "DESERT EAGLE",
             "descricao": "",
             "instrucoes": "Press R to switch weapon type",
-            "info_extra": "Powerful hand cannon with high accuracy",
+            "info_extra": "Powerful hand cannon with high damage & accuracy",
             "cor_fundo": (60, 50, 30),
             "cor_borda": (220, 180, 80),
             "cor_botao": (180, 140, 60),
@@ -517,14 +517,14 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_resultado": AMARELO,
             "icone_func": "desert_eagle",
             "custo": 100,
-            "dano": 1
+            "dano": 3
         },
         {
             "key": "sabre_luz",
             "nome": "LIGHTSABER",
             "descricao": "",
             "instrucoes": "Press R to switch weapon type",
-            "info_extra": "Elegant weapon for a more civilized age",
+            "info_extra": "Only for those who know what they're doing.",
             "cor_fundo": (30, 30, 60),
             "cor_borda": (100, 150, 255),
             "cor_botao": (50, 100, 200),
@@ -532,7 +532,7 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_texto": (150, 200, 255),
             "cor_resultado": CIANO,
             "icone_func": "sabre_luz",
-            "dano": 1
+            "dano": 10
         }
     ]
     

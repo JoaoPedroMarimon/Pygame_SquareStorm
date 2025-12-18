@@ -655,7 +655,7 @@ def processar_dano_sabre(jogador, inimigos, particulas=None, flashes=None):
                 inimigo.ultimo_dano_sabre = tempo_atual
 
                 # Aplicar dano (3 de dano)
-                if inimigo.tomar_dano(dano=3):
+                if inimigo.tomar_dano(dano=10):
                     inimigos_atingidos.append(inimigo)
                     
                     # Efeitos visuais do corte

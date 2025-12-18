@@ -422,14 +422,14 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
             "cor_texto": (150, 150, 255),
             "cor_resultado": AZUL,
             "icone_func": "ampulheta",
-            "dano": 1
+            "dano": 0
         },
         {
             "key": "faca",
             "nome": "KILLER DOLL",
             "descricao": "",
             "instrucoes": "Press Q to equip, be careful, he's fast",
-            "info_extra": "Dangerous ally with high mobility",
+            "info_extra": "Be careful, he's fast",
             "cor_fundo": (60, 40, 40),
             "cor_borda": (150, 80, 80),
             "cor_botao": (120, 60, 60),
@@ -452,7 +452,7 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
             "cor_texto": (200, 150, 255),
             "cor_resultado": (200, 150, 255),
             "icone_func": "dimensional_hop",
-            "dano": 1,
+            "dano": 0,
             "custo": 60
         }
     ]

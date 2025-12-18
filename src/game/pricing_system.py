@@ -26,7 +26,7 @@ class PricingManager:
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0,  # Preço não aumenta
-                "quantidade_por_compra": 10
+                "quantidade_por_compra": 3
             },
             "metralhadora": {
                 "preco_base": 25,
@@ -36,18 +36,18 @@ class PricingManager:
                 "quantidade_por_compra": 25
             },
             "sabre_luz": {
-                "preco_base": 50,
+                "preco_base": 1000,
                 "compras_realizadas": 0,
                 "limite_maximo": 1,  # Apenas 1 compra (item épico único)
                 "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 20
             },
             "desert_eagle": {
-                "preco_base": 40,
+                "preco_base": 100,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
-                "quantidade_por_compra": 15
+                "quantidade_por_compra": 10
             },
 
             # UPGRADES SHOP
@@ -65,24 +65,24 @@ class PricingManager:
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
-                "quantidade_por_compra": 3
+                "quantidade_por_compra": 5
             },
             "ampulheta": {
-                "preco_base": 40,
+                "preco_base": 500,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 2
             },
             "faca": {
-                "preco_base": 30,
+                "preco_base": 60,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
-                "quantidade_por_compra": 5
+                "quantidade_por_compra": 3
             },
             "dimensional_hop": {
-                "preco_base": 60,
+                "preco_base": 65,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
