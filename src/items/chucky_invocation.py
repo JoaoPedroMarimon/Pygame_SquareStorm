@@ -28,7 +28,7 @@ class ChuckyInvocation:
         # Estados da animação
         self.fase_pentagrama = True  # Primeira fase: desenhar pentagrama
         self.fase_chucky = False     # Segunda fase: aparecer Chucky
-        self.tempo_pentagrama = 180  # 3 segundos para o pentagrama
+        self.tempo_pentagrama = 90  # 1.5 segundos para o pentagrama (acelerado)
 
         # Propriedades do pentagrama
         self.raio_pentagrama = 0
@@ -110,23 +110,23 @@ class ChuckyInvocation:
         """Atualiza o portal que cobre o Chucky."""
         tempo_chucky = self.tempo_vida - self.tempo_pentagrama
 
-        # Portal aparece 30 frames antes do Chucky (0.5 segundos)
-        # e desaparece 60 frames depois do Chucky aparecer (1 segundo)
-        if tempo_chucky >= -30 and tempo_chucky <= 120:
+        # Portal aparece 15 frames antes do Chucky (0.25 segundos) - ACELERADO
+        # e desaparece 30 frames depois do Chucky aparecer (0.5 segundos) - ACELERADO
+        if tempo_chucky >= -15 and tempo_chucky <= 60:
             self.portal_ativo = True
 
             if tempo_chucky < 0:
                 # Portal crescendo antes do Chucky
-                progresso = (30 + tempo_chucky) / 30  # 0 a 1
+                progresso = (15 + tempo_chucky) / 15  # 0 a 1
                 self.portal_alpha = int(255 * progresso)
                 self.portal_raio = int(150 * progresso)
-            elif tempo_chucky <= 60:
+            elif tempo_chucky <= 30:
                 # Portal no máximo durante aparição do Chucky
                 self.portal_alpha = 255
                 self.portal_raio = 150
             else:
                 # Portal diminuindo após Chucky aparecer
-                progresso = 1 - ((tempo_chucky - 60) / 60)  # 1 a 0
+                progresso = 1 - ((tempo_chucky - 30) / 30)  # 1 a 0
                 self.portal_alpha = int(255 * progresso)
                 self.portal_raio = int(150 * progresso)
 
@@ -136,7 +136,7 @@ class ChuckyInvocation:
             self.portal_ativo = False
 
             # Ativar o Chucky quando o portal se fechar
-            if tempo_chucky > 120 and not self.chucky_ativo:
+            if tempo_chucky > 60 and not self.chucky_ativo:
                 self.chucky_ativo = True
                 self._iniciar_movimento_chucky()
 
@@ -251,8 +251,8 @@ class ChuckyInvocation:
         """Atualiza a fase de aparição do Chucky."""
         tempo_chucky = self.tempo_vida - self.tempo_pentagrama
 
-        if tempo_chucky <= 60:  # Primeiros 1 segundo: Chucky aparece
-            aparicao_prog = tempo_chucky / 60
+        if tempo_chucky <= 30:  # Primeiros 0.5 segundos: Chucky aparece - ACELERADO
+            aparicao_prog = tempo_chucky / 30
             self.escala_chucky = aparicao_prog * 1.2  # Cresce um pouco além do normal
             self.alpha_chucky = min(255, int(255 * aparicao_prog))
             self.rotacao_chucky = (1 - aparicao_prog) * 360  # Gira enquanto aparece
@@ -261,8 +261,8 @@ class ChuckyInvocation:
             if not self.som_aparicao_tocado and aparicao_prog > 0.5:
                 self.som_aparicao_tocado = True
 
-        elif tempo_chucky <= 120:  # Próximo 1 segundo: estabiliza
-            self.escala_chucky = max(1.0, 1.2 - (tempo_chucky - 60) / 60 * 0.2)
+        elif tempo_chucky <= 60:  # Próximos 0.5 segundos: estabiliza - ACELERADO
+            self.escala_chucky = max(1.0, 1.2 - (tempo_chucky - 30) / 30 * 0.2)
             self.alpha_chucky = 255
             self.rotacao_chucky = 0
 
@@ -324,7 +324,7 @@ class ChuckyInvocation:
             self.tempo_inicio_pentagrama = tempo
 
         tempo_crescimento = tempo - self.tempo_inicio_pentagrama
-        duracao_crescimento = 3000  # 3 segundos
+        duracao_crescimento = 1500  # 1.5 segundos (acelerado)
 
         if tempo_crescimento < duracao_crescimento:
             progresso = tempo_crescimento / duracao_crescimento
