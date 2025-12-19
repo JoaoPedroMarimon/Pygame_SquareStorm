@@ -76,11 +76,11 @@ class BossFusion:
         self.tempo_ultimo_ataque = 0  # Inicia em 0 para atacar imediatamente
         self.padroes_ataque = [
             "rajada_circular", "laser_duplo", "meteoros", "ondas_choque",
-            "laser_rotativo", "chuva_energia", "explosao_presas",
+            "laser_rotativo", "explosao_presas",
             "tornado_tiros", "barreira_espinhos", "pulso_magnetico"
         ]
         self.ataque_atual = None
-        self.cooldown_ataque = 1000  # 1 segundo entre ataques
+        self.cooldown_ataque = 1500  # 1.5 segundos entre ataques (aumentado para dar mais tempo)
         
         # Estados de ataque específicos
         self.laser_rotativo_angulo = 0
@@ -142,20 +142,20 @@ class BossFusion:
 
         if self.fase_boss == 2:
             self.velocidade = self.velocidade_base * 1.2  # REDUZIDO: era 1.3
-            self.cooldown_ataque = 1000  # 1 segundo entre ataques (mesma fase 1)
+            self.cooldown_ataque = 1500  # 1.5 segundos entre ataques (mesma fase 1)
             self.duracao_movimento = 3500  # AUMENTADO: era 3000
             self.cor_principal = (150, 0, 0)
-            self.tempo_carregamento_necessario = 800  # REDUZIDO: carrega rápido (0.8s)
+            self.tempo_carregamento_necessario = 1000  # 1 segundo de carregamento (aumentado)
 
         elif self.fase_boss == 3:
             self.velocidade = self.velocidade_base * 1.4  # REDUZIDO: era 1.6
-            self.cooldown_ataque = 1000  # 1 segundo entre ataques (mesma fase 1)
+            self.cooldown_ataque = 1500  # 1.5 segundos entre ataques (mesma fase 1)
             self.duracao_movimento = 2500  # AUMENTADO: era 2000
             self.cor_principal = (200, 0, 0)
             self.tamanho = int(self.tamanho_base * 1.2)
             self.rect.width = self.tamanho
             self.rect.height = self.tamanho
-            self.tempo_carregamento_necessario = 600  # REDUZIDO: carrega muito rápido (0.6s)
+            self.tempo_carregamento_necessario = 800  # 0.8 segundos de carregamento (aumentado)
             # Fase 3 SEM combos - ataques simples apenas
             self.combo_ativo = False  # DESATIVADO
     
@@ -424,8 +424,6 @@ class BossFusion:
             self.ataque_ondas_choque(centro_x, centro_y, tiros_inimigo)
         elif self.ataque_atual == "laser_rotativo":
             self.ataque_laser_rotativo(centro_x, centro_y, tiros_inimigo)
-        elif self.ataque_atual == "chuva_energia":
-            self.ataque_chuva_energia(tiros_inimigo, particulas, flashes)
         elif self.ataque_atual == "explosao_presas":
             self.ataque_explosao_presas(centro_x, centro_y, tiros_inimigo, particulas, flashes)
         elif self.ataque_atual == "tornado_tiros":
@@ -451,7 +449,7 @@ class BossFusion:
     
     def ataque_rajada_circular(self, centro_x, centro_y, tiros_inimigo):
         """Rajada circular melhorada - MUITO BALANCEADA (possível desviar)."""
-        num_tiros = 8 if self.fase_boss < 3 else 12  # MUITO REDUZIDO: deixa espaços para desviar
+        num_tiros = 5 if self.fase_boss < 3 else 8  # MUITO REDUZIDO: deixa espaços grandes para desviar
 
         for i in range(num_tiros):
             angulo = (2 * math.pi * i) / num_tiros
@@ -461,7 +459,7 @@ class BossFusion:
             dy = math.sin(angulo)
 
             cor_tiro = self.cor_secundaria
-            velocidade = random.randint(3, 5)  # REDUZIDO: mais lento para dar tempo de reação
+            velocidade = random.randint(2, 4)  # REDUZIDO: mais lento ainda para dar tempo de reação
 
             tiro = Tiro(centro_x, centro_y, dx, dy, cor_tiro, velocidade)
             tiros_inimigo.append(tiro)
@@ -470,86 +468,86 @@ class BossFusion:
         """Laser duplo com predição."""
         predicao_x = jogador.x + random.randint(-50, 50)
         predicao_y = jogador.y + random.randint(-50, 50)
-        
+
         dx = predicao_x - centro_x
         dy = predicao_y - centro_y
         dist = math.sqrt(dx**2 + dy**2)
-        
+
         if dist > 0:
             dx /= dist
             dy /= dist
-        
-        for offset in [-0.3, 0, 0.3]:  # REDUZIDO: era 5 lasers
+
+        for offset in [-0.2, 0.2]:  # MUITO REDUZIDO: apenas 2 lasers
             dx_laser = dx + offset
             dy_laser = dy
-            
+
             norm = math.sqrt(dx_laser**2 + dy_laser**2)
             if norm > 0:
                 dx_laser /= norm
                 dy_laser /= norm
-            
-            for i in range(10):  # REDUZIDO: era 12
-                tiro = Tiro(centro_x + dx_laser * i * 8, 
-                           centro_y + dy_laser * i * 8, 
-                           dx_laser, dy_laser, 
-                           (255, 0, 255), 9)
+
+            for i in range(7):  # MUITO REDUZIDO: era 10
+                tiro = Tiro(centro_x + dx_laser * i * 10,
+                           centro_y + dy_laser * i * 10,
+                           dx_laser, dy_laser,
+                           (255, 0, 255), 7)  # Velocidade reduzida
                 tiros_inimigo.append(tiro)
     
     def ataque_meteoros(self, tiros_inimigo, particulas, flashes):
         """Meteoros melhorados - BALANCEADOS."""
-        num_meteoros = 5 if self.fase_boss < 3 else 8  # REDUZIDO: era 8 e 15
-        
+        num_meteoros = 3 if self.fase_boss < 3 else 5  # MUITO REDUZIDO: era 5 e 8
+
         for _ in range(num_meteoros):
             x = random.randint(50, LARGURA - 50)
             y = -30
-            
-            dx = random.uniform(-0.5, 0.5)  # REDUZIDO
-            dy = random.uniform(0.6, 1.0)  # REDUZIDO
-            
+
+            dx = random.uniform(-0.3, 0.3)  # REDUZIDO
+            dy = random.uniform(0.5, 0.8)  # REDUZIDO
+
             cor_meteoro = random.choice([(255, 100, 0), (255, 0, 0), (255, 150, 50)])
-            velocidade = random.randint(4, 7)  # REDUZIDO
-            
+            velocidade = random.randint(3, 5)  # MUITO REDUZIDO
+
             meteoro = Tiro(x, y, dx, dy, cor_meteoro, velocidade)
-            meteoro.raio = random.randint(8, 14)  # REDUZIDO
-            meteoro.rect = pygame.Rect(x - meteoro.raio, y - meteoro.raio, 
+            meteoro.raio = random.randint(6, 10)  # REDUZIDO
+            meteoro.rect = pygame.Rect(x - meteoro.raio, y - meteoro.raio,
                                      meteoro.raio * 2, meteoro.raio * 2)
             tiros_inimigo.append(meteoro)
     
     def ataque_ondas_choque(self, centro_x, centro_y, tiros_inimigo):
         """Ondas de choque melhoradas."""
-        num_ondas = 3 if self.fase_boss < 3 else 5  # REDUZIDO
-        
+        num_ondas = 2 if self.fase_boss < 3 else 3  # MUITO REDUZIDO
+
         for onda in range(num_ondas):
-            tiros_por_onda = 12  # REDUZIDO: era 16
-            
+            tiros_por_onda = 8  # MUITO REDUZIDO: era 12
+
             for i in range(tiros_por_onda):
                 angulo = (2 * math.pi * i) / tiros_por_onda
                 dx = math.cos(angulo)
                 dy = math.sin(angulo)
-                
-                velocidade = 2.5 + onda * 1.0  # REDUZIDO
+
+                velocidade = 2.0 + onda * 0.8  # REDUZIDO
                 cor_onda = (80 + onda * 25, 0, 180 - onda * 20)
-                
-                start_x = centro_x + dx * (onda + 1) * 25
-                start_y = centro_y + dy * (onda + 1) * 25
-                
+
+                start_x = centro_x + dx * (onda + 1) * 30
+                start_y = centro_y + dy * (onda + 1) * 30
+
                 tiro = Tiro(start_x, start_y, dx, dy, cor_onda, velocidade)
                 tiros_inimigo.append(tiro)
     
     def ataque_laser_rotativo(self, centro_x, centro_y, tiros_inimigo):
         """Laser que gira 360 graus."""
-        num_passos = 18  # REDUZIDO: era 24
+        num_passos = 12  # MUITO REDUZIDO: era 18
         for i in range(num_passos):
             angulo = (2 * math.pi * i) / num_passos + self.laser_rotativo_angulo
-            
-            for dist in range(15, 280, 20):  # REDUZIDO densidade
+
+            for dist in range(20, 250, 30):  # MUITO REDUZIDO: densidade menor
                 x = centro_x + math.cos(angulo) * dist
                 y = centro_y + math.sin(angulo) * dist
-                
+
                 if 0 <= x <= LARGURA and 0 <= y <= ALTURA_JOGO:
-                    tiro = Tiro(x, y, math.cos(angulo), math.sin(angulo), (0, 255, 255), 7)
+                    tiro = Tiro(x, y, math.cos(angulo), math.sin(angulo), (0, 255, 255), 5)  # Velocidade reduzida
                     tiros_inimigo.append(tiro)
-        
+
         self.laser_rotativo_angulo += 0.1
     
     def ataque_chuva_energia(self, tiros_inimigo, particulas, flashes):
@@ -588,33 +586,33 @@ class BossFusion:
         dx = jogador.x - centro_x
         dy = jogador.y - centro_y
         dist = math.sqrt(dx**2 + dy**2)
-        
+
         if dist > 0:
             dx /= dist
             dy /= dist
-        
-        for i in range(15):  # REDUZIDO: era 20
-            angulo = (2 * math.pi * i) / 15
-            raio = 50 + (i * 8)  # REDUZIDO
-            
+
+        for i in range(10):  # MUITO REDUZIDO: era 15
+            angulo = (2 * math.pi * i) / 10
+            raio = 50 + (i * 6)  # REDUZIDO
+
             x = centro_x + math.cos(angulo) * raio
             y = centro_y + math.sin(angulo) * raio
-            
-            vel_x = dx * 2.5 + math.cos(angulo + math.pi/2) * 1.5  # REDUZIDO
-            vel_y = dy * 2.5 + math.sin(angulo + math.pi/2) * 1.5
-            
-            tiro = Tiro(x, y, vel_x, vel_y, (150, 0, 150), 5)
+
+            vel_x = dx * 2.0 + math.cos(angulo + math.pi/2) * 1.2  # REDUZIDO
+            vel_y = dy * 2.0 + math.sin(angulo + math.pi/2) * 1.2
+
+            tiro = Tiro(x, y, vel_x, vel_y, (150, 0, 150), 4)  # Velocidade reduzida
             tiros_inimigo.append(tiro)
     
     def ataque_barreira_espinhos(self, centro_x, centro_y, tiros_inimigo):
         """Cria barreira de tiros espinhosos ao redor do boss."""
         self.barreira_ativa = True
-        
-        for i in range(12):  # REDUZIDO: era 16
-            angulo = (2 * math.pi * i) / 12
+
+        for i in range(4):  # MUITO REDUZIDO: era 12
+            angulo = (2 * math.pi * i) / 8
             x = centro_x + math.cos(angulo) * 80
             y = centro_y + math.sin(angulo) * 80
-            
+
             tiro = Tiro(x, y, 0, 0, (100, 100, 100), 0)
             tiro.orbital = True
             tiro.angulo_orbital = angulo
@@ -625,15 +623,15 @@ class BossFusion:
     
     def ataque_pulso_magnetico(self, centro_x, centro_y, tiros_inimigo, jogador):
         """Pulso que empurra ou puxa tiros existentes."""
-        for i in range(10):  # REDUZIDO: era 12
-            angulo = (2 * math.pi * i) / 10
+        for i in range(6):  # MUITO REDUZIDO: era 10
+            angulo = (2 * math.pi * i) / 6
             dx = math.cos(angulo)
             dy = math.sin(angulo)
-            
-            tiro = Tiro(centro_x, centro_y, dx, dy, (255, 255, 255), 3.5)
+
+            tiro = Tiro(centro_x, centro_y, dx, dy, (255, 255, 255), 3.0)  # Velocidade reduzida
             tiro.pulso_magnetico = True
             tiros_inimigo.append(tiro)
-        
+
         print("🧲 Pulso magnético ativado!")
     
     def atualizar_presas_ativas(self, tiros_inimigo, particulas, flashes):
@@ -652,14 +650,14 @@ class BossFusion:
     
     def explodir_presa(self, presa, tiros_inimigo, particulas, flashes):
         """Explode uma presa criando tiros em todas as direções."""
-        num_tiros = 10  # REDUZIDO: era 12
-        
+        num_tiros = 6  # MUITO REDUZIDO: era 10
+
         for i in range(num_tiros):
             angulo = (2 * math.pi * i) / num_tiros
             dx = math.cos(angulo)
             dy = math.sin(angulo)
-            
-            tiro = Tiro(presa['x'], presa['y'], dx, dy, (255, 100, 0), 5)
+
+            tiro = Tiro(presa['x'], presa['y'], dx, dy, (255, 100, 0), 4)  # Velocidade reduzida
             tiros_inimigo.append(tiro)
         
         flash = criar_explosao(presa['x'], presa['y'], (255, 100, 0), particulas, 40)
@@ -741,6 +739,10 @@ class BossFusion:
         Args:
             dano: Quantidade de dano a receber (padrão: 1)
         """
+        # BUGFIX: Não tomar dano se estiver congelado (jogador morreu)
+        if self.congelado_por_morte_jogador:
+            return False
+
         if not self.invulneravel:
             self.vidas -= dano
 
@@ -765,7 +767,7 @@ class BossFusion:
                     'tamanho': 6
                 }
                 self.particulas_aura.append(particula)
-            
+
             print(f"Boss tomou dano! Vida: {self.vidas}/{self.vidas_max}")
             return True
         return False

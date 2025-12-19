@@ -402,20 +402,7 @@ class FaseBoss(FaseBase):
         centro_x = self.boss.x + self.boss.tamanho // 2
         centro_y = self.boss.y + self.boss.tamanho // 2
 
-        # Ataque massivo em todas as direções
-        for i in range(40):
-            angulo = (2 * math.pi * i) / 40
-            dx = math.cos(angulo)
-            dy = math.sin(angulo)
 
-            # Múltiplas ondas
-            for onda in range(3):
-                velocidade = 4 + onda * 2
-                start_x = centro_x + dx * onda * 30
-                start_y = centro_y + dy * onda * 30
-
-                tiro = Tiro(start_x, start_y, dx, dy, (255, 0, 0), velocidade)
-                self.tiros_inimigo.append(tiro)
 
     def _boss_ataque_fase_final(self):
         """Ataque épico da fase final."""
@@ -425,24 +412,7 @@ class FaseBoss(FaseBase):
         centro_y = self.boss.y + self.boss.tamanho // 2
 
         # 1. Rajada circular massiva
-        for i in range(50):
-            angulo = (2 * math.pi * i) / 50
-            dx = math.cos(angulo)
-            dy = math.sin(angulo)
 
-            tiro = Tiro(centro_x, centro_y, dx, dy, (255, 255, 255), 7)
-            self.tiros_inimigo.append(tiro)
-
-        # 2. Meteoros em posições estratégicas
-        posicoes_meteoro = [
-            (self.jogador.x - 50, -30), (self.jogador.x, -30), (self.jogador.x + 50, -30),
-            (self.jogador.x - 100, -30), (self.jogador.x + 100, -30)
-        ]
-
-        for pos in posicoes_meteoro:
-            meteoro = Tiro(pos[0], pos[1], 0, 1, (255, 100, 0), 8)
-            meteoro.raio = 20
-            self.tiros_inimigo.append(meteoro)
 
     def _verificar_condicoes_fim_boss(self):
         """Verifica condições de fim do boss fight."""
