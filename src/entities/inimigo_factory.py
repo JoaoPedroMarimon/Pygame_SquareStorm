@@ -105,7 +105,7 @@ class InimigoFactory:
         # Cor laranja vibrante para o perseguidor
         cor_perseguidor = (255, 140, 0)  # Laranja
         # Velocidade maior que a média, para poder alcançar o jogador
-        velocidade = VELOCIDADE_INIMIGO_BASE * 1.3
+        velocidade = VELOCIDADE_INIMIGO_BASE * 0.7
 
         inimigo = Quadrado(x, y, TAMANHO_QUADRADO, cor_perseguidor, velocidade)
         inimigo.vidas = 2

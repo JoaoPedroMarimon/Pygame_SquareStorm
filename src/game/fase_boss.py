@@ -136,7 +136,7 @@ class FaseBoss(FaseBase):
                 self.difficulty_manager.atualizar_dificuldade(tempo_atual, self.jogador, self.boss)
 
                 # Verificar modo desespero
-                if self.boss and self.boss.vidas <= 5 and not self.boss_modo_desespero:
+                if self.boss and self.boss.vidas <= 1 and not self.boss_modo_desespero:
                     self.boss_modo_desespero = True
                     self.boss.cooldown_ataque = int(self.boss.cooldown_ataque * 0.6)
 
@@ -510,8 +510,6 @@ class FaseBoss(FaseBase):
         self.renderizar_hud(tempo_atual, alvos)
 
         # Indicadores especiais
-        if self.boss_modo_desespero:
-            desenhar_texto(self.tela, "MODO DESESPERO!", 36, (255, 0, 0), LARGURA // 2, 150)
 
         # Mensagens de transição
         self._desenhar_mensagens_transicao_boss()
