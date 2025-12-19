@@ -72,14 +72,15 @@ class BossFusion:
         self.movimento_suave_speed = 0.05
         
         # Sistema de ataques - SEM COMBOS
-        self.tempo_ultimo_ataque = 0
+        # Boss inicia pronto para atacar (tempo muito no passado)
+        self.tempo_ultimo_ataque = 0  # Inicia em 0 para atacar imediatamente
         self.padroes_ataque = [
             "rajada_circular", "laser_duplo", "meteoros", "ondas_choque",
-            "laser_rotativo", "chuva_energia", "explosao_presas", 
+            "laser_rotativo", "chuva_energia", "explosao_presas",
             "tornado_tiros", "barreira_espinhos", "pulso_magnetico"
         ]
         self.ataque_atual = None
-        self.cooldown_ataque = 2000
+        self.cooldown_ataque = 1000  # 1 segundo entre ataques
         
         # Estados de ataque específicos
         self.laser_rotativo_angulo = 0
@@ -107,7 +108,8 @@ class BossFusion:
         self.duracao_invulneravel = 0
         self.carregando_ataque = False
         self.tempo_carregamento = 0
-        self.tempo_carregamento_necessario = 1500
+        self.tempo_carregamento_necessario = 1000  # REDUZIDO: carrega em 1 segundo
+        self.ataque_pronto_para_executar = False  # Flag para indicar que ataque está pronto
         
         # Sistema de combo DESATIVADO
         self.combo_ativo = False
@@ -137,56 +139,56 @@ class BossFusion:
     def aplicar_mudanca_fase(self):
         """Mudanças de fase com novos comportamentos - BALANCEADO."""
         print(f"⚡ Boss entrou na FASE {self.fase_boss}!")
-        
+
         if self.fase_boss == 2:
             self.velocidade = self.velocidade_base * 1.2  # REDUZIDO: era 1.3
-            self.cooldown_ataque = 1800  # AUMENTADO: era 1500
+            self.cooldown_ataque = 1000  # 1 segundo entre ataques (mesma fase 1)
             self.duracao_movimento = 3500  # AUMENTADO: era 3000
             self.cor_principal = (150, 0, 0)
-            self.tempo_carregamento_necessario = 1300  # AUMENTADO: era 1200
-            
+            self.tempo_carregamento_necessario = 800  # REDUZIDO: carrega rápido (0.8s)
+
         elif self.fase_boss == 3:
             self.velocidade = self.velocidade_base * 1.4  # REDUZIDO: era 1.6
-            self.cooldown_ataque = 1200  # AUMENTADO: era 1000
+            self.cooldown_ataque = 1000  # 1 segundo entre ataques (mesma fase 1)
             self.duracao_movimento = 2500  # AUMENTADO: era 2000
             self.cor_principal = (200, 0, 0)
             self.tamanho = int(self.tamanho_base * 1.2)
             self.rect.width = self.tamanho
             self.rect.height = self.tamanho
-            self.tempo_carregamento_necessario = 1000  # AUMENTADO: era 800
+            self.tempo_carregamento_necessario = 600  # REDUZIDO: carrega muito rápido (0.6s)
             # Fase 3 SEM combos - ataques simples apenas
             self.combo_ativo = False  # DESATIVADO
     
     def atualizar(self, tempo_atual, jogador, inimigos):
         """Atualização principal."""
         self.atualizar_fase()
-        
-        # Sistema de movimentação variada
+
+        # Sistema de movimentação variada (SEMPRE ativo)
         self.atualizar_movimento(tempo_atual, jogador)
-        
+
         # Manter dentro da tela
         self.x = max(0, min(self.x, LARGURA - self.tamanho))
         self.y = max(0, min(self.y, ALTURA_JOGO - self.tamanho))
-        
+
         # Atualizar retângulo
         self.rect.x = self.x
         self.rect.y = self.y
-        
+
         # Rastro de movimento
         self.atualizar_rastro()
-        
+
         # Sistema de invulnerabilidade
         if self.invulneravel and tempo_atual - self.tempo_invulneravel > self.duracao_invulneravel:
             self.invulneravel = False
-        
+
         # Efeitos visuais
         self.atualizar_efeitos_visuais(tempo_atual)
-        
-        # Sistema de ataques balanceado
+
+        # Sistema de ataques balanceado (SEMPRE ativo - ataca enquanto se move)
         self.atualizar_sistema_ataques(tempo_atual, jogador, inimigos)
-        
+
         # Sistema de invocação - DESATIVADO (comentado)
-        # if (self.pode_invocar and 
+        # if (self.pode_invocar and
         #     tempo_atual - self.tempo_ultima_invocacao > self.cooldown_invocacao and
         #     len([i for i in inimigos if i.vidas > 0]) < self.max_invocacoes):
         #     self.invocar_ajudantes(inimigos, tempo_atual)
@@ -218,14 +220,19 @@ class BossFusion:
     def escolher_novo_movimento(self):
         """Escolhe um novo padrão de movimento."""
         padroes_disponiveis = [p for p in self.padroes_movimento if p != self.movimento_atual]
-        
+
+        # FASE 1: Remover teleporte (muito forte para início)
+        if self.fase_boss == 1:
+            padroes_disponiveis = [p for p in padroes_disponiveis if p != "teleporte"]
+
+        # FASE 3: Adicionar mais padrões agressivos
         if self.fase_boss == 3:
             padroes_agressivos = ["perseguicao", "teleporte", "tremor", "espiral"]
             padroes_disponiveis.extend(padroes_agressivos)
-        
+
         self.movimento_atual = random.choice(padroes_disponiveis)
         print(f"🎯 Boss mudou para movimento: {self.movimento_atual}")
-        
+
         if self.movimento_atual == "teleporte":
             self.teleporte_cooldown = 0
         elif self.movimento_atual == "zigzag":
@@ -351,37 +358,61 @@ class BossFusion:
         if self.congelado_por_morte_jogador:
             return
 
+        # Verificar se está carregando e se o carregamento terminou
+        if self.carregando_ataque:
+            tempo_carregando = tempo_atual - self.tempo_carregamento
+            if tempo_carregando >= self.tempo_carregamento_necessario:
+                # Carregamento completo - executar ataque!
+                # Nota: executar_ataque precisa ser chamado do game loop com tiros_inimigo, particulas, flashes
+                # Por isso marcamos como pronto para execução
+                self.ataque_pronto_para_executar = True
         # Só iniciar novo ataque se não estiver carregando
-        if not self.carregando_ataque and tempo_atual - self.tempo_ultimo_ataque > self.cooldown_ataque:
-            self.iniciar_ataque(tempo_atual)
+        else:
+            tempo_desde_ultimo = tempo_atual - self.tempo_ultimo_ataque
+            if tempo_desde_ultimo > self.cooldown_ataque:
+                self.iniciar_ataque(tempo_atual)
+            # DEBUG: Log a cada 2 segundos
+            elif hasattr(self, '_ultimo_log_debug'):
+                if tempo_atual - self._ultimo_log_debug > 2000:
+                    print(f"⏳ Aguardando cooldown: {tempo_desde_ultimo}ms/{self.cooldown_ataque}ms")
+                    self._ultimo_log_debug = tempo_atual
+            else:
+                self._ultimo_log_debug = tempo_atual
     
     def iniciar_ataque(self, tempo_atual):
         """Inicia ataque - um por vez, SEM combos."""
         # Atacar apenas se não estiver carregando
         if self.carregando_ataque:
             return
-            
+
         # Escolher um ataque aleatório simples
         padroes_disponiveis = self.padroes_ataque.copy()
-        
+
         # Fase 3 tem ataques mais avançados
         if self.fase_boss == 3:
             ataques_avancados = ["tornado_tiros", "barreira_espinhos", "pulso_magnetico"]
             padroes_disponiveis.extend(ataques_avancados)
-        
+
         self.ataque_atual = random.choice(padroes_disponiveis)
-        
+
         self.carregando_ataque = True
         self.tempo_carregamento = tempo_atual
         self.energia_acumulada = 0
-        
-        print(f"🎯 Boss carregando: {self.ataque_atual}")
+
+        tempo_desde_ultimo = tempo_atual - self.tempo_ultimo_ataque
+        print(f"🎯 Boss carregando: {self.ataque_atual} (tempo desde último ataque: {tempo_desde_ultimo}ms, cooldown: {self.cooldown_ataque}ms)")
     
     def executar_ataque(self, tiros_inimigo, jogador, particulas, flashes):
         """Executa ataques com novos padrões."""
+        # Verificar se há ataque para executar
+        if not self.ataque_pronto_para_executar or not self.ataque_atual:
+            return
+
         centro_x = self.x + self.tamanho // 2
         centro_y = self.y + self.tamanho // 2
-        
+
+        print(f"⚔️ Boss executando ataque: {self.ataque_atual}")
+
         # Ataques originais
         if self.ataque_atual == "rajada_circular":
             self.ataque_rajada_circular(centro_x, centro_y, tiros_inimigo)
@@ -403,30 +434,35 @@ class BossFusion:
             self.ataque_barreira_espinhos(centro_x, centro_y, tiros_inimigo)
         elif self.ataque_atual == "pulso_magnetico":
             self.ataque_pulso_magnetico(centro_x, centro_y, tiros_inimigo, jogador)
-        
+
         # Resetar sistema
         self.carregando_ataque = False
-        self.tempo_ultimo_ataque = pygame.time.get_ticks()
+        self.ataque_pronto_para_executar = False
         self.ataque_atual = None
-        
+
         pygame.mixer.Channel(3).play(pygame.mixer.Sound(gerar_som_explosao()))
+
+        # Registrar tempo do ataque para respeitar cooldown
+        tempo_atual = pygame.time.get_ticks()
+        self.tempo_ultimo_ataque = tempo_atual
+        print(f"✅ Ataque concluído! Aguardando {self.cooldown_ataque}ms antes do próximo")
     
     # ATAQUES BALANCEADOS
     
     def ataque_rajada_circular(self, centro_x, centro_y, tiros_inimigo):
-        """Rajada circular melhorada - BALANCEADA."""
-        num_tiros = 16 if self.fase_boss < 3 else 24  # REDUZIDO: era 20 e 32
-        
+        """Rajada circular melhorada - MUITO BALANCEADA (possível desviar)."""
+        num_tiros = 8 if self.fase_boss < 3 else 12  # MUITO REDUZIDO: deixa espaços para desviar
+
         for i in range(num_tiros):
             angulo = (2 * math.pi * i) / num_tiros
-            angulo += random.uniform(-0.1, 0.1)
-            
+            angulo += random.uniform(-0.05, 0.05)  # Menos variação para manter espaços previsíveis
+
             dx = math.cos(angulo)
             dy = math.sin(angulo)
-            
+
             cor_tiro = self.cor_secundaria
-            velocidade = random.randint(4, 6)  # REDUZIDO: era 5-8
-            
+            velocidade = random.randint(3, 5)  # REDUZIDO: mais lento para dar tempo de reação
+
             tiro = Tiro(centro_x, centro_y, dx, dy, cor_tiro, velocidade)
             tiros_inimigo.append(tiro)
     

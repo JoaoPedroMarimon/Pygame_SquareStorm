@@ -39,15 +39,16 @@ class BossDifficultyManager:
         """Ajusta dificuldade baseada na performance do jogador."""
         self.tempo_sobrevivencia = tempo_atual
 
+        # DESATIVADO: Boss agora tem cooldowns fixos por fase
         # Se jogador está indo muito bem, aumentar dificuldade
-        if self.tempo_sobrevivencia > 30000 and boss and boss.vidas > boss.vidas_max * 0.8:
-            self.multiplicador_dificuldade = 1.2
-            boss.cooldown_ataque = int(boss.cooldown_ataque * 0.8)
+        # if self.tempo_sobrevivencia > 30000 and boss and boss.vidas > boss.vidas_max * 0.8:
+        #     self.multiplicador_dificuldade = 1.2
+        #     boss.cooldown_ataque = int(boss.cooldown_ataque * 0.8)
 
         # Se jogador está com dificuldade, diminuir um pouco
-        elif jogador.vidas <= 1 and boss and boss.vidas > boss.vidas_max * 0.5:
-            self.multiplicador_dificuldade = 0.9
-            boss.cooldown_ataque = int(boss.cooldown_ataque * 1.1)
+        # elif jogador.vidas <= 1 and boss and boss.vidas > boss.vidas_max * 0.5:
+        #     self.multiplicador_dificuldade = 0.9
+        #     boss.cooldown_ataque = int(boss.cooldown_ataque * 1.1)
 
 
 class FaseBoss(FaseBase):
@@ -138,7 +139,8 @@ class FaseBoss(FaseBase):
                 # Verificar modo desespero
                 if self.boss and self.boss.vidas <= 1 and not self.boss_modo_desespero:
                     self.boss_modo_desespero = True
-                    self.boss.cooldown_ataque = int(self.boss.cooldown_ataque * 0.6)
+                    # DESATIVADO: Boss já tem cooldowns fixos por fase
+                    # self.boss.cooldown_ataque = int(self.boss.cooldown_ataque * 0.6)
 
                 # Atualizar jogo
                 resultado_jogo = self._atualizar_jogo_boss(tempo_atual, pos_mouse)
@@ -346,10 +348,14 @@ class FaseBoss(FaseBase):
         if hasattr(self.boss, 'presas_ativas') and self.boss.presas_ativas:
             self.boss.atualizar_presas_ativas(self.tiros_inimigo, self.particulas, self.flashes)
 
-        # Sistema de carregamento de ataque
+        # Sistema de carregamento e execução de ataque
         if self.boss.carregando_ataque:
-            if self.boss.desenhar_carregamento_ataque(None, tempo_atual):
-                self.boss.executar_ataque(self.tiros_inimigo, self.jogador, self.particulas, self.flashes)
+            # Apenas desenhar carregamento (não usar retorno como condição)
+            self.boss.desenhar_carregamento_ataque(None, tempo_atual)
+
+        # Executar ataque quando estiver pronto
+        if self.boss.ataque_pronto_para_executar:
+            self.boss.executar_ataque(self.tiros_inimigo, self.jogador, self.particulas, self.flashes)
 
     def _atualizar_inimigos_invocados(self, tempo_atual, fator_tempo):
         """Atualiza inimigos invocados pelo boss com IA."""

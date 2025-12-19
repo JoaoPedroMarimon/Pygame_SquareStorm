@@ -43,7 +43,7 @@ class PricingManager:
                 "quantidade_por_compra": 20
             },
             "desert_eagle": {
-                "preco_base": 100,
+                "preco_base": 60,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
@@ -68,25 +68,25 @@ class PricingManager:
                 "quantidade_por_compra": 5
             },
             "ampulheta": {
-                "preco_base": 500,
+                "preco_base": 130,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 2
             },
             "faca": {
-                "preco_base": 60,
+                "preco_base": 40,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 3
             },
             "dimensional_hop": {
-                "preco_base": 65,
+                "preco_base": 50,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
-                "quantidade_por_compra": 3
+                "quantidade_por_compra": 5
             }
         }
         

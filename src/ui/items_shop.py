@@ -409,21 +409,7 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
             "icone_func": "granada",
             "dano": 1
         },
-        {
-            "key": "ampulheta",
-            "nome": "HOURGLASS OF BALANCE",
-            "descricao": "",
-            "instrucoes": "Press Q to activate slow motion",
-            "info_extra": "Slows time to 30% for 5 seconds",
-            "cor_fundo": (40, 40, 80),
-            "cor_borda": (80, 80, 180),
-            "cor_botao": (60, 60, 150),
-            "cor_hover": (80, 80, 200),
-            "cor_texto": (150, 150, 255),
-            "cor_resultado": AZUL,
-            "icone_func": "ampulheta",
-            "dano": 0
-        },
+
         {
             "key": "faca",
             "nome": "KILLER DOLL",
@@ -454,6 +440,21 @@ def desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos,
             "icone_func": "dimensional_hop",
             "dano": 0,
             "custo": 60
+        },
+        {
+            "key": "ampulheta",
+            "nome": "HOURGLASS OF BALANCE",
+            "descricao": "",
+            "instrucoes": "Press Q to activate slow motion",
+            "info_extra": "Slows time to 30% for 5 seconds",
+            "cor_fundo": (40, 40, 80),
+            "cor_borda": (80, 80, 180),
+            "cor_botao": (60, 60, 150),
+            "cor_hover": (80, 80, 200),
+            "cor_texto": (150, 150, 255),
+            "cor_resultado": AZUL,
+            "icone_func": "ampulheta",
+            "dano": 0
         }
     ]
     
