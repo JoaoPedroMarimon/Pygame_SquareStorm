@@ -21,8 +21,8 @@ class FusionCutscene:
     """
     Gerencia a cutscene de fusão que acontece no início da fase 10.
     """
-    
-    def __init__(self):
+
+    def __init__(self, gradiente_jogo=None, estrelas=None, jogador=None):
         self.estado = "preparacao"  # preparacao -> convergencia -> fusao -> final
         self.tempo_inicio = 0
         self.inimigos_fusao = []
@@ -31,21 +31,28 @@ class FusionCutscene:
         self.energia_central = []
         self.intensidade_shake = 0
         self.som_fusao_tocando = False
-        
+
         # Sistema de música
         self.musica_boss_iniciada = False
         self.musica_boss_path = "song_boss.mp3"  # Caminho para o arquivo de música
-        
+
         # Configurações da animação
         self.duracao_total = 8000  # 8 segundos
         self.centro_fusao_x = LARGURA - 200
         self.centro_fusao_y = ALTURA_JOGO // 2
-        
+
         # Efeitos visuais
         self.brilho_intensidade = 0
         self.ondas_energia = []
         self.texto_atual = ""
         self.mostrar_texto = False
+
+        # Fundo da arena
+        self.gradiente_jogo = gradiente_jogo
+        self.estrelas = estrelas if estrelas is not None else []
+
+        # Jogador
+        self.jogador = jogador
     
     def carregar_musica_boss(self):
         """Carrega e inicializa a música do boss."""
@@ -376,14 +383,14 @@ class FusionCutscene:
                 self.ondas_energia.remove(onda)
     
     def desenhar(self, tela, tempo_atual):
-        """Desenha a cutscene completa com fundo preto."""
+        """Desenha a cutscene completa na arena."""
         # Aplicar shake da tela se necessário
         if self.intensidade_shake > 0:
             # Criar superfície temporária para o shake
             temp_surface = pygame.Surface((LARGURA, ALTURA_JOGO))
             temp_surface.fill((0, 0, 0))
             tela_desenho = temp_surface
-            
+
             # Calcular offset do shake
             offset_x = random.randint(-int(self.intensidade_shake), int(self.intensidade_shake))
             offset_y = random.randint(-int(self.intensidade_shake), int(self.intensidade_shake))
@@ -391,10 +398,71 @@ class FusionCutscene:
             tela_desenho = tela
             offset_x = 0
             offset_y = 0
-        
-        # Desenhar fundo preto
+
+        # Desenhar fundo da arena (gradiente + estrelas)
         tela_desenho.fill((0, 0, 0))
-        
+        if self.gradiente_jogo is not None:
+            tela_desenho.blit(self.gradiente_jogo, (0, 0))
+
+        # Desenhar estrelas
+        if self.estrelas:
+            from src.utils.visual import desenhar_estrelas
+            desenhar_estrelas(tela_desenho, self.estrelas)
+
+        # Desenhar o jogador (se fornecido)
+        if self.jogador is not None:
+            # Salvar estados temporariamente
+            invulneravel_original = self.jogador.invulneravel
+            espingarda_ativa_original = getattr(self.jogador, 'espingarda_ativa', False)
+            metralhadora_ativa_original = getattr(self.jogador, 'metralhadora_ativa', False)
+            desert_eagle_ativa_original = getattr(self.jogador, 'desert_eagle_ativa', False)
+            granada_selecionada_original = getattr(self.jogador, 'granada_selecionada', False)
+            dimensional_hop_selecionado_original = getattr(self.jogador, 'dimensional_hop_selecionado', False)
+            ampulheta_selecionada_original = getattr(self.jogador, 'ampulheta_selecionada', False)
+            amuleto_ativo_original = getattr(self.jogador, 'amuleto_ativo', False)
+            sabre_equipado_original = getattr(self.jogador, 'sabre_equipado', False)
+
+            # Desativar invulnerabilidade e armas temporariamente
+            self.jogador.invulneravel = False
+            if hasattr(self.jogador, 'espingarda_ativa'):
+                self.jogador.espingarda_ativa = False
+            if hasattr(self.jogador, 'metralhadora_ativa'):
+                self.jogador.metralhadora_ativa = False
+            if hasattr(self.jogador, 'desert_eagle_ativa'):
+                self.jogador.desert_eagle_ativa = False
+            if hasattr(self.jogador, 'granada_selecionada'):
+                self.jogador.granada_selecionada = False
+            if hasattr(self.jogador, 'dimensional_hop_selecionado'):
+                self.jogador.dimensional_hop_selecionado = False
+            if hasattr(self.jogador, 'ampulheta_selecionada'):
+                self.jogador.ampulheta_selecionada = False
+            if hasattr(self.jogador, 'amuleto_ativo'):
+                self.jogador.amuleto_ativo = False
+            if hasattr(self.jogador, 'sabre_equipado'):
+                self.jogador.sabre_equipado = False
+
+            # Desenhar o jogador
+            self.jogador.desenhar(tela_desenho, tempo_atual)
+
+            # Restaurar estados
+            self.jogador.invulneravel = invulneravel_original
+            if hasattr(self.jogador, 'espingarda_ativa'):
+                self.jogador.espingarda_ativa = espingarda_ativa_original
+            if hasattr(self.jogador, 'metralhadora_ativa'):
+                self.jogador.metralhadora_ativa = metralhadora_ativa_original
+            if hasattr(self.jogador, 'desert_eagle_ativa'):
+                self.jogador.desert_eagle_ativa = desert_eagle_ativa_original
+            if hasattr(self.jogador, 'granada_selecionada'):
+                self.jogador.granada_selecionada = granada_selecionada_original
+            if hasattr(self.jogador, 'dimensional_hop_selecionado'):
+                self.jogador.dimensional_hop_selecionado = dimensional_hop_selecionado_original
+            if hasattr(self.jogador, 'ampulheta_selecionada'):
+                self.jogador.ampulheta_selecionada = ampulheta_selecionada_original
+            if hasattr(self.jogador, 'amuleto_ativo'):
+                self.jogador.amuleto_ativo = amuleto_ativo_original
+            if hasattr(self.jogador, 'sabre_equipado'):
+                self.jogador.sabre_equipado = sabre_equipado_original
+
         # Desenhar ondas de energia
         for onda in self.ondas_energia:
             alpha = int(255 * (onda['vida'] / 60))
@@ -421,21 +489,44 @@ class FusionCutscene:
         # Desenhar inimigos em fusão
         for inimigo in self.inimigos_fusao:
             if inimigo.tamanho > 0:
-                # Corpo do inimigo com brilho
-                cor_original = inimigo.cor
+                # Desenhar o inimigo manualmente (sem barra de vida)
+                # Efeito de pulsação (copiado do método desenhar original)
+                mod_tamanho = 0
+                if hasattr(inimigo, 'pulsando'):
+                    if inimigo.pulsando < 6:
+                        mod_tamanho = inimigo.pulsando
+                    else:
+                        mod_tamanho = 12 - inimigo.pulsando
+
+                # Desenhar sombra
+                pygame.draw.rect(tela_desenho, (20, 20, 20),
+                                (inimigo.x + 4, inimigo.y + 4,
+                                 inimigo.tamanho, inimigo.tamanho), 0, 3)
+
+                # Aplicar cor com brilho de fusão
+                cor_uso = inimigo.cor
                 if inimigo.brilho_fusao > 0:
-                    cor_brilhante = tuple(min(255, c + inimigo.brilho_fusao) for c in cor_original)
-                    pygame.draw.rect(tela_desenho, cor_brilhante, 
-                                   (inimigo.x, inimigo.y, inimigo.tamanho, inimigo.tamanho), 0, 5)
-                else:
-                    pygame.draw.rect(tela_desenho, cor_original, 
-                                   (inimigo.x, inimigo.y, inimigo.tamanho, inimigo.tamanho), 0, 5)
-                
+                    cor_uso = tuple(min(255, c + int(inimigo.brilho_fusao)) for c in inimigo.cor)
+
+                # Quadrado interior (cor escura)
+                pygame.draw.rect(tela_desenho, inimigo.cor_escura,
+                                (inimigo.x, inimigo.y,
+                                 inimigo.tamanho + mod_tamanho, inimigo.tamanho + mod_tamanho), 0, 5)
+
+                # Quadrado exterior (menor)
+                pygame.draw.rect(tela_desenho, cor_uso,
+                                (inimigo.x + 3, inimigo.y + 3,
+                                 inimigo.tamanho + mod_tamanho - 6, inimigo.tamanho + mod_tamanho - 6), 0, 3)
+
+                # Brilho no canto superior esquerdo
+                pygame.draw.rect(tela_desenho, inimigo.cor_brilhante,
+                                (inimigo.x + 5, inimigo.y + 5, 8, 8), 0, 2)
+
                 # Partículas do inimigo
                 for particula in inimigo.particulas_proprias:
                     if particula['tamanho'] > 0:
-                        pygame.draw.circle(tela_desenho, particula['cor'], 
-                                         (int(particula['x']), int(particula['y'])), 
+                        pygame.draw.circle(tela_desenho, particula['cor'],
+                                         (int(particula['x']), int(particula['y'])),
                                          int(particula['tamanho']))
         
         # Desenhar partículas globais

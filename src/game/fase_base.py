@@ -585,6 +585,14 @@ class FaseBase:
                 return max(10, alvo.vidas_max // 2)  # Boss dá muitas moedas
             return 10
 
+        # Inimigos especiais
+        if hasattr(alvo, 'tipo_mago') and alvo.tipo_mago:
+            return 15  # Mago dá 10 moedas
+        elif hasattr(alvo, 'tipo_metralhadora') and alvo.tipo_metralhadora:
+            return 10  # Inimigo metralhadora dá 7 moedas
+        elif hasattr(alvo, 'perseguidor') and alvo.perseguidor:
+            return 8  # Perseguidor dá 6 moedas
+
         # Inimigos normais com cor
         if alvo.cor == ROXO:
             return 5

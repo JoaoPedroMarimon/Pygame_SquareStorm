@@ -69,8 +69,8 @@ class FaseBoss(FaseBase):
         self.boss = None
         self.inimigos = []  # Inimigos invocados pelo boss
 
-        # Sistema de cutscene
-        self.cutscene = boss_info['cutscene_class']()
+        # Sistema de cutscene (passar gradiente, estrelas e jogador da fase base)
+        self.cutscene = boss_info['cutscene_class'](gradiente_jogo, self.estrelas, self.jogador)
         self.cutscene_ativa = True
 
         # Sistema de dificuldade adaptativa
@@ -162,10 +162,23 @@ class FaseBoss(FaseBase):
                         print("🎬 Executando cutscene do inimigo misterioso...")
                         # Usar posição padrão de spawn do jogador
                         jogador_pos_spawn = (100, ALTURA_JOGO // 2)
+
+                        # Salvar posição atual do jogador
+                        pos_original = (self.jogador.x, self.jogador.y)
+
+                        # Mover temporariamente o jogador para a posição de spawn para a cutscene
+                        self.jogador.x, self.jogador.y = jogador_pos_spawn
+                        self.jogador.rect.x, self.jogador.rect.y = jogador_pos_spawn
+
+                        # Executar cutscene
                         executar_cutscene_misterioso(
                             self.tela, self.relogio, self.gradiente_jogo,
-                            self.estrelas, jogador_pos_spawn
+                            self.estrelas, jogador_pos_spawn, self.jogador
                         )
+
+                        # Restaurar posição original do jogador
+                        self.jogador.x, self.jogador.y = pos_original
+                        self.jogador.rect.x, self.jogador.rect.y = pos_original
 
                     self.limpar()
                     return True

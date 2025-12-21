@@ -79,16 +79,18 @@ class MisteriosoCutscene:
     Cutscene do inimigo misterioso após vencer o Boss Fusion.
     """
 
-    def __init__(self, jogador_pos):
+    def __init__(self, jogador_pos, jogador=None):
         """
         Inicializa a cutscene.
 
         Args:
             jogador_pos: Posição (x, y) do jogador
+            jogador: Objeto do jogador (opcional)
         """
         self.estado = "fade_in"  # fade_in -> spawn -> aproximacao -> dialogo -> teletransporte -> espera -> final
         self.tempo_inicio = 0
         self.jogador_x, self.jogador_y = jogador_pos
+        self.jogador = jogador
 
         # Criar inimigo misterioso longe à direita
         self.misterioso = InimigoMisterioso(LARGURA + 100, ALTURA_JOGO // 2)
@@ -302,9 +304,63 @@ class MisteriosoCutscene:
     def desenhar(self, tela, tempo_atual):
         """Desenha a cutscene."""
         # Desenhar o jogador (sempre visível)
-        jogador_rect = pygame.Rect(self.jogador_x, self.jogador_y, TAMANHO_QUADRADO, TAMANHO_QUADRADO)
-        pygame.draw.rect(tela, AZUL, jogador_rect)
-        pygame.draw.rect(tela, AZUL_ESCURO, jogador_rect, 3)
+        if self.jogador is not None:
+            # Salvar estados temporariamente
+            invulneravel_original = self.jogador.invulneravel
+            espingarda_ativa_original = getattr(self.jogador, 'espingarda_ativa', False)
+            metralhadora_ativa_original = getattr(self.jogador, 'metralhadora_ativa', False)
+            desert_eagle_ativa_original = getattr(self.jogador, 'desert_eagle_ativa', False)
+            granada_selecionada_original = getattr(self.jogador, 'granada_selecionada', False)
+            dimensional_hop_selecionado_original = getattr(self.jogador, 'dimensional_hop_selecionado', False)
+            ampulheta_selecionada_original = getattr(self.jogador, 'ampulheta_selecionada', False)
+            amuleto_ativo_original = getattr(self.jogador, 'amuleto_ativo', False)
+            sabre_equipado_original = getattr(self.jogador, 'sabre_equipado', False)
+
+            # Desativar invulnerabilidade e armas temporariamente
+            self.jogador.invulneravel = False
+            if hasattr(self.jogador, 'espingarda_ativa'):
+                self.jogador.espingarda_ativa = False
+            if hasattr(self.jogador, 'metralhadora_ativa'):
+                self.jogador.metralhadora_ativa = False
+            if hasattr(self.jogador, 'desert_eagle_ativa'):
+                self.jogador.desert_eagle_ativa = False
+            if hasattr(self.jogador, 'granada_selecionada'):
+                self.jogador.granada_selecionada = False
+            if hasattr(self.jogador, 'dimensional_hop_selecionado'):
+                self.jogador.dimensional_hop_selecionado = False
+            if hasattr(self.jogador, 'ampulheta_selecionada'):
+                self.jogador.ampulheta_selecionada = False
+            if hasattr(self.jogador, 'amuleto_ativo'):
+                self.jogador.amuleto_ativo = False
+            if hasattr(self.jogador, 'sabre_equipado'):
+                self.jogador.sabre_equipado = False
+
+            # Desenhar o jogador
+            self.jogador.desenhar(tela, tempo_atual)
+
+            # Restaurar estados
+            self.jogador.invulneravel = invulneravel_original
+            if hasattr(self.jogador, 'espingarda_ativa'):
+                self.jogador.espingarda_ativa = espingarda_ativa_original
+            if hasattr(self.jogador, 'metralhadora_ativa'):
+                self.jogador.metralhadora_ativa = metralhadora_ativa_original
+            if hasattr(self.jogador, 'desert_eagle_ativa'):
+                self.jogador.desert_eagle_ativa = desert_eagle_ativa_original
+            if hasattr(self.jogador, 'granada_selecionada'):
+                self.jogador.granada_selecionada = granada_selecionada_original
+            if hasattr(self.jogador, 'dimensional_hop_selecionado'):
+                self.jogador.dimensional_hop_selecionado = dimensional_hop_selecionado_original
+            if hasattr(self.jogador, 'ampulheta_selecionada'):
+                self.jogador.ampulheta_selecionada = ampulheta_selecionada_original
+            if hasattr(self.jogador, 'amuleto_ativo'):
+                self.jogador.amuleto_ativo = amuleto_ativo_original
+            if hasattr(self.jogador, 'sabre_equipado'):
+                self.jogador.sabre_equipado = sabre_equipado_original
+        else:
+            # Fallback: desenhar um quadrado azul simples
+            jogador_rect = pygame.Rect(self.jogador_x, self.jogador_y, TAMANHO_QUADRADO, TAMANHO_QUADRADO)
+            pygame.draw.rect(tela, AZUL, jogador_rect)
+            pygame.draw.rect(tela, AZUL_ESCURO, jogador_rect, 3)
 
         # Desenhar o inimigo misterioso (se não estiver desaparecido)
         if self.estado not in ("espera", "final"):
@@ -374,7 +430,7 @@ class MisteriosoCutscene:
             tela.blit(fade_surface, (0, 0))
 
 
-def executar_cutscene_misterioso(tela, relogio, gradiente_jogo, estrelas, jogador_pos):
+def executar_cutscene_misterioso(tela, relogio, gradiente_jogo, estrelas, jogador_pos, jogador=None):
     """
     Executa a cutscene do inimigo misterioso.
 
@@ -384,11 +440,12 @@ def executar_cutscene_misterioso(tela, relogio, gradiente_jogo, estrelas, jogado
         gradiente_jogo: Gradiente de fundo
         estrelas: Lista de estrelas de fundo
         jogador_pos: Posição (x, y) do jogador
+        jogador: Objeto do jogador (opcional)
 
     Returns:
         True quando a cutscene termina
     """
-    cutscene = MisteriosoCutscene(jogador_pos)
+    cutscene = MisteriosoCutscene(jogador_pos, jogador)
     cutscene.iniciar(pygame.time.get_ticks())
 
     rodando = True
