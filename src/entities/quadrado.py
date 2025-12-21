@@ -612,6 +612,10 @@ class Quadrado:
         # Verificar se o tempo de invulnerabilidade acabou (apenas para o jogador)
         if self.invulneravel and self.duracao_invulneravel != float('inf') and pygame.time.get_ticks() - self.tempo_invulneravel > self.duracao_invulneravel:
             self.invulneravel = False
+            # Restaurar duração original se foi modificada pelo dimensional hop
+            if hasattr(self, 'duracao_invulneravel_original'):
+                self.duracao_invulneravel = self.duracao_invulneravel_original
+                delattr(self, 'duracao_invulneravel_original')
         
         # NOVO: Atualizar sistema de ampulheta (apenas para o jogador)
         if self.cor == AZUL:

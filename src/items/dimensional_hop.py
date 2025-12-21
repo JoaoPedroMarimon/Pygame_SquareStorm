@@ -89,6 +89,13 @@ class DimensionalHop:
         jogador.rect.x = jogador.x
         jogador.rect.y = jogador.y
 
+        # Ativar invulnerabilidade por 1.5 segundos
+        jogador.invulneravel = True
+        jogador.tempo_invulneravel = tempo_atual
+        # Salvar duração original e aplicar nova duração temporária
+        jogador.duracao_invulneravel_original = getattr(jogador, 'duracao_invulneravel', DURACAO_INVULNERAVEL)
+        jogador.duracao_invulneravel = 1500  # 1.5 segundos
+
         # Efeitos visuais no destino
         if particulas is not None:
             self._criar_efeito_portal(destino_x, destino_y, particulas, False)
