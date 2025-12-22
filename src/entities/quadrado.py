@@ -749,20 +749,27 @@ class Quadrado:
 
     def atualizar(self):
         """Atualiza o estado do quadrado."""
-        # Verificar se o tempo de invulnerabilidade acabou (apenas para o jogador)
-        if self.invulneravel and self.duracao_invulneravel != float('inf') and pygame.time.get_ticks() - self.tempo_invulneravel > self.duracao_invulneravel:
-            self.invulneravel = False
-            # Restaurar duração original se foi modificada pelo dimensional hop
-            if hasattr(self, 'duracao_invulneravel_original'):
-                self.duracao_invulneravel = self.duracao_invulneravel_original
-                delattr(self, 'duracao_invulneravel_original')
-        
-        # NOVO: Atualizar sistema de ampulheta (apenas para o jogador)
+        # NOVO: Atualizar sistema de ampulheta e dash (apenas para o jogador)
         if self.cor == AZUL:
             self.atualizar_ampulheta()
             # Atualizar sistema de dash
             if hasattr(self, 'dash_ativo'):
                 self.atualizar_dash()
+
+        # Verificar se o tempo de invulnerabilidade acabou (apenas para o jogador)
+        # MAS: NÃO remover se estiver em dash ou logo após dash (controlado por atualizar_dash)
+        tempo_atual = pygame.time.get_ticks()
+        if (self.invulneravel and
+            self.duracao_invulneravel != float('inf') and
+            self.tempo_invulneravel > 0 and  # Só verifica se tempo_invulneravel foi setado (dano)
+            tempo_atual - self.tempo_invulneravel > self.duracao_invulneravel):
+            # Verificar se não está em dash antes de remover invulnerabilidade
+            if not (hasattr(self, 'dash_ativo') and (self.dash_ativo or self.dash_tempo_fim > 0)):
+                self.invulneravel = False
+                # Restaurar duração original se foi modificada pelo dimensional hop
+                if hasattr(self, 'duracao_invulneravel_original'):
+                    self.duracao_invulneravel = self.duracao_invulneravel_original
+                    delattr(self, 'duracao_invulneravel_original')
 
 
     def atirar_com_mouse(self, tiros, pos_mouse):
