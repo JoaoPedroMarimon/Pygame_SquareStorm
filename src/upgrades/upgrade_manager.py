@@ -35,6 +35,14 @@ UPGRADES_DISPONIVEIS = {
         "incremento_preco": 30,
         "max_nivel": 10,
         "efeito_por_nivel": 2    # Quantas granadas são adicionadas por nível
+    },
+    "dash": {
+        "nome": "Dash",
+        "descricao": "Dá um dash rápido para frente ao pressionar ESPAÇO",
+        "preco_base": 70,
+        "incremento_preco": 35,
+        "max_nivel": 10,
+        "efeito_por_nivel": 1    # Quantos dashes são adicionados por nível
     }
 }
 
@@ -55,14 +63,16 @@ def carregar_todos_upgrades():
         return {
             "vida": 1,       # Upgrade de vida (padrão: 1)
             "espingarda": 0, # Upgrade de espingarda (padrão: 0 tiros)
-            "granada": 0     # Upgrade de granada (padrão: 0 granadas)
+            "granada": 0,    # Upgrade de granada (padrão: 0 granadas)
+            "dash": 0        # Upgrade de dash (padrão: 0 dashes)
         }
     except Exception as e:
         print(f"Erro ao carregar upgrades: {e}")
         return {
             "vida": 1,
             "espingarda": 0,
-            "granada": 0
+            "granada": 0,
+            "dash": 0
         }
 
 def salvar_upgrades(upgrades):

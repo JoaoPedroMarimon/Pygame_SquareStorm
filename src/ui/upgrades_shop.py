@@ -36,19 +36,19 @@ def desenhar_icone_coracao(tela, x, y, tempo_atual):
     Desenha um ícone de coração com efeitos visuais animados.
     """
     tamanho_coracao = 28
-    
+
     # Efeito de pulsação
     pulso = (math.sin(tempo_atual / 300) + 1) / 2
     cor_coracao = (220 + int(pulso * 35), 50 + int(pulso * 30), 50 + int(pulso * 30))
-    
+
     # Base do coração (dois círculos)
-    pygame.draw.circle(tela, cor_coracao, 
-                      (x - tamanho_coracao//3, y - tamanho_coracao//6), 
+    pygame.draw.circle(tela, cor_coracao,
+                      (x - tamanho_coracao//3, y - tamanho_coracao//6),
                       tamanho_coracao//2)
-    pygame.draw.circle(tela, cor_coracao, 
-                      (x + tamanho_coracao//3, y - tamanho_coracao//6), 
+    pygame.draw.circle(tela, cor_coracao,
+                      (x + tamanho_coracao//3, y - tamanho_coracao//6),
                       tamanho_coracao//2)
-    
+
     # Triângulo para a ponta do coração
     pontos_triangulo = [
         (x - tamanho_coracao//1.5, y - tamanho_coracao//6),
@@ -56,23 +56,104 @@ def desenhar_icone_coracao(tela, x, y, tempo_atual):
         (x, y + tamanho_coracao//1.2)
     ]
     pygame.draw.polygon(tela, cor_coracao, pontos_triangulo)
-    
+
     # Brilho no coração
     brilho_intensidade = int(255 * (pulso * 0.5 + 0.5))
-    pygame.draw.circle(tela, (brilho_intensidade, 150, 150), 
-                      (x - tamanho_coracao//4, y - tamanho_coracao//3), 
+    pygame.draw.circle(tela, (brilho_intensidade, 150, 150),
+                      (x - tamanho_coracao//4, y - tamanho_coracao//3),
                       tamanho_coracao//6)
-    
+
     # Partículas de vida ao redor
     for i in range(4):
         angulo = (tempo_atual / 400 + i * 90) % 360
         raio_particula = 25
         particula_x = x + int(raio_particula * math.cos(math.radians(angulo)))
         particula_y = y + int(raio_particula * math.sin(math.radians(angulo)))
-        
+
         # Pequenos corações
         tamanho_mini = 3 + int(pulso * 2)
         pygame.draw.circle(tela, (255, 100, 100), (particula_x, particula_y), tamanho_mini)
+
+def desenhar_icone_dash(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone de dash com um quadrado idêntico ao do jogador + efeitos de velocidade.
+    """
+    # Animação de movimento horizontal (vai e volta)
+    offset_x = int(math.sin(tempo_atual / 150) * 10)
+
+    # Tamanho do quadrado
+    tamanho_quad = 28
+
+    # Cores do quadrado (azul do jogador)
+    cor_azul = AZUL
+    cor_escura = tuple(max(0, c - 50) for c in cor_azul)
+    cor_brilhante = tuple(min(255, c + 70) for c in cor_azul)
+
+    # Posição do quadrado com offset de movimento
+    quad_x = x - tamanho_quad // 2 + offset_x
+    quad_y = y - tamanho_quad // 2
+
+    # Efeito de pulsação
+    pulso = (math.sin(tempo_atual / 200) + 1) / 2
+    mod_tamanho = int(pulso * 4)
+
+    # Rastro de movimento (múltiplos quadrados atrás)
+    for i in range(3):
+        rastro_offset = -15 * (i + 1) + offset_x
+        alpha_factor = 1 - (i / 3)
+
+        # Cores do rastro mais escuras
+        cor_rastro = tuple(int(c * alpha_factor * 0.5) for c in cor_azul)
+
+        rastro_x = x - tamanho_quad // 2 + rastro_offset
+        rastro_tam = tamanho_quad - (i * 4)
+
+        # Sombra do rastro
+        pygame.draw.rect(tela, (10, 10, 10),
+                        (rastro_x + 2, quad_y + 2, rastro_tam, rastro_tam), 0, 3)
+
+        # Quadrado do rastro
+        pygame.draw.rect(tela, cor_rastro,
+                        (rastro_x, quad_y, rastro_tam, rastro_tam), 0, 3)
+
+    # Partículas de energia cyan ao redor do quadrado
+    for i in range(8):
+        angulo = (tempo_atual * 5 + i * 45) % 360
+        raio = 25 + math.sin(tempo_atual / 100 + i) * 3
+        particula_x = x + int(raio * math.cos(math.radians(angulo)))
+        particula_y = y + int(raio * math.sin(math.radians(angulo)))
+
+        cor_particula = (100, 200, 255)
+        pygame.draw.circle(tela, cor_particula, (particula_x, particula_y), 2)
+
+    # Sombra do quadrado principal
+    pygame.draw.rect(tela, (20, 20, 20),
+                    (quad_x + 3, quad_y + 3,
+                     tamanho_quad + mod_tamanho, tamanho_quad + mod_tamanho), 0, 3)
+
+    # Quadrado principal - camada escura
+    pygame.draw.rect(tela, cor_escura,
+                    (quad_x, quad_y,
+                     tamanho_quad + mod_tamanho, tamanho_quad + mod_tamanho), 0, 5)
+
+    # Quadrado principal - camada azul
+    pygame.draw.rect(tela, cor_azul,
+                    (quad_x + 3, quad_y + 3,
+                     tamanho_quad + mod_tamanho - 6, tamanho_quad + mod_tamanho - 6), 0, 3)
+
+    # Brilho no canto superior esquerdo
+    pygame.draw.rect(tela, cor_brilhante,
+                    (quad_x + 5, quad_y + 5, 8, 8), 0, 2)
+
+    # Linhas de velocidade à direita
+    cor_velocidade = (100, 200, 255)
+    for i in range(4):
+        linha_x = x + tamanho_quad // 2 + 10
+        linha_y = y - 12 + i * 8
+        linha_comprimento = 12 + int(pulso * 6)
+        pygame.draw.line(tela, cor_velocidade,
+                        (linha_x, linha_y),
+                        (linha_x + linha_comprimento, linha_y), 3)
 
 def desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_pos, clique_ocorreu, som_compra, som_erro, scroll_y=0):
     """
@@ -126,8 +207,23 @@ def desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_p
             "cor_resultado": VERDE,
             "icone_func": "coracao",
             "mostrar_quantidade": True
+        },
+        {
+            "key": "dash",
+            "nome": "DASH",
+            "descricao": "",
+            "instrucoes": "Press SPACE to dash forward",
+            "info_extra": "Quick dash in movement direction - Invulnerable during dash",
+            "cor_fundo": (20, 40, 60),
+            "cor_borda": (100, 200, 255),
+            "cor_botao": (50, 100, 180),
+            "cor_hover": (80, 150, 255),
+            "cor_texto": (150, 220, 255),
+            "cor_resultado": (100, 200, 255),
+            "icone_func": "dash",
+            "mostrar_quantidade": True
         }
-        
+
     ]
     
     # Aplicar sistema de pricing aos upgrades
@@ -189,9 +285,11 @@ def desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_p
         # Desenhar ícone do upgrade
         icone_x = item_rect.x + 60
         icone_y = y_item_relativo + altura_item // 2
-        
+
         if upgrade["icone_func"] == "coracao":
             desenhar_icone_coracao(conteudo_surf, icone_x, icone_y, tempo_atual)
+        elif upgrade["icone_func"] == "dash":
+            desenhar_icone_dash(conteudo_surf, icone_x, icone_y, tempo_atual)
         # Aqui você pode adicionar mais ícones conforme necessário
         
         # Nome do upgrade

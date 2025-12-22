@@ -41,7 +41,19 @@ class Quadrado:
             self.vidas_max = vidas_upgrade
             self.facas = self._carregar_upgrade_faca()
             self.amuleto_ativo = False  # Estado do amuleto (inativo por padrão)
-            
+
+            # SISTEMA DE DASH
+            self.dash_uses = self._carregar_upgrade_dash()
+            self.dash_ativo = False
+            self.dash_velocidade = 25  # Velocidade do dash
+            self.dash_duracao = 8  # Duração do dash em frames
+            self.dash_cooldown = 500  # Cooldown em ms
+            self.dash_tempo_cooldown = 0
+            self.dash_frames_restantes = 0
+            self.dash_direcao = (0, 0)  # Direção do dash
+            self.dash_invulneravel_pos = 0  # Tempo extra de invulnerabilidade após o dash (200ms)
+            self.dash_tempo_fim = 0  # Momento em que o dash terminou
+
             # SISTEMA DA AMPULHETA - ATUALIZADO
             self.ampulheta_uses = self._carregar_upgrade_ampulheta()
             self.ampulheta_selecionada = False  # Toggle visual (segurar na mão)
@@ -187,6 +199,104 @@ class Quadrado:
             print(f"Erro ao carregar upgrade de ampulheta: {e}")
             return 0
 
+    def _carregar_upgrade_dash(self):
+        """
+        Carrega o upgrade de dash do arquivo de upgrades.
+        Retorna 0 se não houver upgrade.
+        """
+        try:
+            if os.path.exists("data/upgrades.json"):
+                with open("data/upgrades.json", "r") as f:
+                    upgrades = json.load(f)
+                    return upgrades.get("dash", 0)
+            return 0
+        except Exception as e:
+            print(f"Erro ao carregar upgrade de dash: {e}")
+            return 0
+
+    def executar_dash(self):
+        """
+        Executa um dash na direção atual do movimento.
+        Retorna True se o dash foi executado, False caso contrário.
+        """
+        tempo_atual = pygame.time.get_ticks()
+
+        # Verificar se tem dashes disponíveis e não está em cooldown
+        if (self.dash_uses > 0 and
+            not self.dash_ativo and
+            tempo_atual - self.dash_tempo_cooldown >= self.dash_cooldown):
+
+            # Obter direção baseada nas teclas pressionadas
+            keys = pygame.key.get_pressed()
+            dx, dy = 0, 0
+
+            if keys[pygame.K_w]:
+                dy = -1
+            if keys[pygame.K_s]:
+                dy = 1
+            if keys[pygame.K_a]:
+                dx = -1
+            if keys[pygame.K_d]:
+                dx = 1
+
+            # Se não está se movendo, dash para frente (direita)
+            if dx == 0 and dy == 0:
+                dx = 1
+
+            # Normalizar direção
+            import math
+            magnitude = math.sqrt(dx * dx + dy * dy)
+            if magnitude > 0:
+                dx /= magnitude
+                dy /= magnitude
+
+            # Ativar dash
+            self.dash_ativo = True
+            self.dash_frames_restantes = self.dash_duracao
+            self.dash_direcao = (dx, dy)
+            self.dash_uses -= 1
+            self.dash_tempo_cooldown = tempo_atual
+
+            # Tornar invulnerável IMEDIATAMENTE ao pressionar ESPAÇO
+            self.invulneravel = True
+            # Resetar tempo de invulnerabilidade de dano para não interferir
+            self.tempo_invulneravel = 0
+
+            return True
+        return False
+
+    def atualizar_dash(self):
+        """
+        Atualiza o estado do dash.
+        Deve ser chamado a cada frame.
+        """
+        tempo_atual = pygame.time.get_ticks()
+
+        if self.dash_ativo:
+            # Mover na direção do dash
+            dx, dy = self.dash_direcao
+            self.mover(dx * self.dash_velocidade / self.velocidade,
+                      dy * self.dash_velocidade / self.velocidade)
+
+            # Decrementar frames restantes
+            self.dash_frames_restantes -= 1
+
+            # Verificar se o dash terminou
+            if self.dash_frames_restantes <= 0:
+                self.dash_ativo = False
+                self.dash_tempo_fim = tempo_atual  # Registrar quando o dash terminou
+                # NÃO remover invulnerabilidade ainda - continua por mais 200ms
+
+        # Verificar se passou 200ms desde o fim do dash
+        if not self.dash_ativo and self.dash_tempo_fim > 0:
+            tempo_desde_fim = tempo_atual - self.dash_tempo_fim
+            if tempo_desde_fim >= 200:  # 200ms = 0.2 segundos
+                # Agora sim, remover invulnerabilidade do dash
+                # Mas só se não estiver invulnerável por outro motivo (dano)
+                if self.tempo_invulneravel == 0 or tempo_atual - self.tempo_invulneravel > self.duracao_invulneravel:
+                    self.invulneravel = False
+                self.dash_tempo_fim = 0  # Resetar
+
     def usar_ampulheta(self):
         """
         Ativa a desaceleração do tempo se possível.
@@ -285,12 +395,42 @@ class Quadrado:
                             max(0, min(255, self.cor[2] - 100)))
                 tamanho = int(self.tamanho * (1 - i / len(self.posicoes_anteriores) * 0.7))
                 pygame.draw.rect(tela, cor_trilha, 
-                                (pos_x + (self.tamanho - tamanho) // 2, 
-                                pos_y + (self.tamanho - tamanho) // 2, 
+                                (pos_x + (self.tamanho - tamanho) // 2,
+                                pos_y + (self.tamanho - tamanho) // 2,
                                 tamanho, tamanho))
-        
+
+        # Desenhar efeito de dash se ativo
+        if hasattr(self, 'dash_ativo') and self.dash_ativo:
+            # Efeito de rastro/trilha durante o dash
+            for i in range(3):
+                alpha = int(180 * (1 - i / 3))
+                offset = i * 15
+                dx, dy = self.dash_direcao
+
+                # Cor do rastro com transparência
+                cor_trail = (*self.cor, alpha)
+
+                # Desenhar quadrado do rastro
+                pos_x = self.x - dx * offset
+                pos_y = self.y - dy * offset
+
+                pygame.draw.rect(tela, cor_trail,
+                               (pos_x, pos_y, self.tamanho, self.tamanho), 0, 5)
+
+            # Partículas de energia ao redor do jogador durante o dash
+            for i in range(8):
+                angulo = (tempo_atual * 5 + i * 45) % 360
+                raio = 30 + math.sin(tempo_atual / 100 + i) * 5
+                particula_x = self.x + self.tamanho//2 + int(raio * math.cos(math.radians(angulo)))
+                particula_y = self.y + self.tamanho//2 + int(raio * math.sin(math.radians(angulo)))
+
+                # Cor cyan brilhante para as partículas
+                cor_particula = (100, 200, 255)
+                tamanho_particula = 4
+                pygame.draw.circle(tela, cor_particula, (particula_x, particula_y), tamanho_particula)
+
         # Se estiver invulnerável, pisca o quadrado
-        if self.invulneravel and tempo_atual % 200 < 100:
+        if self.invulneravel and tempo_atual % 200 < 100 and not (hasattr(self, 'dash_ativo') and self.dash_ativo):
             return
         
         # Efeito de pulsação
@@ -620,6 +760,9 @@ class Quadrado:
         # NOVO: Atualizar sistema de ampulheta (apenas para o jogador)
         if self.cor == AZUL:
             self.atualizar_ampulheta()
+            # Atualizar sistema de dash
+            if hasattr(self, 'dash_ativo'):
+                self.atualizar_dash()
 
 
     def atirar_com_mouse(self, tiros, pos_mouse):

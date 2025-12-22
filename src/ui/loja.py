@@ -309,11 +309,13 @@ def tela_loja(tela, relogio, gradiente_loja):
                 _, _, max_scroll_weapons = resultado
 
         elif aba_ativa == 1:  # Upgrades
-            resultado = desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades, 
-                                             mouse_pos, clique_ocorreu, som_compra, som_erro)
+            resultado = desenhar_upgrades_shop(tela, area_conteudo, moeda_manager, upgrades,
+                                             mouse_pos, clique_ocorreu, som_compra, som_erro, scroll_upgrades)
             if resultado and resultado[0]:  # Se há mensagem
-                mensagem, mensagem_cor, _ = resultado
+                mensagem, mensagem_cor, max_scroll_upgrades = resultado
                 mensagem_tempo = 0
+            elif resultado:  # Só atualizar max_scroll se não houver mensagem
+                _, _, max_scroll_upgrades = resultado
 
         else:  # Items (aba 2)
             resultado = desenhar_items_shop(tela, area_conteudo, moeda_manager, upgrades, 

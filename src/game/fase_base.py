@@ -205,6 +205,17 @@ class FaseBase:
                 self._processar_ativacao_arma()
             elif evento.key == pygame.K_q:
                 self._processar_ativacao_item()
+            elif evento.key == pygame.K_SPACE:
+                # Executar dash
+                if hasattr(self.jogador, 'executar_dash'):
+                    if self.jogador.executar_dash():
+                        # Dash executado com sucesso
+                        criar_texto_flutuante(f" ({self.jogador.dash_uses} restantes)",
+                                            LARGURA // 2, ALTURA_JOGO // 4,
+                                            (100, 200, 255), self.particulas, 60, 24)
+                    elif self.jogador.dash_uses <= 0:
+                        criar_texto_flutuante("SEM DASHES!", LARGURA // 2, ALTURA_JOGO // 4,
+                                            VERMELHO, self.particulas, 60, 24)
 
         elif evento.type == pygame.KEYUP:
             if evento.key == pygame.K_w and self.movimento_y < 0:
