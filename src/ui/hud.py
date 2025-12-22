@@ -86,6 +86,13 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             municao = str(jogador.tiros_espingarda)
             tem_arma_especial = True
 
+        elif hasattr(jogador, 'spas12_ativa') and jogador.spas12_ativa and hasattr(jogador, 'tiros_spas12') and jogador.tiros_spas12 > 0:
+            arma_ativa = "SPAS-12"
+            cor_fundo = (40, 40, 45)
+            cor_borda = (255, 140, 0)
+            municao = str(jogador.tiros_spas12)
+            tem_arma_especial = True
+
         elif hasattr(jogador, 'desert_eagle_ativa') and jogador.desert_eagle_ativa and hasattr(jogador, 'tiros_desert_eagle') and jogador.tiros_desert_eagle > 0:
             arma_ativa = "DESERT EAGLE"
             cor_fundo = (70, 70, 80)

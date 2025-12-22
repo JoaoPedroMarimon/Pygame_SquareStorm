@@ -72,7 +72,8 @@ def atirar_espingarda(jogador, tiros, pos_mouse, particulas=None, flashes=None, 
     """
     # Verificar cooldown
     tempo_atual = pygame.time.get_ticks()
-    if tempo_atual - jogador.tempo_ultimo_tiro < jogador.tempo_cooldown:
+    cooldown_espingarda = jogador.tempo_cooldown * 3.2  # Aumenta cooldown em 50%
+    if tempo_atual - jogador.tempo_ultimo_tiro < cooldown_espingarda:
         return
 
     jogador.tempo_ultimo_tiro = tempo_atual
@@ -170,6 +171,77 @@ def atirar_espingarda(jogador, tiros, pos_mouse, particulas=None, flashes=None, 
             jogador.espingarda_ativa = False
             # Efeito visual será mostrado no arquivo fase.py
 
+def desenhar_barra_cooldown_espingarda(tela, jogador, tempo_atual, pos_mouse):
+    """
+    Desenha uma barra vertical mostrando o progresso do cooldown da espingarda.
+    A barra aparece no lado oposto ao qual o jogador está apontando.
+
+    Args:
+        tela: Superfície onde desenhar
+        jogador: Objeto do jogador
+        tempo_atual: Tempo atual em ms
+        pos_mouse: Posição do mouse para calcular direção
+    """
+    # Calcular o centro do jogador
+    centro_x = jogador.x + jogador.tamanho // 2
+    centro_y = jogador.y + jogador.tamanho // 2
+
+    # Calcular o vetor direção para o mouse
+    dx = pos_mouse[0] - centro_x
+    dy = pos_mouse[1] - centro_y
+
+    # Normalizar o vetor direção
+    distancia = math.sqrt(dx**2 + dy**2)
+    if distancia > 0:
+        dx /= distancia
+        dy /= distancia
+
+    # Calcular tempo de cooldown
+    cooldown_espingarda = jogador.tempo_cooldown * 4.0
+    tempo_desde_ultimo_tiro = tempo_atual - jogador.tempo_ultimo_tiro
+
+    # Se ainda está em cooldown, desenhar a barra
+    if tempo_desde_ultimo_tiro < cooldown_espingarda:
+        # Calcular progresso (0 a 1)
+        progresso = tempo_desde_ultimo_tiro / cooldown_espingarda
+
+        # Posição da barra no lado oposto (direção inversa)
+        distancia_barra = 30  # Distância do centro do jogador
+        pos_barra_x = centro_x - dx * distancia_barra
+        pos_barra_y = centro_y - dy * distancia_barra
+
+        # Dimensões da barra
+        largura_barra = 6
+        altura_barra_total = 30
+        altura_preenchida = altura_barra_total * progresso
+
+        # Desenhar fundo da barra (vazio)
+        pygame.draw.rect(tela, (50, 50, 50),
+                        (pos_barra_x - largura_barra // 2,
+                         pos_barra_y - altura_barra_total // 2,
+                         largura_barra,
+                         altura_barra_total))
+
+        # Desenhar barra de progresso (de baixo para cima)
+        # Cor gradiente baseada no progresso
+        if progresso < 0.5:
+            cor_barra = (255, int(progresso * 510), 0)  # Vermelho -> Amarelo
+        else:
+            cor_barra = (int(255 - (progresso - 0.5) * 510), 255, 0)  # Amarelo -> Verde
+
+        pygame.draw.rect(tela, cor_barra,
+                        (pos_barra_x - largura_barra // 2,
+                         pos_barra_y + altura_barra_total // 2 - altura_preenchida,
+                         largura_barra,
+                         altura_preenchida))
+
+        # Contorno da barra
+        pygame.draw.rect(tela, (200, 200, 200),
+                        (pos_barra_x - largura_barra // 2,
+                         pos_barra_y - altura_barra_total // 2,
+                         largura_barra,
+                         altura_barra_total), 1)
+
 def desenhar_espingarda(tela, jogador, tempo_atual,pos_mouse):
     """
     Desenha a espingarda na posição do jogador, orientada para a direção do mouse.
@@ -179,6 +251,9 @@ def desenhar_espingarda(tela, jogador, tempo_atual,pos_mouse):
         jogador: Objeto do jogador
         tempo_atual: Tempo atual em ms para efeitos de animação
     """
+    # Desenhar barra de cooldown primeiro (fica atrás da espingarda)
+    desenhar_barra_cooldown_espingarda(tela, jogador, tempo_atual, pos_mouse)
+
     # Obter a posição do mouse para orientar a espingarda
 
     # Calcular o centro do jogador

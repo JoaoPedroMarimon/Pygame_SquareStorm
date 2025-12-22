@@ -177,6 +177,100 @@ def desenhar_icone_metralhadora(tela, x, y, tempo_atual):
     pygame.draw.line(tela, cor_laranja, (x, y), (ponta_metra_x, ponta_metra_y), 1)
     
     
+def desenhar_icone_spas12(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone de SPAS-12 - shotgun tática semi-automática italiana.
+    Versão compacta para a loja com detalhes visuais modernos.
+    """
+    # Cores da SPAS-12 (design tático moderno)
+    cor_metal_escuro = (45, 45, 50)      # Metal tático preto
+    cor_metal_medio = (80, 80, 90)       # Metal médio
+    cor_metal_claro = (120, 120, 130)    # Metal detalhes
+    cor_cano = (35, 35, 40)              # Cano preto fosco
+    cor_polimero = (60, 60, 65)          # Polímero preto
+    cor_laranja_tatico = (255, 140, 0)   # Laranja tático
+
+    # Comprimento da arma
+    comprimento_arma = 32
+    ponta_x = x + comprimento_arma
+
+    # === CORONHA ===
+    coronha_x = x - 12
+    pygame.draw.polygon(tela, cor_polimero, [
+        (coronha_x, y - 5),
+        (coronha_x, y + 5),
+        (x, y + 4),
+        (x, y - 4)
+    ])
+    pygame.draw.polygon(tela, cor_metal_claro, [
+        (coronha_x, y - 5),
+        (coronha_x, y + 5),
+        (x, y + 4),
+        (x, y - 4)
+    ], 1)
+
+    # Detalhes da coronha
+    pygame.draw.line(tela, cor_metal_claro, (coronha_x + 3, y - 4), (coronha_x + 3, y + 4), 1)
+
+    # === CORPO/RECEIVER ===
+    corpo_x = x + 6
+    pygame.draw.rect(tela, cor_metal_escuro, (x, y - 5, 12, 10))
+    pygame.draw.rect(tela, cor_metal_claro, (x, y - 5, 12, 10), 1)
+
+    # Trilho Picatinny superior
+    pygame.draw.line(tela, cor_metal_medio, (x + 2, y - 6), (corpo_x + 12, y - 6), 2)
+    # Slots do trilho
+    for i in range(3):
+        slot_x = x + 4 + i * 4
+        pygame.draw.circle(tela, cor_metal_escuro, (slot_x, y - 6), 1)
+
+    # === GATILHO ===
+    gatilho_x = x + 4
+    gatilho_y = y + 6
+    # Guarda-mato
+    pygame.draw.ellipse(tela, cor_metal_medio, (gatilho_x - 3, gatilho_y - 3, 8, 6), 2)
+    # Gatilho laranja
+    pygame.draw.rect(tela, cor_laranja_tatico, (gatilho_x, gatilho_y - 1, 3, 3), 0, 1)
+
+    # === CANO ÚNICO ===
+    pygame.draw.line(tela, cor_cano, (corpo_x, y), (ponta_x, y), 6)
+    # Contornos para profundidade
+    pygame.draw.line(tela, cor_metal_claro, (corpo_x, y - 3), (ponta_x, y - 3), 1)
+    pygame.draw.line(tela, cor_metal_escuro, (corpo_x, y + 3), (ponta_x, y + 3), 1)
+
+    # === TUBO DE MAGAZINE EMBAIXO ===
+    pygame.draw.line(tela, cor_metal_medio, (corpo_x - 2, y + 4), (ponta_x - 3, y + 4), 3)
+
+    # === HANDGUARD (proteção de mão) ===
+    handguard_inicio = corpo_x + 2
+    handguard_fim = ponta_x - 8
+    # Superior
+    pygame.draw.line(tela, cor_polimero, (handguard_inicio, y - 4), (handguard_fim, y - 4), 2)
+    # Inferior
+    pygame.draw.line(tela, cor_polimero, (handguard_inicio, y + 4), (handguard_fim, y + 4), 2)
+
+    # === BOCA DO CANO ===
+    pygame.draw.circle(tela, cor_metal_medio, (int(ponta_x), int(y)), 4)
+    pygame.draw.circle(tela, (20, 20, 20), (int(ponta_x), int(y)), 2)
+    # Ponta laranja de segurança
+    pygame.draw.circle(tela, cor_laranja_tatico, (int(ponta_x), int(y)), 1)
+
+    # === MIRA FRONTAL ===
+    mira_x = ponta_x - 6
+    pygame.draw.line(tela, cor_metal_claro, (mira_x, y - 5), (mira_x, y - 3), 2)
+    # Ponto verde na mira
+    pygame.draw.circle(tela, (100, 255, 100), (int(mira_x), int(y - 4)), 1)
+
+    # === EFEITO DE ENERGIA ===
+    pulso = (math.sin(tempo_atual / 130) + 1) / 2
+    cor_energia = (255, int(140 + pulso * 115), 0)  # Laranja pulsante
+    energia_width = 1 + int(pulso)
+
+    # Energia no cano
+    pygame.draw.line(tela, cor_energia, (corpo_x + 2, y), (ponta_x, y), energia_width)
+    # Energia no tubo
+    pygame.draw.line(tela, cor_energia, (corpo_x, y + 4), (ponta_x - 3, y + 4), max(1, energia_width - 1))
+
 def desenhar_icone_desert_eagle(tela, x, y, tempo_atual):
     """
     Desenha um ícone de Desert Eagle realista com acabamento em aço inoxidável.
@@ -504,6 +598,21 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "dano": 1
         },
         {
+            "key": "spas12",
+            "nome": "SPAS-12",
+            "descricao": "",
+            "instrucoes": "Press R to switch weapon type",
+            "info_extra": "Tactical semi-auto shotgun - faster fire rate!",
+            "cor_fundo": (35, 35, 40),
+            "cor_borda": (255, 140, 0),
+            "cor_botao": (200, 120, 30),
+            "cor_hover": (255, 160, 50),
+            "cor_texto": (255, 180, 80),
+            "cor_resultado": LARANJA if 'LARANJA' in dir() else (255, 165, 0),
+            "icone_func": "spas12",
+            "dano": 2
+        },
+        {
             "key": "desert_eagle",
             "nome": "DESERT EAGLE",
             "descricao": "",
@@ -600,6 +709,8 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             desenhar_icone_desert_eagle(conteudo_surf, icone_x, icone_y, tempo_atual)
         elif arma["icone_func"] == "espingarda":
             desenhar_icone_espingarda(conteudo_surf, icone_x, icone_y, tempo_atual)
+        elif arma["icone_func"] == "spas12":
+            desenhar_icone_spas12(conteudo_surf, icone_x, icone_y, tempo_atual)
         elif arma["icone_func"] == "metralhadora":
             desenhar_icone_metralhadora(conteudo_surf, icone_x, icone_y, tempo_atual)
         elif arma["icone_func"] == "sabre_luz":

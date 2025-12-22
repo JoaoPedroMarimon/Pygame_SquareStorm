@@ -29,7 +29,7 @@ class PricingManager:
                 "quantidade_por_compra": 3
             },
             "metralhadora": {
-                "preco_base": 25,
+                "preco_base": 20,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
@@ -48,6 +48,13 @@ class PricingManager:
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 10
+            },
+            "spas12": {
+                "preco_base": 25,
+                "compras_realizadas": 0,
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0, # Preço não aumenta
+                "quantidade_por_compra": 3
             },
 
             # UPGRADES SHOP

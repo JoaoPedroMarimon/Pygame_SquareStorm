@@ -28,6 +28,9 @@ def salvar_todas_municoes(jogador):
         if hasattr(jogador, 'tiros_espingarda'):
             upgrades["espingarda"] = max(0, jogador.tiros_espingarda)
 
+        if hasattr(jogador, 'tiros_spas12'):
+            upgrades["spas12"] = max(0, jogador.tiros_spas12)
+
         if hasattr(jogador, 'tiros_metralhadora'):
             upgrades["metralhadora"] = max(0, jogador.tiros_metralhadora)
 
@@ -57,6 +60,7 @@ def salvar_todas_municoes(jogador):
             json.dump(upgrades, f, indent=4)
 
         print(f"✅ Munições salvas: Shotgun={upgrades.get('espingarda', 0)}, "
+              f"SPAS12={upgrades.get('spas12', 0)}, "
               f"MachineGun={upgrades.get('metralhadora', 0)}, "
               f"DesertEagle={upgrades.get('desert_eagle', 0)}, "
               f"Grenades={upgrades.get('granada', 0)}, "

@@ -75,10 +75,13 @@ class Quadrado:
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
             self.desert_eagle_ativa = False
+            self.spas12_ativa = False
             self.tiros_espingarda = carregar_upgrade_espingarda()
             self.tiros_metralhadora = carregar_upgrade_metralhadora()
             from src.weapons.desert_eagle import carregar_upgrade_desert_eagle
             self.tiros_desert_eagle = carregar_upgrade_desert_eagle()
+            from src.weapons.spas12 import carregar_upgrade_spas12
+            self.tiros_spas12 = carregar_upgrade_spas12()
             
         else:  # Se for inimigo
             self.vidas = 1  # Padrão: 1 vida para inimigos normais
@@ -89,10 +92,12 @@ class Quadrado:
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
             self.desert_eagle_ativa = False
+            self.spas12_ativa = False
             self.granadas = 0
             self.tiros_espingarda = 0
             self.tiros_metralhadora = 0
             self.tiros_desert_eagle = 0
+            self.tiros_spas12 = 0
             self.ampulheta_uses = 0
             self.ampulheta_selecionada = False
             self.tempo_desacelerado = False
@@ -512,6 +517,9 @@ class Quadrado:
             # Desenhar apenas a arma/item atualmente ativo
             if hasattr(self, 'espingarda_ativa') and self.espingarda_ativa and self.tiros_espingarda > 0:
                 desenhar_espingarda(tela, self, tempo_atual, pos_mouse)
+            elif hasattr(self, 'spas12_ativa') and self.spas12_ativa and self.tiros_spas12 > 0:
+                from src.weapons.spas12 import desenhar_spas12
+                desenhar_spas12(tela, self, tempo_atual, pos_mouse)
             elif hasattr(self, 'metralhadora_ativa') and self.metralhadora_ativa and self.tiros_metralhadora > 0:
                 desenhar_metralhadora(tela, self, tempo_atual, pos_mouse)
             elif hasattr(self, 'desert_eagle_ativa') and self.desert_eagle_ativa and self.tiros_desert_eagle > 0:
@@ -860,6 +868,7 @@ class Quadrado:
         arma_ja_equipada = (self.espingarda_ativa or
                         self.metralhadora_ativa or
                         self.desert_eagle_ativa or
+                        self.spas12_ativa or
                         self.sabre_equipado)
 
         # Se já tem arma equipada, guardar todas (toggle off)
@@ -867,6 +876,7 @@ class Quadrado:
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
             self.desert_eagle_ativa = False
+            self.spas12_ativa = False
             self.sabre_equipado = False
             # Desativar sabre se estiver ativo
             if hasattr(self, 'sabre_info') and self.sabre_info['ativo']:
@@ -879,18 +889,28 @@ class Quadrado:
             self.espingarda_ativa = True
             self.metralhadora_ativa = False
             self.desert_eagle_ativa = False
+            self.spas12_ativa = False
             self.sabre_equipado = False
             return "espingarda"
+        elif arma_selecionada == "spas12" and self.tiros_spas12 > 0:
+            self.spas12_ativa = True
+            self.espingarda_ativa = False
+            self.metralhadora_ativa = False
+            self.desert_eagle_ativa = False
+            self.sabre_equipado = False
+            return "spas12"
         elif arma_selecionada == "metralhadora" and self.tiros_metralhadora > 0:
             self.metralhadora_ativa = True
             self.espingarda_ativa = False
             self.desert_eagle_ativa = False
+            self.spas12_ativa = False
             self.sabre_equipado = False
             return "metralhadora"
         elif arma_selecionada == "desert_eagle" and self.tiros_desert_eagle > 0:
             self.desert_eagle_ativa = True
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
+            self.spas12_ativa = False
             self.sabre_equipado = False
             return "desert_eagle"
         elif arma_selecionada == "sabre_luz" and self.sabre_uses > 0:
@@ -898,6 +918,7 @@ class Quadrado:
             self.espingarda_ativa = False
             self.metralhadora_ativa = False
             self.desert_eagle_ativa = False
+            self.spas12_ativa = False
             return "sabre_luz"
         elif arma_selecionada == "nenhuma":
             # Se guardou itens mas não tem arma selecionada
@@ -925,6 +946,9 @@ class Quadrado:
         armas_guardadas = False
         if self.espingarda_ativa:
             self.espingarda_ativa = False
+            armas_guardadas = True
+        if self.spas12_ativa:
+            self.spas12_ativa = False
             armas_guardadas = True
         if self.metralhadora_ativa:
             self.metralhadora_ativa = False

@@ -312,6 +312,15 @@ class FaseBase:
                     criar_texto_flutuante("ESPINGARDA SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
                                          VERMELHO, self.particulas, 120, 32)
 
+            # PRIORIDADE 5.5: SPAS-12
+            elif self.jogador.spas12_ativa and self.jogador.tiros_spas12 > 0:
+                from src.weapons.spas12 import atirar_spas12
+                atirar_spas12(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
+                if self.jogador.tiros_spas12 <= 0:
+                    self.jogador.spas12_ativa = False
+                    criar_texto_flutuante("SPAS-12 SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
+                                         VERMELHO, self.particulas, 120, 32)
+
             # PRIORIDADE 6: Desert Eagle
             elif self.jogador.desert_eagle_ativa and self.jogador.tiros_desert_eagle > 0:
                 atirar_desert_eagle(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)

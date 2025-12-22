@@ -120,6 +120,18 @@ class InventarioManager:
                 "raridade": "Rare",
                 "dano": "★★★★☆",
                 "alcance": "★★★★★"
+            },
+            "spas12": {
+                "nome": "SPAS-12",
+                "quantidade": 0,
+                "cor": (255, 140, 0),
+                "descricao": "Tactical semi-auto shotgun - faster fire rate",
+                "tipo": "arma",
+                "categoria": "arma",
+                "key": "spas12",
+                "raridade": "Rare",
+                "dano": "★★★★☆",
+                "alcance": "★★☆☆☆"
             }
         }
         
@@ -559,6 +571,86 @@ def desenhar_icone_desert_eagle_moderno(tela, x, y, tempo_atual, tamanho=30):
     from src.weapons.desert_eagle import desenhar_icone_desert_eagle
     desenhar_icone_desert_eagle(tela, x, y, tempo_atual)
 
+def desenhar_icone_spas12_moderno(tela, x, y, tempo_atual, tamanho=30):
+    """Desenha ícone moderno da SPAS-12 para o inventário."""
+    # Cores da SPAS-12 (design tático moderno)
+    cor_metal_escuro = (45, 45, 50)      # Metal tático preto
+    cor_metal_medio = (80, 80, 90)       # Metal médio
+    cor_metal_claro = (120, 120, 130)    # Metal detalhes
+    cor_cano = (35, 35, 40)              # Cano preto fosco
+    cor_polimero = (60, 60, 65)          # Polímero preto
+    cor_laranja_tatico = (255, 140, 0)   # Laranja tático
+
+    # Comprimento da arma
+    ponta_x = x + tamanho//2 + 2
+
+    # === CORONHA ===
+    coronha_x = x - tamanho//2 - 12
+    pygame.draw.polygon(tela, cor_polimero, [
+        (coronha_x, y - 5),
+        (coronha_x, y + 5),
+        (x - tamanho//2, y + 4),
+        (x - tamanho//2, y - 4)
+    ])
+    pygame.draw.polygon(tela, cor_metal_claro, [
+        (coronha_x, y - 5),
+        (coronha_x, y + 5),
+        (x - tamanho//2, y + 4),
+        (x - tamanho//2, y - 4)
+    ], 1)
+
+    # === CORPO/RECEIVER ===
+    corpo_x = x - tamanho//2 + 6
+    pygame.draw.rect(tela, cor_metal_escuro, (x - tamanho//2, y - 5, 12, 10))
+    pygame.draw.rect(tela, cor_metal_claro, (x - tamanho//2, y - 5, 12, 10), 1)
+
+    # Trilho Picatinny superior
+    pygame.draw.line(tela, cor_metal_medio, (x - tamanho//2 + 2, y - 6), (corpo_x + 12, y - 6), 2)
+    # Slots do trilho
+    for i in range(2):
+        slot_x = x - tamanho//2 + 4 + i * 4
+        pygame.draw.circle(tela, cor_metal_escuro, (slot_x, y - 6), 1)
+
+    # === CANO ÚNICO ===
+    pygame.draw.line(tela, cor_cano, (corpo_x, y), (ponta_x, y), 6)
+    # Contornos para profundidade
+    pygame.draw.line(tela, cor_metal_claro, (corpo_x, y - 3), (ponta_x, y - 3), 1)
+    pygame.draw.line(tela, cor_metal_escuro, (corpo_x, y + 3), (ponta_x, y + 3), 1)
+
+    # === TUBO DE MAGAZINE EMBAIXO ===
+    pygame.draw.line(tela, cor_metal_medio, (corpo_x - 2, y + 4), (ponta_x - 3, y + 4), 3)
+
+    # === HANDGUARD (proteção de mão) ===
+    handguard_inicio = corpo_x + 2
+    handguard_fim = ponta_x - 8
+    # Superior
+    pygame.draw.line(tela, cor_polimero, (handguard_inicio, y - 4), (handguard_fim, y - 4), 2)
+    # Inferior
+    pygame.draw.line(tela, cor_polimero, (handguard_inicio, y + 4), (handguard_fim, y + 4), 2)
+
+    # === BOCA DO CANO ===
+    pygame.draw.circle(tela, cor_metal_medio, (int(ponta_x), int(y)), 4)
+    pygame.draw.circle(tela, (20, 20, 20), (int(ponta_x), int(y)), 2)
+    # Ponta laranja de segurança
+    pygame.draw.circle(tela, cor_laranja_tatico, (int(ponta_x), int(y)), 1)
+
+    # === MIRA FRONTAL ===
+    mira_x = ponta_x - 6
+    pygame.draw.line(tela, cor_metal_claro, (mira_x, y - 5), (mira_x, y - 3), 2)
+    # Ponto verde na mira
+    pygame.draw.circle(tela, (100, 255, 100), (int(mira_x), int(y - 4)), 1)
+
+    # === EFEITO DE ENERGIA ===
+    energia_pulso = (math.sin(tempo_atual / 130) + 1) / 2
+    if energia_pulso > 0.5:
+        cor_energia = (255, int(140 + energia_pulso * 115), 0)  # Laranja pulsante
+        energia_width = 1 + int(energia_pulso)
+
+        # Energia no cano
+        pygame.draw.line(tela, cor_energia, (corpo_x + 2, y), (ponta_x, y), energia_width)
+        # Energia no tubo
+        pygame.draw.line(tela, cor_energia, (corpo_x, y + 4), (ponta_x - 3, y + 4), max(1, energia_width - 1))
+
 def desenhar_icone_metralhadora_moderno(tela, x, y, tempo_atual, tamanho=35):
     """
     Desenha um ícone de metralhadora com efeitos visuais.
@@ -696,6 +788,8 @@ def desenhar_card_item_moderno(tela, item_data, item_key, x, y, largura, altura,
         desenhar_icone_dimensional_hop_moderno(tela, icone_x, icone_y, tempo_atual)
     elif item_key == "espingarda":
         desenhar_icone_espingarda_moderno(tela, icone_x, icone_y, tempo_atual)
+    elif item_key == "spas12":
+        desenhar_icone_spas12_moderno(tela, icone_x, icone_y, tempo_atual)
     elif item_key == "metralhadora":
         desenhar_icone_metralhadora_moderno(tela, icone_x, icone_y, tempo_atual)
     elif item_key == "sabre_luz":
