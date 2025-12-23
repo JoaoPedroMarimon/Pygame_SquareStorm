@@ -336,9 +336,183 @@ class InimigoMetralhadora(Quadrado):
                 pygame.draw.circle(tela, cor_vermelho, (int(laser_x), int(laser_y)), 1)
 
     def desenhar(self, tela, tempo_atual):
-        """Sobrescreve o método desenhar para incluir a metralhadora."""
-        # Desenhar o quadrado base
-        super().desenhar(tela, tempo_atual)
+        """Sobrescreve o método desenhar para incluir visual militar completo."""
+        # Não desenhar o quadrado base padrão - vamos fazer um visual totalmente customizado
+
+        # Cores militares modernas
+        cor_uniforme_base = (60, 70, 50)          # Verde-oliva escuro
+        cor_uniforme_sombra = (40, 50, 30)        # Sombra do uniforme
+        cor_colete = (30, 35, 25)                 # Colete balístico preto-esverdeado
+        cor_capacete = (45, 55, 40)               # Capacete tático
+        cor_metal = (100, 100, 110)               # Metal dos equipamentos
+        cor_camuflagem_1 = (70, 80, 55)           # Tom claro camuflagem
+        cor_camuflagem_2 = (50, 60, 40)           # Tom escuro camuflagem
+        cor_patch = (180, 0, 0)                   # Patch vermelho
+        cor_visor = (20, 20, 40)                  # Visor escuro
+        cor_led_verde = (0, 255, 100)             # LED verde NVG
+
+        centro_x = self.x + self.tamanho // 2
+        centro_y = self.y + self.tamanho // 2
+
+        # ===== SOMBRA NO CHÃO =====
+        shadow_surface = pygame.Surface((self.tamanho + 8, self.tamanho + 8))
+        shadow_surface.set_alpha(80)
+        shadow_surface.fill((0, 0, 0))
+        tela.blit(shadow_surface, (self.x + 2, self.y + 2))
+
+        # ===== CORPO DO SOLDADO (retângulo como base) =====
+        corpo_rect = pygame.Rect(self.x, self.y, self.tamanho, self.tamanho)
+
+        # Uniforme base com gradiente
+        pygame.draw.rect(tela, cor_uniforme_sombra, corpo_rect, 0, 5)
+        pygame.draw.rect(tela, cor_uniforme_base,
+                        (self.x + 2, self.y + 2, self.tamanho - 4, self.tamanho - 4), 0, 4)
+
+        # ===== PADRÃO DE CAMUFLAGEM (manchas) =====
+        for _ in range(6):
+            mancha_x = self.x + random.randint(3, self.tamanho - 3)
+            mancha_y = self.y + random.randint(3, self.tamanho - 3)
+            mancha_tamanho = random.randint(3, 6)
+            cor_mancha = random.choice([cor_camuflagem_1, cor_camuflagem_2])
+            pygame.draw.circle(tela, cor_mancha, (mancha_x, mancha_y), mancha_tamanho)
+
+        # ===== COLETE BALÍSTICO (no centro do corpo) =====
+        colete_largura = int(self.tamanho * 0.7)
+        colete_altura = int(self.tamanho * 0.8)
+        colete_x = centro_x - colete_largura // 2
+        colete_y = centro_y - colete_altura // 2
+
+        # Colete principal
+        colete_rect = pygame.Rect(colete_x, colete_y, colete_largura, colete_altura)
+        pygame.draw.rect(tela, cor_colete, colete_rect, 0, 3)
+        pygame.draw.rect(tela, cor_metal, colete_rect, 1)
+
+        # Placas balísticas (linhas horizontais)
+        for i in range(3):
+            placa_y = colete_y + 5 + i * 8
+            pygame.draw.line(tela, cor_metal,
+                           (colete_x + 3, placa_y),
+                           (colete_x + colete_largura - 3, placa_y), 1)
+
+        # Fivelas MOLLE (pequenos quadrados nas laterais)
+        for i in range(4):
+            fivela_y = colete_y + 5 + i * 7
+            pygame.draw.rect(tela, cor_metal, (colete_x + 2, fivela_y, 2, 3))
+            pygame.draw.rect(tela, cor_metal, (colete_x + colete_largura - 4, fivela_y, 2, 3))
+
+        # ===== PATCH/INSÍGNIA (no colete) =====
+        patch_size = 6
+        patch_x = centro_x - patch_size // 2
+        patch_y = colete_y + 5
+        pygame.draw.rect(tela, cor_patch, (patch_x, patch_y, patch_size, patch_size))
+        pygame.draw.rect(tela, (255, 200, 0), (patch_x, patch_y, patch_size, patch_size), 1)
+        # Estrela no patch
+        pygame.draw.line(tela, (255, 200, 0), (patch_x + 3, patch_y + 1), (patch_x + 3, patch_y + 5), 1)
+        pygame.draw.line(tela, (255, 200, 0), (patch_x + 1, patch_y + 3), (patch_x + 5, patch_y + 3), 1)
+
+        # ===== CAPACETE TÁTICO (parte superior) =====
+        capacete_y = self.y + 3
+        capacete_altura = int(self.tamanho * 0.35)
+
+        # Capacete principal (formato arredondado)
+        capacete_rect = pygame.Rect(self.x + 5, capacete_y, self.tamanho - 10, capacete_altura)
+        pygame.draw.rect(tela, cor_capacete, capacete_rect, 0, 8)
+        pygame.draw.rect(tela, cor_metal, capacete_rect, 1)
+
+        # Faixa tática no capacete
+        pygame.draw.line(tela, cor_metal,
+                        (self.x + 8, capacete_y + capacete_altura // 2),
+                        (self.x + self.tamanho - 8, capacete_y + capacete_altura // 2), 2)
+
+        # ===== ÓCULOS DE VISÃO NOTURNA (NVG) =====
+        nvg_y = capacete_y + capacete_altura - 5
+        nvg_esquerda_x = centro_x - 8
+        nvg_direita_x = centro_x + 3
+
+        # Suporte dos NVG (barra horizontal)
+        pygame.draw.line(tela, cor_metal,
+                        (centro_x - 10, nvg_y - 2),
+                        (centro_x + 10, nvg_y - 2), 2)
+
+        # Lentes dos NVG (dois círculos)
+        pygame.draw.circle(tela, (30, 30, 30), (nvg_esquerda_x, nvg_y), 5)
+        pygame.draw.circle(tela, cor_visor, (nvg_esquerda_x, nvg_y), 4)
+        pygame.draw.circle(tela, cor_led_verde, (nvg_esquerda_x, nvg_y), 2)
+
+        pygame.draw.circle(tela, (30, 30, 30), (nvg_direita_x, nvg_y), 5)
+        pygame.draw.circle(tela, cor_visor, (nvg_direita_x, nvg_y), 4)
+        pygame.draw.circle(tela, cor_led_verde, (nvg_direita_x, nvg_y), 2)
+
+        # Bateria dos NVG (atrás do capacete)
+        bateria_x = centro_x - 3
+        bateria_y = capacete_y + 2
+        pygame.draw.rect(tela, cor_metal, (bateria_x, bateria_y, 6, 8))
+        # LED de status piscando
+        if tempo_atual % 1000 < 500:
+            pygame.draw.circle(tela, (0, 255, 0), (bateria_x + 3, bateria_y + 2), 1)
+
+        # ===== RÁDIO TÁTICO (ombro esquerdo) =====
+        radio_x = self.x + 3
+        radio_y = centro_y - 8
+        pygame.draw.rect(tela, (20, 20, 20), (radio_x, radio_y, 5, 10))
+        pygame.draw.rect(tela, cor_metal, (radio_x, radio_y, 5, 10), 1)
+        # Antena
+        pygame.draw.line(tela, cor_metal, (radio_x + 2, radio_y), (radio_x + 2, radio_y - 8), 1)
+
+        # ===== POUCHES/BOLSOS (lateral do colete) =====
+        pouch_x = self.x + self.tamanho - 8
+        for i in range(2):
+            pouch_y = centro_y - 5 + i * 10
+            pygame.draw.rect(tela, cor_colete, (pouch_x, pouch_y, 5, 8))
+            pygame.draw.rect(tela, cor_metal, (pouch_x, pouch_y, 5, 8), 1)
+            # Fechos
+            pygame.draw.line(tela, (200, 150, 50), (pouch_x + 1, pouch_y + 1), (pouch_x + 4, pouch_y + 1), 1)
+
+        # ===== RANK/PATENTE (ombro direito) =====
+        rank_x = self.x + self.tamanho - 10
+        rank_y = self.y + 10
+        # Três listras de sargento
+        for i in range(3):
+            pygame.draw.line(tela, (200, 150, 50),
+                           (rank_x, rank_y + i * 2),
+                           (rank_x + 6, rank_y + i * 2), 1)
+
+        # ===== INDICADOR DE RECARGA/STATUS =====
+        if self.esta_recarregando:
+            # Barra de recarga embaixo do soldado
+            barra_y = self.y + self.tamanho + 8
+            barra_largura = self.tamanho
+            tempo_decorrido = tempo_atual - self.tempo_inicio_recarga
+            progresso = min(1.0, tempo_decorrido / self.tempo_recarga)
+
+            # Fundo da barra
+            pygame.draw.rect(tela, (60, 60, 60), (self.x, barra_y, barra_largura, 4), 0, 2)
+            # Progresso
+            progresso_largura = int(barra_largura * progresso)
+            pygame.draw.rect(tela, (255, 140, 0), (self.x, barra_y, progresso_largura, 4), 0, 2)
+
+            # Texto "RELOADING" embaixo
+            from src.utils.visual import desenhar_texto
+            desenhar_texto(tela, "RELOADING", 10, (255, 140, 0), centro_x, barra_y + 10)
+        else:
+            # LED verde quando está atirando
+            led_x = self.x + self.tamanho - 5
+            led_y = self.y + 5
+            pygame.draw.circle(tela, (0, 255, 100), (led_x, led_y), 2)
+
+        # ===== BARRA DE VIDA (estilo padrão) =====
+        vida_largura = 50
+        altura_barra = 6
+
+        # Fundo escuro
+        pygame.draw.rect(tela, (40, 40, 40),
+                        (self.x, self.y - 15, vida_largura, altura_barra), 0, 2)
+
+        # Vida atual
+        vida_atual = int((self.vidas / self.vidas_max) * vida_largura)
+        if vida_atual > 0:
+            pygame.draw.rect(tela, self.cor,
+                            (self.x, self.y - 15, vida_atual, altura_barra), 0, 2)
 
         # A metralhadora será desenhada separadamente com a referência ao jogador
         # (feito na IA do inimigo)

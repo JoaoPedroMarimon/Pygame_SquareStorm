@@ -66,11 +66,11 @@ class PricingManager:
                 "quantidade_por_compra": 1
             },
             "dash": {
-                "preco_base": 40,
+                "preco_base": 10,
                 "compras_realizadas": 0,
-                "limite_maximo": 7,  # Máximo 10 compras
-                "multiplicador": 1.8, # Preço aumenta 50% a cada compra
-                "quantidade_por_compra": 1
+                "limite_maximo": 5,  
+                "multiplicador": 1.8, 
+                "quantidade_por_compra": 2
             },
 
             # ITEMS SHOP - PREÇOS FIXOS, SEM LIMITES
