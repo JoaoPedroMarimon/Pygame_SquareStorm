@@ -35,7 +35,7 @@ class InimigoGranada(Quadrado):
         self.vidas_max = 3
 
         # Sistema de granada
-        self.cooldown_granada = 2500  # 2.5 segundos entre lançamentos
+        self.cooldown_granada = 4500  # 2.5 segundos entre lançamentos
         self.tempo_ultimo_lancamento = 0
 
         # Flag para identificar tipo

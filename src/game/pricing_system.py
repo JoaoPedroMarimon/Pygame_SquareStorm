@@ -68,8 +68,8 @@ class PricingManager:
             "dash": {
                 "preco_base": 10,
                 "compras_realizadas": 0,
-                "limite_maximo": 5,  
-                "multiplicador": 1.8, 
+                "limite_maximo": 6,  
+                "multiplicador": 1.5, 
                 "quantidade_por_compra": 2
             },
 
