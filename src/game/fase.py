@@ -280,6 +280,10 @@ class FaseNormal(FaseBase):
                 self.particulas, self.flashes
             )
 
+            # Se for inimigo granada, tentar lançar granada (apenas se estiver vivo)
+            if hasattr(inimigo, 'tipo_granada') and inimigo.tipo_granada and inimigo.vidas > 0:
+                inimigo.lancar_granada(self.jogador, self.granadas, self.particulas, self.flashes)
+
             # Restaurar velocidade original
             inimigo.velocidade = velocidade_original
 

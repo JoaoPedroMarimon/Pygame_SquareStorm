@@ -242,6 +242,11 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
             # Verificar se é inimigo mago para usar método específico
             elif hasattr(inimigo, 'tipo_mago') and inimigo.tipo_mago:
                 inimigo.atirar_bola_fogo(jogador, tiros_inimigo, particulas, flashes)
+            # Verificar se é inimigo granada para usar método específico
+            elif hasattr(inimigo, 'tipo_granada') and inimigo.tipo_granada:
+                # Nota: granadas_lista deve ser passada pelo sistema de jogo
+                # Por enquanto, vamos apenas marcar que ele quer atirar
+                pass  # O lançamento será gerenciado no loop principal do jogo
             else:
                 inimigo.atirar(tiros_inimigo, (dir_tiro_x, dir_tiro_y))
         

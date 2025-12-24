@@ -10,6 +10,7 @@ from src.config import *
 from src.entities.quadrado import Quadrado
 from src.entities.inimigo_metralhadora import InimigoMetralhadora
 from src.entities.inimigo_mago import InimigoMago
+from src.entities.inimigo_granada import InimigoGranada
 
 class InimigoFactory:
     """
@@ -147,3 +148,17 @@ class InimigoFactory:
             Objeto InimigoMago configurado
         """
         return InimigoMago(x, y)
+
+    @staticmethod
+    def criar_inimigo_granada(x, y):
+        """
+        Cria um inimigo com lançador de granadas.
+        Lança granadas que explodem após um tempo, causando dano em área.
+
+        Args:
+            x, y: Posição inicial do inimigo
+
+        Returns:
+            Objeto InimigoGranada configurado
+        """
+        return InimigoGranada(x, y)

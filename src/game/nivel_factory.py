@@ -483,8 +483,39 @@ class NivelFactory:
         return {
             'inimigos': inimigos,
             'pos_jogador': pos_jogador
-        }    
-    
+        }
+
+    @staticmethod
+    def criar_fase_18():
+        """
+        Fase 18: Inimigos lançadores de granada - nova mecânica explosiva.
+        3 inimigos que lançam granadas com dano em área.
+        """
+        inimigos = []
+
+        # Inimigo granada 1 - canto superior direito
+        pos_x1 = LARGURA - 150
+        pos_y1 = ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_granada(pos_x1, pos_y1))
+
+        # Inimigo granada 2 - centro direita
+        pos_x2 = LARGURA - 200
+        pos_y2 = ALTURA_JOGO // 2
+        inimigos.append(InimigoFactory.criar_inimigo_granada(pos_x2, pos_y2))
+
+        # Inimigo granada 3 - canto inferior direito
+        pos_x3 = LARGURA - 150
+        pos_y3 = 3 * ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_granada(pos_x3, pos_y3))
+
+        # Posição inicial do jogador (esquerda, centralizado)
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
+
     @staticmethod
     def e_boss_fight(resultado_fase):
         """

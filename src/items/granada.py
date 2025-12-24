@@ -20,12 +20,13 @@ class Granada:
     Classe para representar a granada que o jogador pode lançar.
     Cria uma explosão que causa dano aos inimigos próximos.
     """
-    def __init__(self, x, y, dx, dy):
+    def __init__(self, x, y, dx, dy, pertence_inimigo=False):
         self.x = x
         self.y = y
         self.raio = 10
         self.cor = (60, 120, 60)  # Verde militar
         self.cor_pino = (220, 220, 100)  # Amarelo para o pino
+        self.pertence_inimigo = pertence_inimigo  # True se a granada é de um inimigo
         
         # Normalizar a velocidade
         comprimento = math.sqrt(dx**2 + dy**2)
@@ -377,7 +378,7 @@ def lancar_granada(jogador, granadas_lista, pos_mouse, particulas=None, flashes=
     if jogador.granadas <= 0:
         jogador.granada_selecionada = False
 
-def processar_granadas(granadas, particulas, flashes, inimigos, moeda_manager, tiros_jogador=None):
+def processar_granadas(granadas, particulas, flashes, inimigos, moeda_manager, tiros_jogador=None, jogador=None, tiros_inimigo=None):
     """
     Processa todas as granadas na lista, atualizando-as e verificando colisões.
 
@@ -387,7 +388,9 @@ def processar_granadas(granadas, particulas, flashes, inimigos, moeda_manager, t
         flashes: Lista de flashes para efeitos visuais
         inimigos: Lista de inimigos para verificar colisão
         moeda_manager: Gerenciador de moedas para adicionar moedas quando inimigos são derrotados
-        tiros_jogador: Lista de tiros do jogador (para adicionar projéteis da explosão)
+        tiros_jogador: Lista de tiros do jogador (para adicionar projéteis da explosão do jogador)
+        jogador: Objeto do jogador (para verificar dano de granadas de inimigos)
+        tiros_inimigo: Lista de tiros inimigos (para adicionar projéteis da explosão dos inimigos)
 
     Returns:
         None (modifica as listas diretamente)
@@ -397,53 +400,77 @@ def processar_granadas(granadas, particulas, flashes, inimigos, moeda_manager, t
         # Atualizar a granada e verificar se ainda está ativa
         if not granada.atualizar(particulas, flashes):
             # Se a granada explodiu, criar projéteis em círculo
-            if granada.explodiu and tiros_jogador is not None:
-                # Criar projéteis da explosão
+            if granada.explodiu:
                 from src.entities.tiro import Tiro
-                num_projeteis = 8  # Reduzido de 16 para 8
+                num_projeteis = 8
                 velocidade_projetil = 8
 
-                for i in range(num_projeteis):
-                    angulo = (2 * math.pi * i) / num_projeteis
-                    dx = math.cos(angulo)
-                    dy = math.sin(angulo)
-                    cor_projetil = (255, 150, 0)
-                    projetil = Tiro(granada.x, granada.y, dx, dy, cor_projetil, velocidade_projetil)
-                    tiros_jogador.append(projetil)
+                # Granadas do JOGADOR criam tiros do jogador
+                if not granada.pertence_inimigo and tiros_jogador is not None:
+                    for i in range(num_projeteis):
+                        angulo = (2 * math.pi * i) / num_projeteis
+                        dx = math.cos(angulo)
+                        dy = math.sin(angulo)
+                        cor_projetil = (255, 150, 0)
+                        projetil = Tiro(granada.x, granada.y, dx, dy, cor_projetil, velocidade_projetil)
+                        tiros_jogador.append(projetil)
 
-            # Verificar dano a inimigos se a granada explodiu
+                # Granadas de INIMIGOS criam tiros de inimigos
+                elif granada.pertence_inimigo and tiros_inimigo is not None:
+                    for i in range(num_projeteis):
+                        angulo = (2 * math.pi * i) / num_projeteis
+                        dx = math.cos(angulo)
+                        dy = math.sin(angulo)
+                        cor_projetil = (255, 80, 0)  # Laranja mais escuro para diferenciar
+                        projetil = Tiro(granada.x, granada.y, dx, dy, cor_projetil, velocidade_projetil)
+                        tiros_inimigo.append(projetil)
+
+            # Verificar dano se a granada explodiu
             if granada.explodiu:
-                for inimigo in inimigos:
-                    if inimigo.vidas > 0 and granada.causa_dano(inimigo):
-                        dano_causou_morte = False
-                        
-                        # Verificar se este dano vai matar o inimigo
-                        if inimigo.vidas == 1:
-                            dano_causou_morte = True
-                        
-                        # Aplicar o dano
-                        if inimigo.tomar_dano():
-                            # Se o inimigo morreu, adicionar moedas
-                            if dano_causou_morte:
-                                # Determinar quantidade de moedas com base no tipo de inimigo
-                                moedas_bonus = 1  # Valor padrão para inimigos básicos
-                                
-                                # Inimigos com mais vida ou especiais dão mais moedas
-                                if inimigo.cor == ROXO:  # Inimigo roxo (especial)
-                                    moedas_bonus = 3
-                                elif inimigo.cor == CIANO:  # Inimigo ciano
-                                    moedas_bonus = 5
-                                elif inimigo.vidas_max > 1:  # Inimigos com múltiplas vidas
-                                    moedas_bonus = 2
-                                
-                                # Adicionar moedas ao contador
-                                moeda_manager.quantidade_moedas += moedas_bonus
-                                moeda_manager.salvar_moedas()  # Salvar as moedas no arquivo
-                                
-                                # Criar animação de pontuação no local da morte
-                                criar_texto_flutuante(f"+{moedas_bonus}", inimigo.x + inimigo.tamanho//2, 
-                                                   inimigo.y, AMARELO, particulas)
-            
+                # Se a granada pertence ao INIMIGO, causar dano ao JOGADOR
+                if granada.pertence_inimigo and jogador is not None:
+                    if jogador.vidas > 0 and granada.causa_dano(jogador):
+                        jogador.tomar_dano()
+                        # Criar efeito visual de dano
+                        if particulas is not None:
+                            flash = criar_explosao(jogador.x + jogador.tamanho//2,
+                                                 jogador.y + jogador.tamanho//2,
+                                                 (255, 140, 0), particulas, 25)
+                            if flashes is not None:
+                                flashes.append(flash)
+                # Se a granada pertence ao JOGADOR, causar dano aos INIMIGOS
+                elif not granada.pertence_inimigo:
+                    for inimigo in inimigos:
+                        if inimigo.vidas > 0 and granada.causa_dano(inimigo):
+                            dano_causou_morte = False
+
+                            # Verificar se este dano vai matar o inimigo
+                            if inimigo.vidas == 1:
+                                dano_causou_morte = True
+
+                            # Aplicar o dano
+                            if inimigo.tomar_dano():
+                                # Se o inimigo morreu, adicionar moedas
+                                if dano_causou_morte:
+                                    # Determinar quantidade de moedas com base no tipo de inimigo
+                                    moedas_bonus = 1  # Valor padrão para inimigos básicos
+
+                                    # Inimigos com mais vida ou especiais dão mais moedas
+                                    if inimigo.cor == ROXO:  # Inimigo roxo (especial)
+                                        moedas_bonus = 3
+                                    elif inimigo.cor == CIANO:  # Inimigo ciano
+                                        moedas_bonus = 5
+                                    elif inimigo.vidas_max > 1:  # Inimigos com múltiplas vidas
+                                        moedas_bonus = 2
+
+                                    # Adicionar moedas ao contador
+                                    moeda_manager.quantidade_moedas += moedas_bonus
+                                    moeda_manager.salvar_moedas()  # Salvar as moedas no arquivo
+
+                                    # Criar animação de pontuação no local da morte
+                                    criar_texto_flutuante(f"+{moedas_bonus}", inimigo.x + inimigo.tamanho//2,
+                                                       inimigo.y, AMARELO, particulas)
+
             # Remover a granada da lista
             granadas.remove(granada)
 

@@ -572,7 +572,7 @@ class FaseBase:
 
     def processar_granadas(self, alvos):
         """Processa granadas."""
-        processar_granadas(self.granadas, self.particulas, self.flashes, alvos, self.moeda_manager, self.tiros_jogador)
+        processar_granadas(self.granadas, self.particulas, self.flashes, alvos, self.moeda_manager, self.tiros_jogador, self.jogador, self.tiros_inimigo)
 
     def atualizar_efeitos_visuais(self):
         """Atualiza partículas, flashes e estrelas."""
@@ -684,6 +684,9 @@ class FaseBase:
                 # Se for inimigo mago, desenhar o cajado
                 elif hasattr(alvo, 'tipo_mago') and alvo.tipo_mago:
                     alvo.desenhar_cajado(self.tela, tempo_atual, self.jogador)
+                # Se for inimigo granada, desenhar o lançador
+                elif hasattr(alvo, 'tipo_granada') and alvo.tipo_granada:
+                    alvo.desenhar_equipamento_granada(self.tela, tempo_atual, self.jogador)
 
         # Tiros
         for tiro in self.tiros_jogador:
