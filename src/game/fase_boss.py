@@ -24,6 +24,8 @@ from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos
 from src.entities.boss_fusion import BossFusion
 from src.entities.fusion_cutscene import FusionCutscene
 from src.entities.misterioso_cutscene import executar_cutscene_misterioso
+from src.entities.boss_velocitycyan import BossVelocityCyan
+from src.entities.velocitycyan_cutscene import VelocityCyanCutscene
 
 
 class BossDifficultyManager:
@@ -534,11 +536,25 @@ class FaseBoss(FaseBase):
     def _desenhar_mensagens_transicao_boss(self):
         """Desenha mensagens de transição específicas do boss."""
         if self.tempo_transicao_vitoria is not None:
-            mensagens = [
-                "BOSS FUSION DESTRUÍDO!",
-                "VOCÊ DOMINOU A FUSÃO!",
-                "CAMPEÃO SUPREMO!"
-            ]
+            # Mensagens diferentes por boss
+            if self.numero_fase == 10:  # Boss Fusion
+                mensagens = [
+                    "BOSS FUSION DESTRUÍDO!",
+                    "VOCÊ DOMINOU A FUSÃO!",
+                    "CAMPEÃO SUPREMO!"
+                ]
+            elif self.numero_fase == 20:  # VelocityCyan
+                mensagens = [
+                    "VELOCITY CYAN DERROTADO!",
+                    "VOCÊ SUPEROU A VELOCIDADE!",
+                    "MESTRE DA AGILIDADE!"
+                ]
+            else:
+                mensagens = [
+                    f"{self.boss_info['nome'].upper()} DERROTADO!",
+                    "VOCÊ VENCEU!",
+                    "CAMPEÃO!"
+                ]
 
             tempo_restante = self.tempo_transicao_vitoria
             duracao_total = self.duracao_transicao_vitoria
@@ -562,8 +578,19 @@ class FaseBoss(FaseBase):
                     self.flashes.append(flash)
 
         if self.tempo_transicao_derrota is not None:
-            desenhar_texto(self.tela, "O BOSS FUSION VENCEU!", 60, (255, 0, 0), LARGURA // 2, ALTURA_JOGO // 2)
-            desenhar_texto(self.tela, "A fusão foi muito poderosa...", 36, (200, 0, 0), LARGURA // 2, ALTURA_JOGO // 2 + 60)
+            # Mensagens diferentes por boss
+            if self.numero_fase == 10:  # Boss Fusion
+                mensagem1 = "O BOSS FUSION VENCEU!"
+                mensagem2 = "A fusão foi muito poderosa..."
+            elif self.numero_fase == 20:  # VelocityCyan
+                mensagem1 = "VELOCITY CYAN VENCEU!"
+                mensagem2 = "Velocidade demais para você..."
+            else:
+                mensagem1 = f"{self.boss_info['nome'].upper()} VENCEU!"
+                mensagem2 = "Tente novamente..."
+
+            desenhar_texto(self.tela, mensagem1, 60, (255, 0, 0), LARGURA // 2, ALTURA_JOGO // 2)
+            desenhar_texto(self.tela, mensagem2, 36, (200, 0, 0), LARGURA // 2, ALTURA_JOGO // 2 + 60)
 
             # Efeito de tela escura
             overlay = pygame.Surface((LARGURA, ALTURA_JOGO))
@@ -599,6 +626,12 @@ class BossFightManager:
                 'boss_class': BossFusion,
                 'recompensa_base': 200,
                 'nome': 'Boss Fusion'
+            },
+            'velocitycyan': {
+                'cutscene_class': VelocityCyanCutscene,
+                'boss_class': BossVelocityCyan,
+                'recompensa_base': 360,
+                'nome': 'VelocityCyan'
             }
         }
 

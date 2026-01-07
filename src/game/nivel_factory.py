@@ -566,13 +566,28 @@ class NivelFactory:
                 resultado_fase.get('tipo') == 'boss_fight')
     
     @staticmethod
+    def criar_fase_20():
+        """
+        Fase 20: BOSS FIGHT - VelocityCyan.
+        Boss extremamente rápido e ágil com cutscene de introdução.
+        """
+        print("⚡ Criando Boss Fight - Fase 20 - VelocityCyan")
+        return {
+            'tipo': 'boss_fight',
+            'boss': 'velocitycyan',
+            'cutscene': True,
+            'mensagem': 'BOSS FIGHT - VELOCITY CYAN DESPERTA!',
+            'pos_jogador': (100, ALTURA_JOGO // 2)
+        }
+
+    @staticmethod
     def obter_info_boss(resultado_fase):
         """
         Obtém informações sobre o boss fight.
-        
+
         Args:
             resultado_fase: Resultado retornado por criar_fase()
-            
+
         Returns:
             Dicionário com informações do boss ou None
         """

@@ -413,17 +413,19 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
         print(f"🔥 DETECTADO: {info_boss['mensagem']}")
 
         # Executar boss fight usando sistema modular
-        if info_boss['boss'] == 'fusion':
-            # Boss fight pode ter posição customizada do jogador
-            pos_jogador = info_boss.get('pos_jogador', None)
-            return executar_boss_fight('fusion', tela, relogio, numero_fase,
+        boss_type = info_boss['boss']
+        pos_jogador = info_boss.get('pos_jogador', None)
+
+        if boss_type in ['fusion', 'velocitycyan']:
+            return executar_boss_fight(boss_type, tela, relogio, numero_fase,
                                       gradiente_jogo, fonte_titulo, fonte_normal,
                                       pos_jogador=pos_jogador)
 
         # Fallback para fase normal se boss não reconhecido
-        print(f"⚠️ Tipo de boss '{info_boss['boss']}' não reconhecido, executando fase normal")
-        inimigos = NivelFactory.criar_fase_generica(numero_fase)
-        pos_jogador = None
+        print(f"⚠️ Tipo de boss '{boss_type}' não reconhecido, executando fase normal")
+        # Criar fase normal vazia como fallback
+        inimigos = []
+        pos_jogador = (100, ALTURA_JOGO // 2)
     else:
         # Fase normal - extrair inimigos e posição do jogador
         if isinstance(resultado_fase, dict):

@@ -334,6 +334,8 @@ class MisteriosoCutscene:
                 self.jogador.amuleto_ativo = False
             if hasattr(self.jogador, 'sabre_equipado'):
                 self.jogador.sabre_equipado = False
+            if hasattr(self.jogador, 'spas12_ativa'):
+                self.jogador.spas12_ativa = False
 
             # Desenhar o jogador
             self.jogador.desenhar(tela, tempo_atual)
