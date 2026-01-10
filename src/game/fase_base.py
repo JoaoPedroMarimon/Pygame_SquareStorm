@@ -210,11 +210,11 @@ class FaseBase:
                 if hasattr(self.jogador, 'executar_dash'):
                     if self.jogador.executar_dash():
                         # Dash executado com sucesso
-                        criar_texto_flutuante(f" ({self.jogador.dash_uses} restantes)",
+                        criar_texto_flutuante(f"",
                                             LARGURA // 2, ALTURA_JOGO // 4,
                                             (100, 200, 255), self.particulas, 60, 24)
                     elif self.jogador.dash_uses <= 0:
-                        criar_texto_flutuante("SEM DASHES!", LARGURA // 2, ALTURA_JOGO // 4,
+                        criar_texto_flutuante("", LARGURA // 2, ALTURA_JOGO // 4,
                                             VERMELHO, self.particulas, 60, 24)
 
         elif evento.type == pygame.KEYUP:
@@ -271,8 +271,6 @@ class FaseBase:
                 if self.jogador.dimensional_hop_obj:
                     if self.jogador.dimensional_hop_obj.usar(self.jogador, pos_mouse, self.particulas, self.flashes):
                         self.jogador.dimensional_hop_uses -= 1
-                        criar_texto_flutuante("TELETRANSPORTE!", LARGURA // 2, ALTURA_JOGO // 4,
-                                             (200, 150, 255), self.particulas, 120, 32)
 
                         # Desativar se não tiver mais usos
                         if self.jogador.dimensional_hop_uses <= 0:
@@ -309,8 +307,7 @@ class FaseBase:
                 atirar_espingarda(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
                 if self.jogador.tiros_espingarda <= 0:
                     self.jogador.espingarda_ativa = False
-                    criar_texto_flutuante("ESPINGARDA SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
-                                         VERMELHO, self.particulas, 120, 32)
+
 
             # PRIORIDADE 5.5: SPAS-12
             elif self.jogador.spas12_ativa and self.jogador.tiros_spas12 > 0:
@@ -318,24 +315,21 @@ class FaseBase:
                 atirar_spas12(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
                 if self.jogador.tiros_spas12 <= 0:
                     self.jogador.spas12_ativa = False
-                    criar_texto_flutuante("SPAS-12 SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
-                                         VERMELHO, self.particulas, 120, 32)
+
 
             # PRIORIDADE 6: Desert Eagle
             elif self.jogador.desert_eagle_ativa and self.jogador.tiros_desert_eagle > 0:
                 atirar_desert_eagle(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
                 if self.jogador.tiros_desert_eagle <= 0:
                     self.jogador.desert_eagle_ativa = False
-                    criar_texto_flutuante("DESERT EAGLE SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
-                                         VERMELHO, self.particulas, 120, 32)
+
 
             # PRIORIDADE 7: Metralhadora
             elif self.jogador.metralhadora_ativa and self.jogador.tiros_metralhadora > 0:
                 atirar_metralhadora(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
                 if self.jogador.tiros_metralhadora <= 0:
                     self.jogador.metralhadora_ativa = False
-                    criar_texto_flutuante("METRALHADORA SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
-                                         VERMELHO, self.particulas, 120, 32)
+
 
             # PRIORIDADE 8: Tiro normal
             else:
@@ -344,12 +338,7 @@ class FaseBase:
         elif evento.button == 3:  # Clique direito - Modo defesa do sabre
             if hasattr(self.jogador, 'sabre_equipado') and self.jogador.sabre_equipado:
                 resultado_defesa = self.jogador.alternar_modo_defesa_sabre()
-                if resultado_defesa == "modo_defesa_ativado":
-                    criar_texto_flutuante("MODO DEFESA ATIVADO!", LARGURA // 2, ALTURA_JOGO // 4,
-                                         (100, 255, 100), self.particulas, 120, 32)
-                elif resultado_defesa == "modo_defesa_desativado":
-                    criar_texto_flutuante("MODO DEFESA DESATIVADO!", LARGURA // 2, ALTURA_JOGO // 4,
-                                         (150, 150, 255), self.particulas, 120, 32)
+
 
     def _processar_tiro_continuo_metralhadora(self, pos_mouse):
         """Processa tiro contínuo quando botão do mouse está pressionado."""
@@ -359,8 +348,7 @@ class FaseBase:
                 atirar_metralhadora(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
                 if self.jogador.tiros_metralhadora <= 0:
                     self.jogador.metralhadora_ativa = False
-                    criar_texto_flutuante("METRALHADORA SEM MUNIÇÃO!", LARGURA // 2, ALTURA_JOGO // 4,
-                                         VERMELHO, self.particulas, 120, 32)
+
 
     def _processar_controles_pausa(self, evento, pos_mouse):
         """Processa controles durante pausa."""
@@ -390,7 +378,8 @@ class FaseBase:
                 self.jogador.rect.y = self.jogador.y
 
             # Verificar colisão com espinhos (dano de 1 vida para fases 11+)
-            if self.numero_fase >= 11 and not self.jogador.invulneravel:
+            # Não causar dano durante transição de vitória
+            if self.numero_fase >= 11 and not self.jogador.invulneravel and self.tempo_transicao_vitoria is None:
                 for espinho in self.espinhos:
                     if self.jogador.rect.colliderect(espinho.rect):
                         # Aplicar dano (usa o sistema de invulnerabilidade do jogador)

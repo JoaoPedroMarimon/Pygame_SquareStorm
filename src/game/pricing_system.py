@@ -62,7 +62,7 @@ class PricingManager:
                 "preco_base": 120,
                 "compras_realizadas": 0,
                 "limite_maximo": 5,  # Máximo 5 compras
-                "multiplicador": 7.5, # Preço aumenta muito a cada compra
+                "multiplicador": 5.9, # Preço aumenta muito a cada compra
                 "quantidade_por_compra": 1
             },
             "dash": {
