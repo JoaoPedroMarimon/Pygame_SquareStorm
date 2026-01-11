@@ -300,14 +300,17 @@ class ChuckyInvocation:
 
     def desenhar(self, tela):
         """Desenha toda a invocação na tela."""
-        # Pentagrama fica visível durante toda a invocação
-        if self.tempo_vida <= self.max_tempo_vida:
-            self._desenhar_pentagrama(tela)
-
+        # Desenhar APENAS o Chucky (visível normalmente)
         if self.fase_chucky:
             self._desenhar_chucky(tela)
 
-        # Desenhar portal por último (sobrepõe tudo)
+    def desenhar_background(self, tela):
+        """Desenha os elementos de fundo (pentagrama e portal) que devem ficar atrás de tudo."""
+        # Pentagrama fica visível durante toda a invocação (na camada de fundo)
+        if self.tempo_vida <= self.max_tempo_vida:
+            self._desenhar_pentagrama(tela)
+
+        # Portal também fica na camada de fundo
         self._desenhar_portal(tela)
 
     def _desenhar_pentagrama(self, tela):
@@ -938,9 +941,14 @@ def atualizar_invocacoes_com_inimigos(inimigos, particulas, flashes):
                 flashes.append(explosao)
 
 def desenhar_invocacoes(tela):
-    """Desenha todas as invocações ativas."""
+    """Desenha todas as invocações ativas (apenas o Chucky)."""
     for invocacao in invocacoes_ativas:
         invocacao.desenhar(tela)
+
+def desenhar_invocacoes_background(tela):
+    """Desenha os elementos de fundo das invocações (pentagrama e portal)."""
+    for invocacao in invocacoes_ativas:
+        invocacao.desenhar_background(tela)
 
 def tem_invocacao_ativa():
     """Verifica se há alguma invocação ativa."""

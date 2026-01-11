@@ -25,7 +25,7 @@ from src.weapons.espingarda import atirar_espingarda
 from src.weapons.metralhadora import atirar_metralhadora
 from src.weapons.desert_eagle import atirar_desert_eagle
 from src.weapons.sabre_luz import processar_deflexao_tiros, atualizar_sabre, processar_dano_sabre
-from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos, desenhar_invocacoes, limpar_invocacoes
+from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos, desenhar_invocacoes, desenhar_invocacoes_background, limpar_invocacoes
 from src.items.amuleto import usar_amuleto_para_invocacao
 from src.items.ampulheta import usar_ampulheta, desenhar_efeito_tempo_desacelerado
 
@@ -658,6 +658,9 @@ class FaseBase:
         if self.numero_fase >= 11:
             for espinho in self.espinhos:
                 espinho.desenhar(self.tela, tempo_atual)
+
+        # Pentagrama e portal das invocações (na camada de fundo, abaixo de tudo)
+        desenhar_invocacoes_background(self.tela)
 
         # Jogador
         if self.jogador.vidas > 0:
