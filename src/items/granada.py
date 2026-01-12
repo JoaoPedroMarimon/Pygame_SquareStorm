@@ -442,6 +442,10 @@ def processar_granadas(granadas, particulas, flashes, inimigos, moeda_manager, t
                 elif not granada.pertence_inimigo:
                     for inimigo in inimigos:
                         if inimigo.vidas > 0 and granada.causa_dano(inimigo):
+                            # Verificar se o inimigo está invulnerável (fantasma invisível)
+                            if hasattr(inimigo, 'esta_invulneravel') and inimigo.esta_invulneravel():
+                                continue
+
                             dano_causou_morte = False
 
                             # Verificar se este dano vai matar o inimigo

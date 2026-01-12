@@ -708,22 +708,21 @@ class NivelFactory:
         inimigos = []
 
         # Inimigo granada 1 - canto superior direito
-        #pos_x1 = 100
-        #pos_y1 = ALTURA_JOGO // 4
-        #inimigos.append(InimigoFactory.criar_inimigo_fantasma(pos_x1, pos_y1))
+        pos_x1 = 100
+        pos_y1 = ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_fantasma(pos_x1, pos_y1))
 
-        # Inimigo granada 2 - centro direita
-        #pos_x2 = 200
-        #pos_y2 = ALTURA_JOGO // 2
-        #inimigos.append(InimigoFactory.criar_inimigo_granada(pos_x2, pos_y2))
+        pos_x2 = 200
+        pos_y2 = ALTURA_JOGO // 2
+        inimigos.append(InimigoFactory.criar_inimigo_granada(pos_x2, pos_y2))
 
-        #pos_x3 = 100
-        #pos_y3 = ALTURA_JOGO // 2
-        #inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x3, pos_y3))
+        pos_x3 = 100
+        pos_y3 = ALTURA_JOGO // 2
+        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x3, pos_y3))
 
         pos_x4 = 200
         pos_y4 = ALTURA_JOGO // 4
-        inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x4, pos_y4))
+        inimigos.append(InimigoFactory.criar_inimigo_mago(pos_x4, pos_y4))
 
 
         # Posição inicial do jogador (esquerda, centralizado)

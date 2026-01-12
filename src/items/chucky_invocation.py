@@ -806,6 +806,10 @@ class ChuckyInvocation:
 
         for inimigo in inimigos:
             if inimigo.vidas > 0 and self.chucky_rect.colliderect(inimigo.rect):
+                # Verificar se o inimigo está invulnerável (fantasma invisível)
+                if hasattr(inimigo, 'esta_invulneravel') and inimigo.esta_invulneravel():
+                    continue
+
                 if inimigo.tomar_dano():
                     direcao_x = self.x - inimigo.x
                     direcao_y = self.y - inimigo.y

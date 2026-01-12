@@ -35,7 +35,7 @@ class InimigoFantasma(Quadrado):
         self.vidas_max = 2
 
         # Sistema de visibilidade
-        self.tempo_visivel = 2000  # 2 segundos visível
+        self.tempo_visivel = 3000  # 2 segundos visível
         self.tempo_invisivel = 5000  # 5 segundos invisível
         self.esta_visivel = True  # Começa visível
         self.tempo_mudanca_visibilidade = pygame.time.get_ticks()
@@ -76,12 +76,12 @@ class InimigoFantasma(Quadrado):
                 self.esta_visivel = True
                 self.tempo_mudanca_visibilidade = tempo_atual
 
-        # Atualizar alpha gradualmente para transição suave
+        # Atualizar alpha rapidamente para transição mais rápida
         alpha_alvo = self.alpha_visivel if self.esta_visivel else self.alpha_invisivel
         if self.alpha_atual < alpha_alvo:
-            self.alpha_atual = min(self.alpha_atual + 15, alpha_alvo)
+            self.alpha_atual = min(self.alpha_atual + 25, alpha_alvo)
         elif self.alpha_atual > alpha_alvo:
-            self.alpha_atual = max(self.alpha_atual - 15, alpha_alvo)
+            self.alpha_atual = max(self.alpha_atual - 25, alpha_alvo)
 
         # Atualizar flutuação
         self.tempo_flutuacao += 0.05
@@ -144,6 +144,13 @@ class InimigoFantasma(Quadrado):
             tela: Superfície do pygame onde desenhar
             tempo_atual: Tempo atual do jogo (para animações)
         """
+        # Se está completamente invisível, não desenha nada
+        if not self.esta_visivel and self.alpha_atual == 0:
+            # Atualizar hitbox para colisão mesmo invisível
+            offset_flutuacao = math.sin(self.tempo_flutuacao) * self.amplitude_flutuacao
+            self.rect.y = int(self.y + offset_flutuacao)
+            return
+
         # Criar surface com alpha para transparência
         fantasma_surface = pygame.Surface((self.tamanho, self.tamanho), pygame.SRCALPHA)
 
@@ -152,8 +159,8 @@ class InimigoFantasma(Quadrado):
 
         # ===== CORPO QUADRADO COM EFEITO FANTASMAGÓRICO =====
 
-        # Aura/brilho externo (efeito etéreo)
-        if self.esta_visivel or self.alpha_atual > 100:
+        # Aura/brilho externo (efeito etéreo) - só quando visível
+        if self.esta_visivel:
             for i in range(3):
                 aura_size = self.tamanho + (i * 4)
                 aura_alpha = int(self.alpha_atual * 0.15 * (3 - i))
@@ -168,84 +175,77 @@ class InimigoFantasma(Quadrado):
         borda_color = (100, 100, 180, int(self.alpha_atual))
         pygame.draw.rect(fantasma_surface, borda_color, (0, 0, self.tamanho, self.tamanho), 2)
 
-        # ===== OLHOS ASSUSTADORES (sempre brilhantes) =====
-        olho_esquerdo_x = self.tamanho // 3
-        olho_direito_x = 2 * self.tamanho // 3
-        olho_y = self.tamanho // 3
-        tamanho_olho = 8
-
-        # Brilho externo dos olhos (aura vermelha/branca)
-        brilho_alpha = int(min(255, self.alpha_atual * 1.5))
-        cor_brilho = (255, 200, 200) if self.esta_visivel else (200, 200, 255)
-
-        pygame.draw.circle(fantasma_surface, (*cor_brilho, brilho_alpha),
-                         (olho_esquerdo_x, olho_y), tamanho_olho + 2)
-        pygame.draw.circle(fantasma_surface, (*cor_brilho, brilho_alpha),
-                         (olho_direito_x, olho_y), tamanho_olho + 2)
-
-        # Olhos internos (vermelho sangue quando visível, azul quando invisível)
+        # ===== OLHOS ASSUSTADORES (só quando visível) =====
         if self.esta_visivel:
+            olho_esquerdo_x = self.tamanho // 3
+            olho_direito_x = 2 * self.tamanho // 3
+            olho_y = self.tamanho // 3
+            tamanho_olho = 8
+
+            # Brilho externo dos olhos (aura vermelha/branca)
+            brilho_alpha = int(min(255, self.alpha_atual * 1.5))
+            cor_brilho = (255, 200, 200)
+
+            pygame.draw.circle(fantasma_surface, (*cor_brilho, brilho_alpha),
+                             (olho_esquerdo_x, olho_y), tamanho_olho + 2)
+            pygame.draw.circle(fantasma_surface, (*cor_brilho, brilho_alpha),
+                             (olho_direito_x, olho_y), tamanho_olho + 2)
+
+            # Olhos internos (vermelho sangue quando visível)
             cor_olho = (255, 50, 50, int(self.alpha_atual))  # Vermelho sangue
-        else:
-            cor_olho = (100, 100, 255, int(self.alpha_atual))  # Azul fantasmagórico
 
-        pygame.draw.circle(fantasma_surface, cor_olho,
-                         (olho_esquerdo_x, olho_y), tamanho_olho)
-        pygame.draw.circle(fantasma_surface, cor_olho,
-                         (olho_direito_x, olho_y), tamanho_olho)
+            pygame.draw.circle(fantasma_surface, cor_olho,
+                             (olho_esquerdo_x, olho_y), tamanho_olho)
+            pygame.draw.circle(fantasma_surface, cor_olho,
+                             (olho_direito_x, olho_y), tamanho_olho)
 
-        # Pupilas pretas (mais assustadoras)
-        pygame.draw.circle(fantasma_surface, (0, 0, 0, int(self.alpha_atual)),
-                         (olho_esquerdo_x, olho_y), 3)
-        pygame.draw.circle(fantasma_surface, (0, 0, 0, int(self.alpha_atual)),
-                         (olho_direito_x, olho_y), 3)
+            # Pupilas pretas (mais assustadoras)
+            pygame.draw.circle(fantasma_surface, (0, 0, 0, int(self.alpha_atual)),
+                             (olho_esquerdo_x, olho_y), 3)
+            pygame.draw.circle(fantasma_surface, (0, 0, 0, int(self.alpha_atual)),
+                             (olho_direito_x, olho_y), 3)
 
-        # Brilho nos olhos (reflexo)
-        pygame.draw.circle(fantasma_surface, (255, 255, 255, int(self.alpha_atual)),
-                         (olho_esquerdo_x - 2, olho_y - 2), 2)
-        pygame.draw.circle(fantasma_surface, (255, 255, 255, int(self.alpha_atual)),
-                         (olho_direito_x - 2, olho_y - 2), 2)
+            # Brilho nos olhos (reflexo)
+            pygame.draw.circle(fantasma_surface, (255, 255, 255, int(self.alpha_atual)),
+                             (olho_esquerdo_x - 2, olho_y - 2), 2)
+            pygame.draw.circle(fantasma_surface, (255, 255, 255, int(self.alpha_atual)),
+                             (olho_direito_x - 2, olho_y - 2), 2)
 
-        # ===== BOCA ASSUSTADORA =====
-        boca_y = 2 * self.tamanho // 3
-        boca_x_centro = self.tamanho // 2
-
+        # ===== BOCA ASSUSTADORA (só quando visível) =====
         if self.esta_visivel:
+            boca_y = 2 * self.tamanho // 3
+            boca_x_centro = self.tamanho // 2
+
             # Boca aberta em grito quando visível (mais assustador)
             boca_cor = (50, 0, 0, int(self.alpha_atual))  # Vermelho escuro/preto
             boca_largura = 12
             boca_altura = 10
-        else:
-            # Boca fechada/sorriso sinistro quando invisível
-            boca_cor = (80, 80, 120, int(self.alpha_atual * 0.8))
-            boca_largura = 14
-            boca_altura = 6
 
-        # Desenhar boca
-        pygame.draw.ellipse(fantasma_surface, boca_cor,
-                          (boca_x_centro - boca_largura // 2, boca_y,
-                           boca_largura, boca_altura))
+            # Desenhar boca
+            pygame.draw.ellipse(fantasma_surface, boca_cor,
+                              (boca_x_centro - boca_largura // 2, boca_y,
+                               boca_largura, boca_altura))
 
-        # Dentes quando visível (mais assustador)
-        if self.esta_visivel and self.alpha_atual > 150:
-            dente_cor = (255, 255, 200, int(self.alpha_atual))
-            num_dentes = 4
-            for i in range(num_dentes):
-                dente_x = boca_x_centro - 5 + i * 3
-                pygame.draw.rect(fantasma_surface, dente_cor,
-                               (dente_x, boca_y + 1, 2, 3))
+            # Dentes quando visível (mais assustador)
+            if self.alpha_atual > 150:
+                dente_cor = (255, 255, 200, int(self.alpha_atual))
+                num_dentes = 4
+                for i in range(num_dentes):
+                    dente_x = boca_x_centro - 5 + i * 3
+                    pygame.draw.rect(fantasma_surface, dente_cor,
+                                   (dente_x, boca_y + 1, 2, 3))
 
-        # ===== EFEITO DE NÉVOA/PARTÍCULAS =====
-        if random.random() < 0.4:
+        # ===== EFEITO DE NÉVOA/PARTÍCULAS (só quando visível) =====
+        if self.esta_visivel and random.random() < 0.4:
             # Partículas flutuando ao redor do fantasma
             for _ in range(3):
                 px = random.randint(0, self.tamanho)
                 py = random.randint(0, self.tamanho)
                 tamanho_particula = random.randint(1, 2)
-                # Garantir que o alpha máximo seja pelo menos 30
-                alpha_max = max(30, int(self.alpha_atual * 0.6))
+                # Garantir que o alpha máximo seja pelo menos 20 para evitar range inválido
+                alpha_max = max(20, int(self.alpha_atual * 0.6))
                 particula_alpha = random.randint(20, alpha_max)
-                cor_particula = (200, 200, 255) if not self.esta_visivel else (255, 200, 200)
+                cor_particula = (255, 200, 200)
                 pygame.draw.circle(fantasma_surface, (*cor_particula, particula_alpha),
                                  (px, py), tamanho_particula)
 
@@ -278,3 +278,7 @@ class InimigoFantasma(Quadrado):
     def obter_alpha(self):
         """Retorna o alpha atual do fantasma."""
         return self.alpha_atual
+
+    def esta_invulneravel(self):
+        """Retorna True se o fantasma está invulnerável (invisível)."""
+        return not self.esta_visivel

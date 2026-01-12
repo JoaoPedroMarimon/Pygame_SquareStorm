@@ -308,6 +308,10 @@ def processar_dano_sabre_arremessado(jogador, inimigos, particulas=None, flashes
         if inimigo.vidas <= 0:
             continue
 
+        # Verificar se o inimigo está invulnerável (fantasma invisível)
+        if hasattr(inimigo, 'esta_invulneravel') and inimigo.esta_invulneravel():
+            continue
+
         # Calcular distância até o inimigo
         centro_inimigo_x = inimigo.x + inimigo.tamanho // 2
         centro_inimigo_y = inimigo.y + inimigo.tamanho // 2
@@ -629,13 +633,17 @@ def processar_dano_sabre(jogador, inimigos, particulas=None, flashes=None):
     for inimigo in inimigos:
         if inimigo.vidas <= 0:
             continue
-            
+
+        # Verificar se o inimigo está invulnerável (fantasma invisível)
+        if hasattr(inimigo, 'esta_invulneravel') and inimigo.esta_invulneravel():
+            continue
+
         # Verificar se o inimigo está próximo APENAS da lâmina de energia
         centro_inimigo = (
             inimigo.x + inimigo.tamanho // 2,
             inimigo.y + inimigo.tamanho // 2
         )
-        
+
         # Calcular distância do centro do inimigo à linha da LÂMINA (não cabo)
         distancia = distancia_ponto_linha(centro_inimigo, linha_inicio, linha_fim)
         

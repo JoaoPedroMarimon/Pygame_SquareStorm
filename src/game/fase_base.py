@@ -417,6 +417,10 @@ class FaseBase:
                     continue
 
                 if tiro.rect.colliderect(alvo.rect):
+                    # Verificar se o alvo está invulnerável (fantasma invisível)
+                    if hasattr(alvo, 'esta_invulneravel') and alvo.esta_invulneravel():
+                        continue  # Fantasma invisível é invulnerável, ignorar tiro
+
                     # Obter dano do tiro (padrão: 1)
                     dano = getattr(tiro, 'dano', 1)
                     dano_causou_morte = (alvo.vidas <= dano)
