@@ -11,6 +11,7 @@ from src.entities.quadrado import Quadrado
 from src.entities.inimigo_metralhadora import InimigoMetralhadora
 from src.entities.inimigo_mago import InimigoMago
 from src.entities.inimigo_granada import InimigoGranada
+from src.entities.inimigo_fantasma import InimigoFantasma
 
 class InimigoFactory:
     """
@@ -162,3 +163,18 @@ class InimigoFactory:
             Objeto InimigoGranada configurado
         """
         return InimigoGranada(x, y)
+
+    @staticmethod
+    def criar_inimigo_fantasma(x, y):
+        """
+        Cria um inimigo fantasma tenebroso.
+        Fica visível por 2 segundos, depois invisível por 5 segundos.
+        Atira tiros normais apenas quando está visível.
+
+        Args:
+            x, y: Posição inicial do inimigo
+
+        Returns:
+            Objeto InimigoFantasma configurado
+        """
+        return InimigoFantasma(x, y)

@@ -580,6 +580,72 @@ class NivelFactory:
             'pos_jogador': (100, ALTURA_JOGO // 2)
         }
 
+
+
+
+
+    @staticmethod
+    def criar_fase_21():
+        """
+        Fase 18: Inimigos lançadores de granada - nova mecânica explosiva.
+        3 inimigos que lançam granadas com dano em área.
+        """
+        inimigos = []
+
+
+        pos_x1 = LARGURA - 150
+        pos_y1 = ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_fantasma(pos_x1, pos_y1))
+        
+        pos_x2 = LARGURA - 150
+        pos_y2 = 1.5 * ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_fantasma(pos_x2, pos_y2))
+        
+        pos_jogador = (700, ALTURA_JOGO // 4)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
+
+    @staticmethod
+    def criar_fase_22():
+        
+        
+        inimigos = []
+
+        # Inimigo granada 1 - canto superior direito
+        pos_x1 = 100
+        pos_y1 = ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_fantasma(pos_x1, pos_y1))
+
+        # Inimigo granada 2 - centro direita
+        pos_x2 = 200
+        pos_y2 = ALTURA_JOGO // 2
+        inimigos.append(InimigoFactory.criar_inimigo_granada(pos_x2, pos_y2))
+
+
+        
+        pos_x4 = 200
+        pos_y4 = 3 * ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_fantasma(pos_x4, pos_y4))
+        
+        pos_x5 = 200
+        pos_y5 = ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_granada(pos_x5, pos_y5))
+
+        # Posição inicial do jogador (esquerda, centralizado)
+        pos_jogador = (LARGURA - 150, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
+
+
+
+
+
     @staticmethod
     def obter_info_boss(resultado_fase):
         """

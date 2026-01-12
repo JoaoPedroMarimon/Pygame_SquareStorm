@@ -247,6 +247,9 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
                 # Nota: granadas_lista deve ser passada pelo sistema de jogo
                 # Por enquanto, vamos apenas marcar que ele quer atirar
                 pass  # O lançamento será gerenciado no loop principal do jogo
+            # Verificar se é inimigo fantasma para usar método específico
+            elif hasattr(inimigo, 'tipo_fantasma') and inimigo.tipo_fantasma:
+                inimigo.atirar(jogador, tiros_inimigo, particulas, flashes)
             else:
                 inimigo.atirar(tiros_inimigo, (dir_tiro_x, dir_tiro_y))
         
