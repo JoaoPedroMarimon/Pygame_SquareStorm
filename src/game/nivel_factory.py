@@ -642,7 +642,98 @@ class NivelFactory:
             'pos_jogador': pos_jogador
         }
 
+    @staticmethod
+    def criar_fase_23():
 
+        inimigos = []
+
+        # Inimigo metralhadora 1 - parte superior
+        pos_x1 = LARGURA - 500
+        pos_y1 = ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_fantasma(pos_x1, pos_y1))
+
+        # Inimigo metralhadora 2 - parte inferior
+        pos_x2 = LARGURA - 150
+        pos_y2 = 2 * ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_mago(pos_x2, pos_y2))
+
+        pos_x3 = LARGURA - 500
+        pos_y3 = 2.5*ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_perseguidor(pos_x3, pos_y3))
+
+        # Posição inicial do jogador
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
+        
+    @staticmethod
+    def criar_fase_24():
+
+        inimigos = []
+
+        pos_x1 = 80
+        pos_y1 = ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x1, pos_y1))
+
+        # Inimigo metralhadora 2 - parte inferior
+        pos_x2 = LARGURA - 150
+        pos_y2 = 1.5 * ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x2, pos_y2))
+
+        pos_x3 = 700
+        pos_y3 = 2.6*ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x3, pos_y3))
+
+        pos_x4 = 700
+        pos_y4 = 0.4*ALTURA_JOGO // 3
+        inimigos.append(InimigoFactory.criar_inimigo_fantasma(pos_x4, pos_y4))
+
+        # Posição inicial do jogador
+        pos_jogador = (700, 1*ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
+        
+    @staticmethod
+    def criar_fase_25():
+        """
+        Fase 25: Última fase antes da cutscene do Misterioso.
+        Após completar esta fase, uma cutscene especial será ativada.
+        """
+        inimigos = []
+
+        # Inimigo granada 1 - canto superior direito
+        #pos_x1 = 100
+        #pos_y1 = ALTURA_JOGO // 4
+        #inimigos.append(InimigoFactory.criar_inimigo_fantasma(pos_x1, pos_y1))
+
+        # Inimigo granada 2 - centro direita
+        #pos_x2 = 200
+        #pos_y2 = ALTURA_JOGO // 2
+        #inimigos.append(InimigoFactory.criar_inimigo_granada(pos_x2, pos_y2))
+
+        #pos_x3 = 100
+        #pos_y3 = ALTURA_JOGO // 2
+        #inimigos.append(InimigoFactory.criar_inimigo_metralhadora(pos_x3, pos_y3))
+
+        pos_x4 = 200
+        pos_y4 = ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_basico(pos_x4, pos_y4))
+
+
+        # Posição inicial do jogador (esquerda, centralizado)
+        pos_jogador = (LARGURA - 150, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador,
+            'cutscene_pos_vitoria': True  # Flag para indicar cutscene após vitória
+        }
 
 
 

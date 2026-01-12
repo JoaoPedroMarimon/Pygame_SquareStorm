@@ -455,4 +455,32 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
 
     # Criar e executar fase normal
     fase = FaseNormal(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal, inimigos, pos_jogador)
-    return fase.executar()
+    resultado = fase.executar()
+
+    # Verificar se a fase foi completada e tem cutscene pós-vitória
+    if resultado == True and isinstance(resultado_fase, dict):
+        if resultado_fase.get('cutscene_pos_vitoria', False):
+            print(f"🎬 Ativando cutscene pós-vitória da fase {numero_fase}")
+
+            # Executar cutscene específica da fase 25
+            if numero_fase == 25:
+                from src.entities.misterioso_fase25_cutscene import executar_cutscene_misterioso_fase25
+                from src.utils.visual import criar_estrelas
+
+                # Obter posição do jogador
+                jogador_pos = (fase.jogador.x, fase.jogador.y)
+
+                # Criar estrelas coloridas para o fundo (100 estrelas) - tema escuro/roxo/vermelho
+                cores_tematicas = [
+                    (200, 100, 200),  # Rosa/roxo
+                    (150, 50, 150),   # Roxo escuro
+                    (200, 50, 100),   # Vermelho/rosa
+                    (180, 180, 220),  # Azul claro
+                    (255, 200, 200),  # Rosa claro
+                ]
+                estrelas = criar_estrelas(100, cores_tematicas)
+
+                # Executar cutscene
+                executar_cutscene_misterioso_fase25(tela, relogio, gradiente_jogo, estrelas, jogador_pos, fase.jogador)
+
+    return resultado
