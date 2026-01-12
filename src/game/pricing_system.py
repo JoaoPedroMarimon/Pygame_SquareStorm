@@ -50,7 +50,7 @@ class PricingManager:
                 "quantidade_por_compra": 10
             },
             "spas12": {
-                "preco_base": 25,
+                "preco_base": 35,
                 "compras_realizadas": 0,
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
