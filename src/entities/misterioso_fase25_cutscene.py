@@ -748,13 +748,21 @@ class MisteriosoFase25Cutscene:
 
         # Desenhar o jogador (ocultar durante corte, pausa, splash e final)
         if self.jogador and self.estado not in ("corte_ambiente", "pausa_ambiente", "portal_abrindo", "splash", "final"):
-            # Salvar estados temporariamente
+            # Salvar TODOS os estados de armas e itens temporariamente
             invulneravel_original = self.jogador.invulneravel
             espingarda_ativa_original = getattr(self.jogador, 'espingarda_ativa', False)
             metralhadora_ativa_original = getattr(self.jogador, 'metralhadora_ativa', False)
             desert_eagle_ativa_original = getattr(self.jogador, 'desert_eagle_ativa', False)
+            spas12_ativa_original = getattr(self.jogador, 'spas12_ativa', False)
+            sabre_equipado_original = getattr(self.jogador, 'sabre_equipado', False)
+            sabre_ativo_original = getattr(self.jogador, 'sabre_info', {}).get('ativo', False)
+            granada_selecionada_original = getattr(self.jogador, 'granada_selecionada', False)
+            ampulheta_selecionada_original = getattr(self.jogador, 'ampulheta_selecionada', False)
+            ampulheta_ativa_original = getattr(self.jogador, 'ampulheta_ativa', False)
+            dimensional_hop_selecionado_original = getattr(self.jogador, 'dimensional_hop_selecionado', False)
+            amuleto_ativo_original = getattr(self.jogador, 'amuleto_ativo', False)
 
-            # Desativar armas temporariamente
+            # Desativar TODAS as armas e itens temporariamente
             self.jogador.invulneravel = False
             if hasattr(self.jogador, 'espingarda_ativa'):
                 self.jogador.espingarda_ativa = False
@@ -762,6 +770,22 @@ class MisteriosoFase25Cutscene:
                 self.jogador.metralhadora_ativa = False
             if hasattr(self.jogador, 'desert_eagle_ativa'):
                 self.jogador.desert_eagle_ativa = False
+            if hasattr(self.jogador, 'spas12_ativa'):
+                self.jogador.spas12_ativa = False
+            if hasattr(self.jogador, 'sabre_equipado'):
+                self.jogador.sabre_equipado = False
+            if hasattr(self.jogador, 'sabre_info'):
+                self.jogador.sabre_info['ativo'] = False
+            if hasattr(self.jogador, 'granada_selecionada'):
+                self.jogador.granada_selecionada = False
+            if hasattr(self.jogador, 'ampulheta_selecionada'):
+                self.jogador.ampulheta_selecionada = False
+            if hasattr(self.jogador, 'ampulheta_ativa'):
+                self.jogador.ampulheta_ativa = False
+            if hasattr(self.jogador, 'dimensional_hop_selecionado'):
+                self.jogador.dimensional_hop_selecionado = False
+            if hasattr(self.jogador, 'amuleto_ativo'):
+                self.jogador.amuleto_ativo = False
 
             # Desenhar o jogador com rotação se estiver caindo, ou com alpha se estiver sumindo
             if self.estado == "jogador_caindo_portal":
@@ -807,7 +831,7 @@ class MisteriosoFase25Cutscene:
                 # Desenhar normalmente
                 self.jogador.desenhar(tela, tempo_atual)
 
-            # Restaurar estados
+            # Restaurar TODOS os estados
             self.jogador.invulneravel = invulneravel_original
             if hasattr(self.jogador, 'espingarda_ativa'):
                 self.jogador.espingarda_ativa = espingarda_ativa_original
@@ -815,6 +839,22 @@ class MisteriosoFase25Cutscene:
                 self.jogador.metralhadora_ativa = metralhadora_ativa_original
             if hasattr(self.jogador, 'desert_eagle_ativa'):
                 self.jogador.desert_eagle_ativa = desert_eagle_ativa_original
+            if hasattr(self.jogador, 'spas12_ativa'):
+                self.jogador.spas12_ativa = spas12_ativa_original
+            if hasattr(self.jogador, 'sabre_equipado'):
+                self.jogador.sabre_equipado = sabre_equipado_original
+            if hasattr(self.jogador, 'sabre_info'):
+                self.jogador.sabre_info['ativo'] = sabre_ativo_original
+            if hasattr(self.jogador, 'granada_selecionada'):
+                self.jogador.granada_selecionada = granada_selecionada_original
+            if hasattr(self.jogador, 'ampulheta_selecionada'):
+                self.jogador.ampulheta_selecionada = ampulheta_selecionada_original
+            if hasattr(self.jogador, 'ampulheta_ativa'):
+                self.jogador.ampulheta_ativa = ampulheta_ativa_original
+            if hasattr(self.jogador, 'dimensional_hop_selecionado'):
+                self.jogador.dimensional_hop_selecionado = dimensional_hop_selecionado_original
+            if hasattr(self.jogador, 'amuleto_ativo'):
+                self.jogador.amuleto_ativo = amuleto_ativo_original
         elif not self.jogador and self.estado not in ("corte_ambiente", "pausa_ambiente", "portal_abrindo", "splash", "final"):
             # Fallback: desenhar quadrado simples
             if self.estado == "jogador_caindo_portal":
@@ -1094,10 +1134,7 @@ def executar_cutscene_misterioso_fase25(tela, relogio, gradiente_jogo, estrelas,
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 return False
-            if evento.type == pygame.KEYDOWN:
-                if evento.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
-                    print("⏭️ Cutscene pulada pelo jogador")
-                    return True
+
 
         # Atualizar cutscene
         if cutscene.atualizar(tempo_atual):
@@ -1111,9 +1148,6 @@ def executar_cutscene_misterioso_fase25(tela, relogio, gradiente_jogo, estrelas,
         # Desenhar cutscene
         cutscene.desenhar(tela, tempo_atual)
 
-        # Texto de instrução
-        desenhar_texto(tela, "Pressione ESPAÇO para pular", 18, (150, 150, 150),
-                      LARGURA // 2, ALTURA_JOGO - 30)
 
         present_frame()
         relogio.tick(FPS)

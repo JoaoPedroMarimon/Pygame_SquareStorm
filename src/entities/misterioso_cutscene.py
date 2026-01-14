@@ -458,10 +458,7 @@ def executar_cutscene_misterioso(tela, relogio, gradiente_jogo, estrelas, jogado
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 return False
-            if evento.type == pygame.KEYDOWN:
-                if evento.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
-                    print("⏭️ Cutscene pulada pelo jogador")
-                    return True
+
 
         # Atualizar cutscene
         if cutscene.atualizar(tempo_atual):
@@ -476,8 +473,7 @@ def executar_cutscene_misterioso(tela, relogio, gradiente_jogo, estrelas, jogado
         cutscene.desenhar(tela, tempo_atual)
 
         # Texto de instrução (pode pular)
-        desenhar_texto(tela, "Pressione ESPAÇO para pular", 18, (150, 150, 150),
-                      LARGURA // 2, ALTURA_JOGO - 30)
+
 
         present_frame()
         relogio.tick(FPS)

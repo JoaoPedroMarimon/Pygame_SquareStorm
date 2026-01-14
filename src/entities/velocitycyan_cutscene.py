@@ -469,7 +469,7 @@ class VelocityCyanCutscene:
         self.desenhar(tela, tempo_atual)
 
         # Texto de instrução (pode pular)
-        desenhar_texto(tela, "Pressione ESPAÇO para pular", 18, (150, 150, 150),
+        desenhar_texto(tela, "Pressione ESC para pular", 18, (150, 150, 150),
                       LARGURA // 2, ALTURA_JOGO - 30)
 
         present_frame()
