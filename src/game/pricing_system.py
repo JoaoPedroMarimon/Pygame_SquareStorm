@@ -36,7 +36,7 @@ class PricingManager:
                 "quantidade_por_compra": 25
             },
             "sabre_luz": {
-                "preco_base": 1000,
+                "preco_base": 100000,
                 "compras_realizadas": 0,
                 "limite_maximo": 1,  # Apenas 1 compra (item épico único)
                 "multiplicador": 1.0, # Preço não aumenta
@@ -55,6 +55,13 @@ class PricingManager:
                 "limite_maximo": 999999,  # Sem limite
                 "multiplicador": 1.0, # Preço não aumenta
                 "quantidade_por_compra": 3
+            },
+            "sniper": {
+                "preco_base": 80,
+                "compras_realizadas": 0,
+                "limite_maximo": 999999,  # Sem limite
+                "multiplicador": 1.0, # Preço não aumenta
+                "quantidade_por_compra": 5
             },
 
             # UPGRADES SHOP

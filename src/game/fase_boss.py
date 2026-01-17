@@ -98,7 +98,6 @@ class FaseBoss(FaseBase):
         tempo_atual = pygame.time.get_ticks()
         self.cutscene.iniciar(tempo_atual)
 
-        print("Cutscene de fusão melhorada iniciada...")
 
         rodando = True
         frames_contador = 0
@@ -161,7 +160,6 @@ class FaseBoss(FaseBase):
 
                     # CUTSCENE DO MISTERIOSO (apenas na fase 10 - Boss Fusion)
                     if self.numero_fase == 10:
-                        print("🎬 Executando cutscene do inimigo misterioso...")
                         # Usar posição padrão de spawn do jogador
                         jogador_pos_spawn = (100, ALTURA_JOGO // 2)
 
@@ -286,6 +284,7 @@ class FaseBoss(FaseBase):
         # Tiro contínuo da metralhadora
         if not self.pausado and not self.jogador_morto and not self.boss_derrotado:
             self._processar_tiro_continuo_metralhadora(pos_mouse)
+            self._processar_mira_sniper()
 
         return None
 
@@ -311,7 +310,6 @@ class FaseBoss(FaseBase):
             flash = criar_explosao(x, y, (120, 0, 120), self.particulas, 40)
             self.flashes.append(flash)
 
-        print("Boss melhorado surgiu da fusão!")
 
     def _atualizar_jogo_boss(self, tempo_atual, pos_mouse):
         """Atualiza toda a lógica do boss fight."""
@@ -424,7 +422,6 @@ class FaseBoss(FaseBase):
 
     def _boss_ataque_desespero(self):
         """Ataque de desespero quando boss está com pouca vida."""
-        print("BOSS ENTROU EM MODO DESESPERO!")
 
         centro_x = self.boss.x + self.boss.tamanho // 2
         centro_y = self.boss.y + self.boss.tamanho // 2
@@ -433,7 +430,6 @@ class FaseBoss(FaseBase):
 
     def _boss_ataque_fase_final(self):
         """Ataque épico da fase final."""
-        print("ATAQUE FINAL DEVASTADOR!")
 
         centro_x = self.boss.x + self.boss.tamanho // 2
         centro_y = self.boss.y + self.boss.tamanho // 2
@@ -642,7 +638,6 @@ class BossFightManager:
             pos_jogador: Tupla (x, y) com a posição inicial do jogador. Se None, usa posição padrão.
         """
         if tipo_boss not in self.boss_types:
-            print(f"Tipo de boss '{tipo_boss}' não encontrado!")
             return False
 
         boss_info = self.boss_types[tipo_boss]

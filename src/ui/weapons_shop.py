@@ -629,6 +629,21 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "dano": 3
         },
         {
+            "key": "sniper",
+            "nome": "SNIPER",
+            "descricao": "",
+            "instrucoes": "Press R to switch weapon type",
+            "info_extra": "Hold right-click to aim precisely, otherwise shots go random!",
+            "cor_fundo": (40, 45, 50),
+            "cor_borda": (120, 140, 160),
+            "cor_botao": (80, 100, 120),
+            "cor_hover": (120, 140, 160),
+            "cor_texto": (180, 200, 220),
+            "cor_resultado": BRANCO,
+            "icone_func": "sniper",
+            "dano": 10
+        },
+        {
             "key": "sabre_luz",
             "nome": "LIGHTSABER",
             "descricao": "",
@@ -713,6 +728,9 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             desenhar_icone_spas12(conteudo_surf, icone_x, icone_y, tempo_atual)
         elif arma["icone_func"] == "metralhadora":
             desenhar_icone_metralhadora(conteudo_surf, icone_x, icone_y, tempo_atual)
+        elif arma["icone_func"] == "sniper":
+            from src.weapons.sniper import desenhar_icone_sniper
+            desenhar_icone_sniper(conteudo_surf, icone_x, icone_y, tempo_atual)
         elif arma["icone_func"] == "sabre_luz":
             desenhar_icone_sabre_luz(conteudo_surf, icone_x, icone_y, tempo_atual)
         

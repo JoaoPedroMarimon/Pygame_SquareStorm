@@ -402,7 +402,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
             - False: jogador perdeu
             - "menu": voltar ao menu (quando pausado)
     """
-    print(f"🎯 Iniciando fase {numero_fase}...")
 
     # Criar a fase
     resultado_fase = NivelFactory.criar_fase(numero_fase)
@@ -410,7 +409,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
     # Verificar se é boss fight
     if NivelFactory.e_boss_fight(resultado_fase):
         info_boss = NivelFactory.obter_info_boss(resultado_fase)
-        print(f"🔥 DETECTADO: {info_boss['mensagem']}")
 
         # Executar boss fight usando sistema modular
         boss_type = info_boss['boss']
@@ -422,7 +420,6 @@ def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_n
                                       pos_jogador=pos_jogador)
 
         # Fallback para fase normal se boss não reconhecido
-        print(f"⚠️ Tipo de boss '{boss_type}' não reconhecido, executando fase normal")
         # Criar fase normal vazia como fallback
         inimigos = []
         pos_jogador = (100, ALTURA_JOGO // 2)

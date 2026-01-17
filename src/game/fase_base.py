@@ -24,6 +24,7 @@ from src.items.granada import Granada, lancar_granada, processar_granadas, inici
 from src.weapons.espingarda import atirar_espingarda
 from src.weapons.metralhadora import atirar_metralhadora
 from src.weapons.desert_eagle import atirar_desert_eagle
+from src.weapons.sniper import atirar_sniper
 from src.weapons.sabre_luz import processar_deflexao_tiros, atualizar_sabre, processar_dano_sabre
 from src.items.chucky_invocation import atualizar_invocacoes_com_inimigos, desenhar_invocacoes, desenhar_invocacoes_background, limpar_invocacoes
 from src.items.amuleto import usar_amuleto_para_invocacao
@@ -181,6 +182,7 @@ class FaseBase:
         if (not self.mostrando_inicio and not self.pausado and not self.jogador_morto and
             not self.em_congelamento and self.tempo_transicao_derrota is None):
             self._processar_tiro_continuo_metralhadora(pos_mouse)
+            self._processar_mira_sniper()
 
         return None
 
@@ -323,6 +325,14 @@ class FaseBase:
                 if self.jogador.tiros_desert_eagle <= 0:
                     self.jogador.desert_eagle_ativa = False
 
+            # PRIORIDADE 6.5: Sniper
+            elif self.jogador.sniper_ativa and self.jogador.tiros_sniper > 0:
+                # Sniper usa o estado sniper_mirando para determinar precisão
+                atirar_sniper(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes,
+                             mirando=self.jogador.sniper_mirando)
+                if self.jogador.tiros_sniper <= 0:
+                    self.jogador.sniper_ativa = False
+                    self.jogador.sniper_mirando = False
 
             # PRIORIDADE 7: Metralhadora
             elif self.jogador.metralhadora_ativa and self.jogador.tiros_metralhadora > 0:
@@ -338,6 +348,7 @@ class FaseBase:
         elif evento.button == 3:  # Clique direito - Modo defesa do sabre
             if hasattr(self.jogador, 'sabre_equipado') and self.jogador.sabre_equipado:
                 resultado_defesa = self.jogador.alternar_modo_defesa_sabre()
+            # Nota: Mira da sniper é processada continuamente em _processar_mira_sniper()
 
 
     def _processar_tiro_continuo_metralhadora(self, pos_mouse):
@@ -348,6 +359,13 @@ class FaseBase:
                 atirar_metralhadora(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
                 if self.jogador.tiros_metralhadora <= 0:
                     self.jogador.metralhadora_ativa = False
+
+    def _processar_mira_sniper(self):
+        """Processa mira da sniper - ativa enquanto botão direito está pressionado."""
+        if hasattr(self.jogador, 'sniper_ativa') and self.jogador.sniper_ativa:
+            botoes_mouse = pygame.mouse.get_pressed()
+            # Botão direito (índice 2) pressionado = mirando
+            self.jogador.sniper_mirando = botoes_mouse[2]
 
 
     def _processar_controles_pausa(self, evento, pos_mouse):

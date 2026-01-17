@@ -37,6 +37,9 @@ def salvar_todas_municoes(jogador):
         if hasattr(jogador, 'tiros_desert_eagle'):
             upgrades["desert_eagle"] = max(0, jogador.tiros_desert_eagle)
 
+        if hasattr(jogador, 'tiros_sniper'):
+            upgrades["sniper"] = max(0, jogador.tiros_sniper)
+
         if hasattr(jogador, 'granadas'):
             upgrades["granada"] = max(0, jogador.granadas)
 
@@ -59,13 +62,6 @@ def salvar_todas_municoes(jogador):
         with open("data/upgrades.json", "w") as f:
             json.dump(upgrades, f, indent=4)
 
-        print(f"✅ Munições salvas: Shotgun={upgrades.get('espingarda', 0)}, "
-              f"SPAS12={upgrades.get('spas12', 0)}, "
-              f"MachineGun={upgrades.get('metralhadora', 0)}, "
-              f"DesertEagle={upgrades.get('desert_eagle', 0)}, "
-              f"Grenades={upgrades.get('granada', 0)}, "
-              f"Chucky={upgrades.get('faca', 0)}, "
-              f"DimensionalHop={upgrades.get('dimensional_hop', 0)}")
 
     except Exception as e:
         print(f"❌ Erro ao salvar munições: {e}")

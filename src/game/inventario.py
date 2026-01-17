@@ -132,6 +132,18 @@ class InventarioManager:
                 "raridade": "Rare",
                 "dano": "★★★★☆",
                 "alcance": "★★☆☆☆"
+            },
+            "sniper": {
+                "nome": "Sniper",
+                "quantidade": 0,
+                "cor": (120, 140, 160),
+                "descricao": "Hold right-click to aim, otherwise shots go random",
+                "tipo": "arma",
+                "categoria": "arma",
+                "key": "sniper",
+                "raridade": "Epic",
+                "dano": "★★★★★",
+                "alcance": "★★★★★"
             }
         }
         
@@ -651,6 +663,63 @@ def desenhar_icone_spas12_moderno(tela, x, y, tempo_atual, tamanho=30):
         # Energia no tubo
         pygame.draw.line(tela, cor_energia, (corpo_x, y + 4), (ponta_x - 3, y + 4), max(1, energia_width - 1))
 
+def desenhar_icone_sniper_moderno(tela, x, y, tempo_atual, tamanho=35):
+    """
+    Desenha um ícone de sniper para o inventário.
+    """
+    # Cores da Sniper
+    cor_metal_escuro = (50, 55, 60)
+    cor_metal_medio = (80, 85, 90)
+    cor_metal_claro = (110, 115, 120)
+    cor_coronha = (60, 45, 35)
+    cor_scope = (30, 30, 35)
+    cor_lente = (100, 150, 200)
+
+    # Comprimento total do ícone
+    comprimento = 40
+
+    # === CORONHA ===
+    pygame.draw.polygon(tela, cor_coronha, [
+        (x - 20, y - 4),
+        (x - 20, y + 4),
+        (x - 5, y + 3),
+        (x - 5, y - 3)
+    ])
+
+    # === CORPO ===
+    pygame.draw.rect(tela, cor_metal_medio, (x - 5, y - 4, 15, 8))
+    pygame.draw.rect(tela, cor_metal_claro, (x - 5, y - 4, 15, 8), 1)
+
+    # === FERROLHO ===
+    pygame.draw.circle(tela, cor_metal_claro, (x + 5, y - 5), 3)
+    pygame.draw.line(tela, cor_metal_claro, (x + 5, y - 5), (x + 5, y - 10), 2)
+
+    # === CANO ===
+    pygame.draw.line(tela, cor_metal_escuro, (x + 10, y), (x + comprimento, y), 4)
+    pygame.draw.line(tela, cor_metal_claro, (x + 10, y - 2), (x + comprimento, y - 2), 1)
+
+    # === BOCA DO CANO ===
+    pygame.draw.circle(tela, cor_metal_medio, (x + comprimento, y), 3)
+    pygame.draw.circle(tela, (20, 20, 20), (x + comprimento, y), 1)
+
+    # === SCOPE ===
+    pygame.draw.line(tela, cor_scope, (x + 5, y - 6), (x + 20, y - 6), 5)
+    pygame.draw.circle(tela, cor_metal_medio, (x + 5, y - 6), 4)
+    pygame.draw.circle(tela, cor_lente, (x + 5, y - 6), 2)
+    pygame.draw.circle(tela, cor_metal_medio, (x + 20, y - 6), 4)
+    pygame.draw.circle(tela, cor_lente, (x + 20, y - 6), 2)
+
+    # === EFEITO DE ENERGIA ===
+    pulso = (math.sin(tempo_atual / 250) + 1) / 2
+    if pulso > 0.6:
+        cor_energia = (255, int(200 + pulso * 55), int(150 + pulso * 105))
+        pygame.draw.line(tela, cor_energia, (x + 12, y), (x + comprimento - 2, y), 1)
+
+        # Brilho na lente
+        cor_brilho = (100 + int(pulso * 100), 150 + int(pulso * 50), 200 + int(pulso * 55))
+        pygame.draw.circle(tela, cor_brilho, (x + 5, y - 6), 3)
+
+
 def desenhar_icone_metralhadora_moderno(tela, x, y, tempo_atual, tamanho=35):
     """
     Desenha um ícone de metralhadora com efeitos visuais.
@@ -796,6 +865,8 @@ def desenhar_card_item_moderno(tela, item_data, item_key, x, y, largura, altura,
         desenhar_icone_sabre_moderno(tela, icone_x, icone_y, tempo_atual)
     elif item_key == "desert_eagle":
         desenhar_icone_desert_eagle_moderno(tela, icone_x, icone_y, tempo_atual)
+    elif item_key == "sniper":
+        desenhar_icone_sniper_moderno(tela, icone_x, icone_y, tempo_atual)
 
     # Nome do item
     cor_texto = BRANCO if tem_estoque else (100, 100, 100)
