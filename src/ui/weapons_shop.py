@@ -630,7 +630,7 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
         },
         {
             "key": "sniper",
-            "nome": "SNIPER",
+            "nome": "SCOUT",
             "descricao": "",
             "instrucoes": "Press R to switch weapon type",
             "info_extra": "Hold right-click to aim precisely, otherwise shots go random!",
@@ -641,7 +641,7 @@ def desenhar_weapons_shop(tela, area_conteudo, moeda_manager, upgrades, mouse_po
             "cor_texto": (180, 200, 220),
             "cor_resultado": BRANCO,
             "icone_func": "sniper",
-            "dano": 10
+            "dano": 6
         },
         {
             "key": "sabre_luz",

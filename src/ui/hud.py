@@ -100,6 +100,13 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
             municao = str(jogador.tiros_desert_eagle)
             tem_arma_especial = True
 
+        elif hasattr(jogador, 'sniper_ativa') and jogador.sniper_ativa and hasattr(jogador, 'tiros_sniper') and jogador.tiros_sniper > 0:
+            arma_ativa = "SCOUT"
+            cor_fundo = (40, 45, 50)
+            cor_borda = (120, 140, 160)
+            municao = str(jogador.tiros_sniper)
+            tem_arma_especial = True
+
         elif hasattr(jogador, 'granada_selecionada') and jogador.granada_selecionada and hasattr(jogador, 'granadas') and jogador.granadas > 0:
             arma_ativa = "GRANADA"
             cor_fundo = (80, 40, 40)
@@ -182,6 +189,10 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
                 # Desenhar ícone da Desert Eagle
                 from src.weapons.desert_eagle import desenhar_icone_desert_eagle
                 desenhar_icone_desert_eagle(icone_surface, 30, 20, tempo_atual)
+
+            elif hasattr(jogador, 'sniper_ativa') and jogador.sniper_ativa:
+                # Desenhar ícone da Scout/Sniper
+                desenhar_icone_sniper_hud(icone_surface, 30, 20, tempo_atual)
 
             elif hasattr(jogador, 'granada_selecionada') and jogador.granada_selecionada:
                 # Desenhar ícone da granada
@@ -360,10 +371,69 @@ def desenhar_icone_sabre_hud(tela, x, y, tempo_atual, ativo=False):
     for i in range(-1, 2):
         pygame.draw.circle(tela, cor_cabo_detalhes, (x + i, y + 8), 1)
 
+def desenhar_icone_sniper_hud(tela, x, y, tempo_atual):
+    """
+    Desenha um ícone simplificado da Scout/Sniper para o HUD.
+
+    Args:
+        tela: Superfície onde desenhar
+        x, y: Posição central do ícone
+        tempo_atual: Tempo atual para animações
+    """
+    # Cores da Sniper
+    cor_metal_escuro = (50, 55, 60)
+    cor_metal_medio = (80, 85, 90)
+    cor_metal_claro = (110, 115, 120)
+    cor_coronha = (60, 45, 35)
+    cor_scope = (30, 30, 35)
+    cor_lente = (100, 150, 200)
+
+    # === CORONHA ===
+    pygame.draw.polygon(tela, cor_coronha, [
+        (x - 18, y - 4),
+        (x - 18, y + 4),
+        (x - 5, y + 3),
+        (x - 5, y - 3)
+    ])
+
+    # === CORPO ===
+    pygame.draw.rect(tela, cor_metal_medio, (x - 5, y - 4, 14, 7))
+    pygame.draw.rect(tela, cor_metal_claro, (x - 5, y - 4, 14, 7), 1)
+
+    # === FERROLHO ===
+    pygame.draw.circle(tela, cor_metal_claro, (x + 5, y - 5), 2)
+    pygame.draw.line(tela, cor_metal_claro, (x + 5, y - 5), (x + 5, y - 9), 1)
+
+    # === CANO ===
+    pygame.draw.line(tela, cor_metal_escuro, (x + 9, y), (x + 20, y), 3)
+    pygame.draw.line(tela, cor_metal_claro, (x + 9, y - 1), (x + 20, y - 1), 1)
+
+    # === BOCA DO CANO ===
+    pygame.draw.circle(tela, cor_metal_medio, (x + 20, y), 2)
+    pygame.draw.circle(tela, (20, 20, 20), (x + 20, y), 1)
+
+    # === SCOPE ===
+    pygame.draw.line(tela, cor_scope, (x + 5, y - 5), (x + 15, y - 5), 4)
+    pygame.draw.circle(tela, cor_metal_medio, (x + 5, y - 5), 3)
+    pygame.draw.circle(tela, cor_lente, (x + 5, y - 5), 2)
+    pygame.draw.circle(tela, cor_metal_medio, (x + 15, y - 5), 3)
+    pygame.draw.circle(tela, cor_lente, (x + 15, y - 5), 2)
+
+    # === EFEITO DE ENERGIA ===
+    pulso = (math.sin(tempo_atual / 250) + 1) / 2
+    if pulso > 0.6:
+        cor_energia = (255, int(200 + pulso * 55), int(150 + pulso * 105))
+        pygame.draw.line(tela, cor_energia, (x + 10, y), (x + 19, y), 1)
+
+        # Brilho na lente
+        cor_brilho = (100 + int(pulso * 100), 150 + int(pulso * 50), 200 + int(pulso * 55))
+        pygame.draw.circle(tela, cor_brilho, (x + 5, y - 5), 2)
+
+
 def desenhar_icone_granada(tela, x, y):
     """
     Desenha um ícone simplificado de granada para o HUD.
-    
+
     Args:
         tela: Superfície onde desenhar
         x, y: Posição central do ícone

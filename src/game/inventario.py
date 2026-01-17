@@ -134,7 +134,7 @@ class InventarioManager:
                 "alcance": "★★☆☆☆"
             },
             "sniper": {
-                "nome": "Sniper",
+                "nome": "Scout",
                 "quantidade": 0,
                 "cor": (120, 140, 160),
                 "descricao": "Hold right-click to aim, otherwise shots go random",

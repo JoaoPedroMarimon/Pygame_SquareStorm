@@ -122,7 +122,7 @@ def atirar_sniper(jogador, tiros, pos_mouse, particulas=None, flashes=None, mira
     # Velocidade: 25 (muito rápido)
     # Dano: 10 (extremamente alto)
     tiro = Tiro(ponta_cano_x, ponta_cano_y, dx, dy, jogador.cor, velocidade=40)
-    tiro.dano = 10  # Dano extremo!
+    tiro.dano = 6  # Dano extremo!
     tiro.raio = 3  # Projétil fino mas visível
     tiros.append(tiro)
 

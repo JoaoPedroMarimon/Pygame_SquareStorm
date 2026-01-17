@@ -521,8 +521,12 @@ class Quadrado:
         
         # DELEGAÇÃO: Desenhar item/arma atualmente ativa
         if self.cor == AZUL:  # Se for o jogador
+            # Se estiver em cutscene, não desenhar armas/itens
+            if hasattr(self, 'em_cutscene') and self.em_cutscene:
+                return
+
             pos_mouse = convert_mouse_position(pygame.mouse.get_pos())
-            
+
             # Desenhar apenas a arma/item atualmente ativo
             if hasattr(self, 'espingarda_ativa') and self.espingarda_ativa and self.tiros_espingarda > 0:
                 desenhar_espingarda(tela, self, tempo_atual, pos_mouse)

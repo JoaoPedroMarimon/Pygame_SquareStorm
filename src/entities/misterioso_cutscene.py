@@ -305,59 +305,17 @@ class MisteriosoCutscene:
         """Desenha a cutscene."""
         # Desenhar o jogador (sempre visível)
         if self.jogador is not None:
-            # Salvar estados temporariamente
+            # Usar flag em_cutscene para não desenhar armas (mais simples e automático)
             invulneravel_original = self.jogador.invulneravel
-            espingarda_ativa_original = getattr(self.jogador, 'espingarda_ativa', False)
-            metralhadora_ativa_original = getattr(self.jogador, 'metralhadora_ativa', False)
-            desert_eagle_ativa_original = getattr(self.jogador, 'desert_eagle_ativa', False)
-            granada_selecionada_original = getattr(self.jogador, 'granada_selecionada', False)
-            dimensional_hop_selecionado_original = getattr(self.jogador, 'dimensional_hop_selecionado', False)
-            ampulheta_selecionada_original = getattr(self.jogador, 'ampulheta_selecionada', False)
-            amuleto_ativo_original = getattr(self.jogador, 'amuleto_ativo', False)
-            sabre_equipado_original = getattr(self.jogador, 'sabre_equipado', False)
-
-            # Desativar invulnerabilidade e armas temporariamente
             self.jogador.invulneravel = False
-            if hasattr(self.jogador, 'espingarda_ativa'):
-                self.jogador.espingarda_ativa = False
-            if hasattr(self.jogador, 'metralhadora_ativa'):
-                self.jogador.metralhadora_ativa = False
-            if hasattr(self.jogador, 'desert_eagle_ativa'):
-                self.jogador.desert_eagle_ativa = False
-            if hasattr(self.jogador, 'granada_selecionada'):
-                self.jogador.granada_selecionada = False
-            if hasattr(self.jogador, 'dimensional_hop_selecionado'):
-                self.jogador.dimensional_hop_selecionado = False
-            if hasattr(self.jogador, 'ampulheta_selecionada'):
-                self.jogador.ampulheta_selecionada = False
-            if hasattr(self.jogador, 'amuleto_ativo'):
-                self.jogador.amuleto_ativo = False
-            if hasattr(self.jogador, 'sabre_equipado'):
-                self.jogador.sabre_equipado = False
-            if hasattr(self.jogador, 'spas12_ativa'):
-                self.jogador.spas12_ativa = False
+            self.jogador.em_cutscene = True  # Flag que impede desenho de armas
 
             # Desenhar o jogador
             self.jogador.desenhar(tela, tempo_atual)
 
             # Restaurar estados
             self.jogador.invulneravel = invulneravel_original
-            if hasattr(self.jogador, 'espingarda_ativa'):
-                self.jogador.espingarda_ativa = espingarda_ativa_original
-            if hasattr(self.jogador, 'metralhadora_ativa'):
-                self.jogador.metralhadora_ativa = metralhadora_ativa_original
-            if hasattr(self.jogador, 'desert_eagle_ativa'):
-                self.jogador.desert_eagle_ativa = desert_eagle_ativa_original
-            if hasattr(self.jogador, 'granada_selecionada'):
-                self.jogador.granada_selecionada = granada_selecionada_original
-            if hasattr(self.jogador, 'dimensional_hop_selecionado'):
-                self.jogador.dimensional_hop_selecionado = dimensional_hop_selecionado_original
-            if hasattr(self.jogador, 'ampulheta_selecionada'):
-                self.jogador.ampulheta_selecionada = ampulheta_selecionada_original
-            if hasattr(self.jogador, 'amuleto_ativo'):
-                self.jogador.amuleto_ativo = amuleto_ativo_original
-            if hasattr(self.jogador, 'sabre_equipado'):
-                self.jogador.sabre_equipado = sabre_equipado_original
+            self.jogador.em_cutscene = False  # Restaurar flag
         else:
             # Fallback: desenhar um quadrado azul simples
             jogador_rect = pygame.Rect(self.jogador_x, self.jogador_y, TAMANHO_QUADRADO, TAMANHO_QUADRADO)
