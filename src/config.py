@@ -30,6 +30,7 @@ VELOCIDADE_JOGADOR = 4.5
 VELOCIDADE_INIMIGO_BASE = 4.5
 VELOCIDADE_INIMIGO_ESPECIAL = 3.8  # Velocidade do inimigo roxo (um pouco mais lento)
 TAMANHO_QUADRADO = 40
+TAMANHO_MULTIPLAYER = 12  # Tamanho menor para caber nos corredores do dungeon (tiles 16x16)
 DURACAO_INVULNERAVEL = 1000  # Tempo de invulnerabilidade após receber dano (ms)
 COOLDOWN_TIRO_JOGADOR = 500  # Tempo entre tiros do jogador (ms)
 COOLDOWN_TIRO_INIMIGO = 400  # Tempo base entre tiros do inimigo (ms)

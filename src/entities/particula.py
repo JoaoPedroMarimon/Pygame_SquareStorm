@@ -45,32 +45,40 @@ class Particula:
 
     def desenhar(self, tela):
         """Desenha a partícula na tela."""
+        self._desenhar_interno(tela, 0, 0)
+
+    def desenhar_offset(self, tela, offset_x, offset_y):
+        """Desenha a partícula na tela com offset de câmera."""
+        self._desenhar_interno(tela, offset_x, offset_y)
+
+    def _desenhar_interno(self, tela, offset_x, offset_y):
+        """Método interno para desenhar com offset opcional."""
         if self.tamanho > 0.5:
             try:
                 # Criar uma pequena superfície rotacionada para a partícula
                 tamanho_surf = int(self.tamanho * 2)
                 if tamanho_surf <= 0:
                     return
-                
+
                 surf = pygame.Surface((tamanho_surf, tamanho_surf), pygame.SRCALPHA)
-                
+
                 # Garantir que a cor é uma tupla de inteiros válidos
                 cor_valida = tuple(max(0, min(255, int(c))) for c in self.cor)
-                
+
                 # Desenhar um polígono ou círculo na superfície
                 if random.random() < 0.7:  # 70% chance de ser círculo
                     raio = max(1, int(self.tamanho))
                     pygame.draw.circle(surf, cor_valida, (tamanho_surf//2, tamanho_surf//2), raio)
                 else:  # 30% chance de ser um quadrado
                     pygame.draw.rect(surf, cor_valida, (0, 0, tamanho_surf, tamanho_surf))
-                
+
                 # Rotacionar a superfície
                 surf_rot = pygame.transform.rotate(surf, self.rotacao)
-                
+
                 # Obter o retângulo da superfície rotacionada
                 rect = surf_rot.get_rect()
-                rect.center = (int(self.x), int(self.y))
-                
+                rect.center = (int(self.x + offset_x), int(self.y + offset_y))
+
                 # Desenhar na tela
                 tela.blit(surf_rot, rect)
             except (ValueError, TypeError) as e:

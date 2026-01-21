@@ -116,10 +116,16 @@ def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
     # Botões
     btn_iniciar = pygame.Rect(LARGURA // 2 - 150, ALTURA - 100, 300, 60)
     btn_cancelar = pygame.Rect(margem, ALTURA - 100, 150, 60)
-    btn_add_bot = pygame.Rect(LARGURA - margem - 160, ALTURA - 100, 160, 60)
 
-    # Lista de bots
+    # Lista de bots - iniciar com 8 bots por padrão
+    bot_cores = [VERMELHO, VERDE, ROXO, LARANJA, CIANO, (255, 105, 180), AMARELO, (100, 200, 255)]
     bots = []
+    for i in range(8):
+        bot = {
+            'nome': f"Bot {i + 1}",
+            'cor': bot_cores[i % len(bot_cores)]
+        }
+        bots.append(bot)
 
     # Partículas de fundo (animação)
     particulas = []
@@ -174,19 +180,6 @@ def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
                 # Botão Cancelar
                 if btn_cancelar.collidepoint(mouse_click_pos):
                     return ("cancel", None)
-
-                # Botão Adicionar Bot
-                if btn_add_bot.collidepoint(mouse_click_pos):
-                    total_jogadores = num_jogadores + len(bots)
-                    if total_jogadores < config['max_players']:
-                        bot_cores = [VERMELHO, VERDE, ROXO, LARANJA, CIANO, (255, 105, 180)]  # Rosa
-                        cor_bot = bot_cores[len(bots) % len(bot_cores)]
-                        bot = {
-                            'nome': f"Bot {len(bots) + 1}",
-                            'cor': cor_bot
-                        }
-                        bots.append(bot)
-                        print(f"[LOBBY] Bot adicionado: {bot['nome']}")
 
                 # Seletor de cores (dentro do card de customização)
                 y_cores = card_customizacao.y + 180
@@ -329,17 +322,6 @@ def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
 
         texto_cancelar = fonte_normal.render("SAIR", True, BRANCO)
         tela.blit(texto_cancelar, (btn_cancelar.centerx - texto_cancelar.get_width() // 2, btn_cancelar.centery - texto_cancelar.get_height() // 2))
-
-        # Botão Adicionar Bot
-        hover_add_bot = btn_add_bot.collidepoint(mouse_pos)
-        total_jogadores = num_jogadores + len(bots)
-        pode_adicionar = total_jogadores < config['max_players']
-        cor_add_bot = (60, 120, 200) if (hover_add_bot and pode_adicionar) else ((40, 80, 140) if pode_adicionar else (60, 60, 60))
-        pygame.draw.rect(tela, cor_add_bot, btn_add_bot, 0, 15)
-        pygame.draw.rect(tela, BRANCO if pode_adicionar else (100, 100, 100), btn_add_bot, 3, 15)
-
-        texto_add_bot = fonte_normal.render("+ BOT", True, BRANCO if pode_adicionar else (100, 100, 100))
-        tela.blit(texto_add_bot, (btn_add_bot.centerx - texto_add_bot.get_width() // 2, btn_add_bot.centery - texto_add_bot.get_height() // 2))
 
         # Instruções
         inst = fonte_pequena.render("ENTER para iniciar | ESC para sair", True, (150, 150, 150))
