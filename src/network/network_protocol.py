@@ -36,6 +36,9 @@ class PacketType(IntEnum):
     WAVE_END = 33
     PHASE_COMPLETE = 34
     GAME_START = 35  # Host inicia a partida
+    TEAM_SELECT = 36  # Jogador escolheu um time
+    TEAM_STATUS = 37  # Status de quem já escolheu time
+    ALL_READY = 38  # Todos prontos, pode começar
 
     # Sincronização
     FULL_SYNC = 40
@@ -203,4 +206,27 @@ class NetworkProtocol:
             'bullet_id': bullet_id,
             'target_id': target_id,
             'target_type': target_type
+        })
+
+    @staticmethod
+    def create_team_select_packet(player_id: int, team: str, player_name: str) -> bytes:
+        """Cria um pacote de seleção de time."""
+        return NetworkProtocol.create_packet(PacketType.TEAM_SELECT, {
+            'player_id': player_id,
+            'team': team,
+            'player_name': player_name
+        })
+
+    @staticmethod
+    def create_team_status_packet(players_status: dict) -> bytes:
+        """Cria um pacote com status de todos os jogadores (quem já escolheu time)."""
+        return NetworkProtocol.create_packet(PacketType.TEAM_STATUS, {
+            'players': players_status
+        })
+
+    @staticmethod
+    def create_all_ready_packet() -> bytes:
+        """Cria um pacote indicando que todos escolheram time e podem começar."""
+        return NetworkProtocol.create_packet(PacketType.ALL_READY, {
+            'ready': True
         })

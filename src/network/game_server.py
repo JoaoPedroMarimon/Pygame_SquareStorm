@@ -85,6 +85,10 @@ class GameServer:
         self.tick_rate = 20  # Atualizações por segundo
         self.tick_interval = 1.0 / self.tick_rate
 
+        # Sistema de seleção de times
+        self.team_selections = {}  # {player_id: {'team': 'T' ou 'Q', 'name': 'nome'}}
+        self.team_selections_lock = threading.Lock()
+
     def start(self) -> bool:
         """
         Inicia o servidor.
@@ -327,6 +331,10 @@ class GameServer:
             # Jogador se desconectou
             self._disconnect_player(player_id)
 
+        elif packet_type == PacketType.TEAM_SELECT:
+            # Jogador escolheu um time
+            self._process_team_selection(player_id, data)
+
     def _update_player_input(self, player_id: int, data: Dict):
         """
         Atualiza o input de um jogador.
@@ -564,3 +572,68 @@ class GameServer:
             'message': 'Host iniciou a partida'
         })
         self._broadcast_packet(packet)
+
+    def _process_team_selection(self, player_id: int, data: Dict):
+        """
+        Processa a seleção de time de um jogador.
+
+        Args:
+            player_id: ID do jogador
+            data: Dados com 'team' e 'player_name'
+        """
+        team = data.get('team')
+        player_name = data.get('player_name', f'Player{player_id}')
+
+        if team not in ['T', 'Q']:
+            return
+
+        with self.team_selections_lock:
+            self.team_selections[player_id] = {
+                'team': team,
+                'name': player_name
+            }
+            print(f"[SERVER] Jogador {player_name} (ID:{player_id}) escolheu Time {team}")
+
+        # Broadcast o status atual para todos
+        self._broadcast_team_status()
+
+        # Verificar se todos escolheram
+        self._check_all_ready()
+
+    def _broadcast_team_status(self):
+        """Envia o status de seleção de times para todos os jogadores."""
+        with self.team_selections_lock:
+            players_status = {}
+            for pid, selection in self.team_selections.items():
+                players_status[str(pid)] = {
+                    'team': selection['team'],
+                    'name': selection['name']
+                }
+
+        packet = NetworkProtocol.create_team_status_packet(players_status)
+        self._broadcast_packet(packet)
+
+    def _check_all_ready(self):
+        """Verifica se todos os jogadores conectados escolheram time."""
+        with self.players_lock:
+            connected_count = len([p for p in self.players.values() if p.connected])
+
+        with self.team_selections_lock:
+            selected_count = len(self.team_selections)
+
+        print(f"[SERVER] Status: {selected_count}/{connected_count} jogadores escolheram time")
+
+        if selected_count >= connected_count and connected_count > 0:
+            print("[SERVER] Todos os jogadores escolheram time! Enviando ALL_READY...")
+            packet = NetworkProtocol.create_all_ready_packet()
+            self._broadcast_packet(packet)
+
+    def get_team_selections(self) -> Dict:
+        """Retorna as seleções de time atuais."""
+        with self.team_selections_lock:
+            return dict(self.team_selections)
+
+    def reset_team_selections(self):
+        """Limpa as seleções de time (para novo round)."""
+        with self.team_selections_lock:
+            self.team_selections.clear()

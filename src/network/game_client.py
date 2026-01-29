@@ -78,8 +78,13 @@ class GameClient:
             'on_player_joined': None,
             'on_player_left': None,
             'on_game_state_update': None,
-            'on_game_start': None  # Callback quando o host inicia a partida
+            'on_game_start': None,  # Callback quando o host inicia a partida
+            'on_team_status': None,  # Callback quando recebe status de times
+            'on_all_ready': None  # Callback quando todos escolheram time
         }
+
+        # Status de seleção de times
+        self.team_status = {}  # {player_id: {'team': 'T'/'Q', 'name': 'nome'}}
 
         # Medição de latência
         self.latency = 0.0
@@ -265,6 +270,14 @@ class GameClient:
             # Host iniciou a partida
             self._handle_game_start(data)
 
+        elif packet_type == PacketType.TEAM_STATUS:
+            # Status de seleção de times
+            self._handle_team_status(data)
+
+        elif packet_type == PacketType.ALL_READY:
+            # Todos escolheram time
+            self._handle_all_ready(data)
+
     def _handle_full_sync(self, data: Dict):
         """
         Processa sincronização completa.
@@ -419,6 +432,60 @@ class GameClient:
         # Chamar callback
         if self.callbacks['on_game_start']:
             self.callbacks['on_game_start'](data)
+
+    def _handle_team_status(self, data: Dict):
+        """
+        Processa status de seleção de times.
+
+        Args:
+            data: Dados com 'players' contendo as seleções
+        """
+        self.team_status = data.get('players', {})
+        print(f"[CLIENT] Status de times atualizado: {len(self.team_status)} jogadores escolheram")
+
+        # Chamar callback
+        if self.callbacks['on_team_status']:
+            self.callbacks['on_team_status'](self.team_status)
+
+    def _handle_all_ready(self, data: Dict):
+        """
+        Processa sinal de que todos os jogadores escolheram time.
+
+        Args:
+            data: Dados do evento
+        """
+        print("[CLIENT] ✅ Todos os jogadores escolheram time! Iniciando...")
+
+        # Chamar callback
+        if self.callbacks['on_all_ready']:
+            self.callbacks['on_all_ready'](data)
+
+    def send_team_selection(self, team: str, player_name: str):
+        """
+        Envia a seleção de time para o servidor.
+
+        Args:
+            team: Time escolhido ('T' ou 'Q')
+            player_name: Nome do jogador
+        """
+        if not self.connected or not self.local_player_id:
+            return
+
+        try:
+            packet = NetworkProtocol.create_team_select_packet(
+                self.local_player_id,
+                team,
+                player_name
+            )
+            self.socket.sendall(packet)
+            print(f"[CLIENT] Enviado seleção de time: {team}")
+        except Exception as e:
+            print(f"❌ Erro ao enviar seleção de time: {e}")
+            self.connected = False
+
+    def get_team_status(self) -> Dict:
+        """Retorna o status atual de seleção de times."""
+        return self.team_status
 
     def send_player_input(self, keys: Dict[str, bool], mouse_x: int, mouse_y: int, shooting: bool):
         """
