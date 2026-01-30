@@ -68,7 +68,6 @@ class FaseMultiplayer(FaseBase):
         self.habilidade_ativa = False  # Se a habilidade está ativa
         self.habilidade_tempo_inicio = 0  # Quando a habilidade foi ativada
         self.velocidade_original = 0  # Velocidade original (para restaurar após turbo)
-        self.granada_equipada = False  # Classe granada: granadas equipadas
 
         # === DEV MODE - Sistema de desenho de rotas ===
         self.dev_mode = False  # Ativado quando entra no modo desenvolvedor
@@ -141,21 +140,28 @@ class FaseMultiplayer(FaseBase):
                     elif evento.key == pygame.K_SPACE:
                         if self.classe_jogador:
                             self._usar_habilidade_classe()
-                    # Tecla Q para equipar granadas (classe granada do Time T)
+                    # Tecla Q para selecionar granada (qualquer jogador com granadas)
                     elif evento.key == pygame.K_q:
-                        if self.classe_jogador == "granada":
-                            self._equipar_granadas()
-                    # Tecla E para voltar à arma (classe granada do Time T)
+                        if hasattr(self.jogador, 'granadas') and self.jogador.granadas > 0:
+                            self.jogador.granada_selecionada = True
+                            print(f"[GRANADA] Granada selecionada! ({self.jogador.granadas} disponíveis)")
+                        else:
+                            print("[GRANADA] Sem granadas!")
+                    # Tecla E para voltar à arma (desselecionar granada)
                     elif evento.key == pygame.K_e:
-                        if self.classe_jogador == "granada":
-                            self._equipar_arma()
+                        if hasattr(self.jogador, 'granada_selecionada') and self.jogador.granada_selecionada:
+                            self.jogador.granada_selecionada = False
+                            print("[GRANADA] Arma equipada!")
 
                 # Tiro com clique do mouse - usa posição do mundo (não atira se menu aberto)
                 elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     if not self.menu_compra_aberto:
-                        # Se classe granada com granadas equipadas, lança granada
-                        if self.granada_equipada and self.classe_jogador == "granada":
-                            self._lancar_granada_classe(pos_mouse_mundo)
+                        # Se granada selecionada, lança granada
+                        if hasattr(self.jogador, 'granada_selecionada') and self.jogador.granada_selecionada:
+                            if hasattr(self.jogador, 'granadas') and self.jogador.granadas > 0:
+                                self._lancar_granada_comprada(pos_mouse_mundo)
+                            else:
+                                self.jogador.granada_selecionada = False
                         else:
                             self._atirar_multiplayer(pos_mouse_mundo)
 
@@ -340,8 +346,8 @@ class FaseMultiplayer(FaseBase):
                 # Atualizar jogador localmente (predição) com colisões do mapa
                 self._atualizar_jogador_com_colisao(pos_mouse, tempo_atual)
 
-                # Atualizar habilidade de classe (Time Q)
-                if self.time_jogador == 'Q' and self.classe_jogador:
+                # Atualizar habilidade de classe (ambos os times)
+                if self.classe_jogador:
                     self._atualizar_habilidade_classe(tempo_atual)
 
                 # Atualizar câmera para seguir o jogador
@@ -362,8 +368,8 @@ class FaseMultiplayer(FaseBase):
                 # Processar sabre de luz (usa sistema existente)
                 self.processar_sabre_luz([])
 
-                # Processar granadas (usa sistema existente)
-                self.processar_granadas([])
+                # Processar granadas ativas (com colisão de paredes)
+                self._atualizar_granadas_ativas()
 
                 # Atualizar efeitos visuais (usa sistema existente)
                 self.atualizar_efeitos_visuais()
@@ -708,11 +714,6 @@ class FaseMultiplayer(FaseBase):
             if "velocidade_base" in dados and dados["velocidade_base"] != 1.0:
                 self.jogador.velocidade *= dados["velocidade_base"]
 
-            # === CLASSE GRANADA (Time T) - Começa com 3 granadas ===
-            if dados.get("granadas_iniciais"):
-                self.jogador.granadas = dados["granadas_iniciais"]
-                print(f"[CLASSE] Granadas iniciais: {dados['granadas_iniciais']}")
-
             # === CLASSE METRALHADORA (Time T) - Começa com metralhadora ===
             if dados.get("arma_inicial") == "metralhadora":
                 self.arma_equipada = "metralhadora"
@@ -839,9 +840,14 @@ class FaseMultiplayer(FaseBase):
             self.habilidade_cooldown = tempo_atual
             print("[CLASSE] INVISIBILIDADE ATIVADA! Invisível por 4 segundos!")
 
-        # ====== GRANADA - SEM HABILIDADE DE ESPAÇO ======
+        # ====== GRANADA - LANÇA GRANADA COM ESPAÇO ======
         elif self.classe_jogador == "granada":
-            print("[CLASSE] Granada: Use Q para equipar granadas, E para voltar à arma.")
+            # Verificar cooldown
+            cooldown = dados.get("habilidade_cooldown", 2000)
+            if tempo_atual - self.habilidade_cooldown >= cooldown:
+                # Lançar granada na direção do mouse
+                self._lancar_granada_classe()
+                self.habilidade_cooldown = tempo_atual
 
         # ====== METRALHADORA - SEM HABILIDADE DE ESPAÇO ======
         elif self.classe_jogador == "metralhadora":
@@ -910,29 +916,56 @@ class FaseMultiplayer(FaseBase):
                 self.habilidade_ativa = False
                 print("[CLASSE] Invisibilidade desativada!")
 
-    def _equipar_granadas(self):
-        """Equipa granadas (classe granada do Time T - tecla Q)."""
-        if not hasattr(self.jogador, 'granadas') or self.jogador.granadas <= 0:
-            print("[CLASSE] Sem granadas disponíveis!")
-            return
-
-        self.granada_equipada = True
-        print(f"[CLASSE] Granadas equipadas! ({self.jogador.granadas} restantes) - Clique para lançar")
-
-    def _equipar_arma(self):
-        """Volta para arma normal (classe granada do Time T - tecla E)."""
-        self.granada_equipada = False
-        print("[CLASSE] Arma normal equipada!")
-
-    def _lancar_granada_classe(self, pos_mouse_mundo):
-        """Lança uma granada (classe granada do Time T)."""
+    def _lancar_granada_comprada(self, pos_mouse_mundo):
+        """Lança uma granada (Q para selecionar, clique para lançar)."""
         import math
         from src.items.granada import Granada
 
         if not hasattr(self.jogador, 'granadas') or self.jogador.granadas <= 0:
-            print("[CLASSE] Sem granadas!")
-            self.granada_equipada = False
+            print("[GRANADA] Sem granadas!")
             return
+
+        # Centro do jogador
+        centro_x = self.jogador.x + TAMANHO_MULTIPLAYER / 2
+        centro_y = self.jogador.y + TAMANHO_MULTIPLAYER / 2
+
+        # Calcular direção para o mouse
+        dx = pos_mouse_mundo[0] - centro_x
+        dy = pos_mouse_mundo[1] - centro_y
+
+        # Normalizar
+        distancia = math.sqrt(dx * dx + dy * dy)
+        if distancia > 0:
+            dx /= distancia
+            dy /= distancia
+
+        # Criar granada com time do jogador
+        granada = Granada(centro_x, centro_y, dx, dy, pertence_inimigo=False)
+        granada.time = self.time_jogador  # Marcar de qual time é
+        self.granadas_ativas.append(granada)
+
+        # Decrementar contagem
+        self.jogador.granadas -= 1
+        print(f"[GRANADA] Granada lançada! ({self.jogador.granadas} restantes)")
+
+        # Criar som de lançamento
+        tamanho_amostra = 6000
+        som_granada = pygame.mixer.Sound(bytes(bytearray(
+            int(127 + 127 * (math.sin(i / 15) if i < 1500 else 0))
+            for i in range(tamanho_amostra)
+        )))
+        som_granada.set_volume(0.15)
+        pygame.mixer.Channel(4).play(som_granada)
+
+    def _lancar_granada_classe(self):
+        """Lança uma granada da habilidade da classe Granada (ESPAÇO)."""
+        import math
+        from src.items.granada import Granada
+        from src.utils.display_manager import convert_mouse_position
+
+        # Obter posição do mouse no mundo
+        pos_mouse_tela = convert_mouse_position(pygame.mouse.get_pos())
+        pos_mouse_mundo = self._converter_mouse_para_mundo(pos_mouse_tela)
 
         # Centro do jogador
         centro_x = self.jogador.x + TAMANHO_MULTIPLAYER / 2
@@ -950,16 +983,173 @@ class FaseMultiplayer(FaseBase):
 
         # Criar granada
         granada = Granada(centro_x, centro_y, dx, dy, pertence_inimigo=False)
-        self.granadas.append(granada)
+        granada.time = self.time_jogador
+        self.granadas_ativas.append(granada)
 
-        # Decrementar contagem
-        self.jogador.granadas -= 1
-        print(f"[CLASSE] Granada lançada! ({self.jogador.granadas} restantes)")
+        # Som de lançamento
+        tamanho_amostra = 6000
+        som_granada = pygame.mixer.Sound(bytes(bytearray(
+            int(127 + 127 * (math.sin(i / 15) if i < 1500 else 0))
+            for i in range(tamanho_amostra)
+        )))
+        som_granada.set_volume(0.15)
+        pygame.mixer.Channel(4).play(som_granada)
 
-        # Se acabou, volta para arma
-        if self.jogador.granadas <= 0:
-            self.granada_equipada = False
-            print("[CLASSE] Granadas esgotadas! Voltando para arma.")
+    def _atualizar_granadas_ativas(self):
+        """Atualiza todas as granadas em voo com colisão de paredes."""
+        import math
+        from src.entities.tiro import Tiro
+
+        for granada in self.granadas_ativas[:]:
+            # Atualizar física
+            granada.dx *= granada.fricao
+            granada.dy *= granada.fricao
+
+            # Próxima posição
+            nova_x = granada.x + granada.dx
+            nova_y = granada.y + granada.dy
+
+            # Verificar colisão com paredes do tilemap
+            raio = granada.raio
+            colidiu = False
+
+            # Verificar colisão X
+            rect_teste_x = pygame.Rect(nova_x - raio, granada.y - raio, raio * 2, raio * 2)
+            colisoes_x = self.tilemap.get_colisoes_proximas(rect_teste_x)
+            for rect_colisao in colisoes_x:
+                if rect_teste_x.colliderect(rect_colisao):
+                    # Rebater na parede
+                    granada.dx = -granada.dx * granada.elasticidade
+                    nova_x = granada.x
+                    colidiu = True
+                    break
+
+            # Verificar colisão Y
+            rect_teste_y = pygame.Rect(granada.x - raio, nova_y - raio, raio * 2, raio * 2)
+            colisoes_y = self.tilemap.get_colisoes_proximas(rect_teste_y)
+            for rect_colisao in colisoes_y:
+                if rect_teste_y.colliderect(rect_colisao):
+                    # Rebater na parede
+                    granada.dy = -granada.dy * granada.elasticidade
+                    nova_y = granada.y
+                    colidiu = True
+                    break
+
+            # Aplicar nova posição
+            granada.x = nova_x
+            granada.y = nova_y
+
+            # Atualizar retângulo de colisão
+            granada.rect.x = granada.x - raio
+            granada.rect.y = granada.y - raio
+
+            # Atualizar ângulo de rotação
+            granada.angulo = (granada.angulo + granada.velocidade_rotacao) % 360
+
+            # Verificar se velocidade é muito baixa (granada parou)
+            velocidade_total = math.sqrt(granada.dx**2 + granada.dy**2)
+            if velocidade_total < 0.5 and granada.tempo_explosao == 0:
+                granada.tempo_explosao = 30  # 0.5 segundo até explodir
+
+            # Decrementar tempo para explosão
+            if granada.tempo_explosao > 0:
+                granada.tempo_explosao -= 1
+                # Piscar quando perto de explodir
+                if granada.tempo_explosao < 15 and granada.tempo_explosao % 3 < 2:
+                    granada.cor = (200, 60, 60)
+                else:
+                    granada.cor = (60, 120, 60)
+                # Explodir quando tempo acabar
+                if granada.tempo_explosao <= 0:
+                    self._explodir_granada(granada)
+
+            # Decrementar tempo de vida
+            granada.tempo_vida -= 1
+            if granada.tempo_vida <= 0 and not granada.explodiu:
+                self._explodir_granada(granada)
+
+            # Remover granadas explodidas
+            if granada.explodiu:
+                self.granadas_ativas.remove(granada)
+
+    def _explodir_granada(self, granada):
+        """Faz a granada explodir com efeitos visuais e dano."""
+        import math
+        from src.entities.tiro import Tiro
+        from src.entities.particula import criar_explosao
+
+        granada.explodiu = True
+
+        # Criar explosão visual
+        cores = [(255, 100, 0), (255, 200, 0), (255, 50, 0)]
+        for i in range(3):
+            offset_x = random.uniform(-10, 10)
+            offset_y = random.uniform(-10, 10)
+            flash = criar_explosao(granada.x + offset_x, granada.y + offset_y,
+                                 random.choice(cores), self.particulas, 40)
+            self.flashes.append(flash)
+
+        # Explosão central maior
+        flash_principal = {
+            'x': granada.x,
+            'y': granada.y,
+            'raio': 60,
+            'vida': 20,
+            'cor': (255, 255, 200)
+        }
+        self.flashes.append(flash_principal)
+
+        # Criar projéteis em círculo
+        num_projeteis = 8
+        velocidade_projetil = 8
+
+        for i in range(num_projeteis):
+            angulo = (2 * math.pi * i) / num_projeteis
+            dx = math.cos(angulo)
+            dy = math.sin(angulo)
+            cor_projetil = (255, 150, 0)
+            projetil = Tiro(granada.x, granada.y, dx, dy, cor_projetil, velocidade_projetil)
+            self.tiros_jogador.append(projetil)
+
+        # Verificar dano nos bots do time inimigo
+        for bot in self.bots_locais:
+            if bot.vidas <= 0:
+                continue
+            # Só causar dano em bots do time oposto
+            if bot.time == granada.time:
+                continue
+            # Calcular distância
+            dx = granada.x - (bot.x + bot.tamanho // 2)
+            dy = granada.y - (bot.y + bot.tamanho // 2)
+            distancia = math.sqrt(dx**2 + dy**2)
+            if distancia <= granada.raio_explosao:
+                bot.tomar_dano()
+
+        # Criar som de explosão
+        tamanho_amostra = 10000
+        som_explosao = pygame.mixer.Sound(bytes(bytearray(
+            int(127 + 127 * random.uniform(-1, 1) * (1 - i/tamanho_amostra))
+            for i in range(tamanho_amostra)
+        )))
+        som_explosao.set_volume(0.3)
+        pygame.mixer.Channel(5).play(som_explosao)
+
+    def _desenhar_granadas_ativas(self, surface):
+        """Desenha todas as granadas em voo."""
+        for granada in self.granadas_ativas:
+            if granada.explodiu:
+                continue
+
+            # Posição na tela (com câmera)
+            granada_x = granada.x - self.camera_x
+            granada_y = granada.y - self.camera_y
+
+            # Tamanho pequeno para a granada em voo
+            raio = 4
+
+            # Desenhar corpo da granada (simples, sem rotação complexa)
+            pygame.draw.circle(surface, granada.cor, (int(granada_x), int(granada_y)), raio)
+            pygame.draw.circle(surface, (40, 80, 40), (int(granada_x), int(granada_y)), raio, 1)
 
     # ==================== DEV MODE - SISTEMA DE DESENHO DE ROTAS ====================
 
@@ -1412,7 +1602,7 @@ class FaseMultiplayer(FaseBase):
         self.jogador.rect.width = TAMANHO_MULTIPLAYER
         self.jogador.rect.height = TAMANHO_MULTIPLAYER
         self.jogador.tamanho = TAMANHO_MULTIPLAYER
-        self.jogador.velocidade = VELOCIDADE_JOGADOR * 0.35  # 35% da velocidade normal
+        self.jogador.velocidade = 2.5  # Velocidade fixa para multiplayer
         self.jogador.tempo_ultimo_tiro = 0  # Garantir que existe para o sistema de armas
 
         # Sistema de câmera para mapas grandes
@@ -1455,6 +1645,11 @@ class FaseMultiplayer(FaseBase):
         self.menu_compra_aberto = False  # Menu de compra aberto (tecla B)
         self.moedas = 8000  # Dinheiro inicial
         self.arma_equipada = None  # None = pistola padrão
+
+        # Sistema de granadas
+        self.jogador.granadas = 0  # Começa sem granadas (compra na loja)
+        self.jogador.granada_selecionada = False  # Se está segurando granada
+        self.granadas_ativas = []  # Lista de granadas em voo
 
         # Sistema de rounds (primeiro a 5 vitórias)
         self.rounds_time_t = 0
@@ -1534,6 +1729,20 @@ class FaseMultiplayer(FaseBase):
             }
         }
 
+        # Definir itens disponíveis e preços
+        self.itens_disponiveis = {
+            'granada': {
+                'nome': 'Granada',
+                'preco': 300,
+                'quantidade': 1,
+                'max': 3,
+                'descricao': 'Explosiva - dano em area'
+            }
+        }
+
+        # Aba atual da loja (0 = armas, 1 = itens)
+        self.aba_loja_atual = 0
+
         print(f"[MULTIPLAYER] Jogo carregado! Modo: VERSUS - {len(self.bots_locais)} bots")
 
     def _criar_bots_distribuidos(self):
@@ -1572,8 +1781,8 @@ class FaseMultiplayer(FaseBase):
         else:
             cor = self.COR_TIME_Q
 
-        # Criar entidade do bot com tamanho menor para o dungeon (velocidade reduzida)
-        bot = Quadrado(x, y, TAMANHO_MULTIPLAYER, cor, VELOCIDADE_JOGADOR * 0.3)
+        # Criar entidade do bot com velocidade adequada para multiplayer
+        bot = Quadrado(x, y, TAMANHO_MULTIPLAYER, cor, 2.5)
         bot.nome = bot_info['nome']
         bot.vidas = 5
         bot.vidas_max = 5
@@ -1794,11 +2003,12 @@ class FaseMultiplayer(FaseBase):
         if teclas[pygame.K_s]:
             mov_y += 1
 
-        # Normalizar movimento diagonal para manter velocidade consistente
+        # Normalizar APENAS movimento diagonal (quando ambos X e Y são pressionados)
+        # Isso evita que diagonal seja mais rápido que cardinal
         if mov_x != 0 and mov_y != 0:
-            magnitude = math.sqrt(2)  # sqrt(1^2 + 1^2)
-            mov_x /= magnitude
-            mov_y /= magnitude
+            # Diagonal: dividir por sqrt(2) para manter mesma velocidade
+            mov_x *= 0.7071  # 1/sqrt(2) ≈ 0.7071
+            mov_y *= 0.7071
 
         # Usar velocidade do jogador (permite modificação por habilidades de classe)
         velocidade = getattr(self.jogador, 'velocidade', 2.0)
@@ -2350,8 +2560,9 @@ class FaseMultiplayer(FaseBase):
         inimigo_visivel = None
         menor_distancia = float('inf')
 
-        # Verificar jogador (se for do time oposto)
-        if self.jogador.vidas > 0 and self.time_jogador != bot_time:
+        # Verificar jogador (se for do time oposto e não invisível)
+        jogador_invisivel = getattr(self.jogador, 'invisivel', False)
+        if self.jogador.vidas > 0 and self.time_jogador != bot_time and not jogador_invisivel:
             pode_ver, dist = self._pode_ver_inimigo(bot, self.jogador)
             if pode_ver and dist < menor_distancia:
                 menor_distancia = dist
@@ -2620,8 +2831,8 @@ class FaseMultiplayer(FaseBase):
             dir_x /= mag
             dir_y /= mag
 
-        # Suavização de direção (lerp)
-        TAXA_SUAVIZACAO = 0.15
+        # Suavização de direção (lerp) - mais responsivo
+        TAXA_SUAVIZACAO = 0.4
         bot.ia_dir_x += (dir_x - bot.ia_dir_x) * TAXA_SUAVIZACAO
         bot.ia_dir_y += (dir_y - bot.ia_dir_y) * TAXA_SUAVIZACAO
 
@@ -2638,8 +2849,8 @@ class FaseMultiplayer(FaseBase):
         vel_x = bot.ia_dir_x * bot.velocidade
         vel_y = bot.ia_dir_y * bot.velocidade
 
-        # Suavização de velocidade
-        TAXA_VEL = 0.25
+        # Suavização de velocidade (mais responsivo)
+        TAXA_VEL = 0.6
         bot.ia_vel_x += (vel_x - bot.ia_vel_x) * TAXA_VEL
         bot.ia_vel_y += (vel_y - bot.ia_vel_y) * TAXA_VEL
 
@@ -2676,8 +2887,8 @@ class FaseMultiplayer(FaseBase):
         dir_y = dy / dist
 
         # Movimento simples
-        vel_x = dir_x * bot.velocidade * 0.5  # Mais lento
-        vel_y = dir_y * bot.velocidade * 0.5
+        vel_x = dir_x * bot.velocidade
+        vel_y = dir_y * bot.velocidade
 
         bot_rect = pygame.Rect(bot.x, bot.y, TAMANHO_MULTIPLAYER, TAMANHO_MULTIPLAYER)
         novo_x, novo_y, _, _ = self.tilemap.resolver_colisao(bot_rect, vel_x, vel_y)
@@ -2886,8 +3097,12 @@ class FaseMultiplayer(FaseBase):
             tiro_time = getattr(tiro, 'time_origem', None)
             tiro_removido = False
 
-            # Verificar colisão com jogador (só se for do time oposto)
+            # Verificar colisão com jogador (só se for do time oposto e não invulnerável)
             if tiro_time and tiro_time != self.time_jogador and self.jogador.vidas > 0:
+                # Verificar se jogador está invulnerável (escudo do mago ou dash)
+                if getattr(self.jogador, 'invulneravel', False):
+                    continue  # Pular dano se invulnerável
+
                 jogador_rect = pygame.Rect(
                     self.jogador.x, self.jogador.y, TAMANHO_MULTIPLAYER, TAMANHO_MULTIPLAYER
                 )
@@ -3045,10 +3260,12 @@ class FaseMultiplayer(FaseBase):
             bot.bot_plantando = False
             bot.bot_tempo_inicio_plantar = 0
 
-        # Limpar tiros
+        # Limpar tiros e granadas
         self.tiros_jogador.clear()
         self.tiros_inimigo.clear()
         self.particulas.clear()
+        self.granadas_ativas.clear()
+        self.jogador.granada_selecionada = False
 
         # Resetar tempo de compra
         self.tempo_inicio_round = pygame.time.get_ticks()
@@ -3265,6 +3482,9 @@ class FaseMultiplayer(FaseBase):
             pygame.draw.circle(mundo_surface, (0, 0, 0), (int(tiro_x), int(tiro_y)), 3)
             # Tiro colorido
             pygame.draw.circle(mundo_surface, tiro.cor, (int(tiro_x), int(tiro_y)), 2)
+
+        # Desenhar granadas em voo
+        self._desenhar_granadas_ativas(mundo_surface)
 
         # Desenhar bomba se plantada
         if self.bomba_plantada and self.bomba_posicao and not self.bomba_explodiu:
@@ -3510,6 +3730,139 @@ class FaseMultiplayer(FaseBase):
         if (tempo_atual // 200) % 2 == 0:
             pygame.draw.circle(surface, (100, 255, 100), (int(granada_x), int(granada_y)), 10, 2)
 
+    def _desenhar_granada_selecionada(self, surface, tempo_atual):
+        """Desenha a granada selecionada com trajetória prevista (igual granada.py)."""
+        import math
+        from src.utils.display_manager import convert_mouse_position
+
+        # Posição do jogador na tela
+        jogador_tela_x = self.jogador.x - self.camera_x
+        jogador_tela_y = self.jogador.y - self.camera_y
+        centro_x = jogador_tela_x + TAMANHO_MULTIPLAYER // 2
+        centro_y = jogador_tela_y + TAMANHO_MULTIPLAYER // 2
+
+        # Converter posição do mouse para obter direção
+        pos_mouse_tela = convert_mouse_position(pygame.mouse.get_pos())
+        pos_mouse_mundo = self._converter_mouse_para_mundo(pos_mouse_tela)
+        pos_mouse_relativo = (
+            pos_mouse_mundo[0] - self.camera_x,
+            pos_mouse_mundo[1] - self.camera_y
+        )
+
+        # Calcular direção para o mouse
+        dx = pos_mouse_relativo[0] - centro_x
+        dy = pos_mouse_relativo[1] - centro_y
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0:
+            dx /= dist
+            dy /= dist
+
+        # Calcular trajetória prevista
+        trajetoria = self._calcular_trajetoria_granada(centro_x, centro_y, dx, dy)
+
+        # Desenhar linha da trajetória (pontilhada)
+        if len(trajetoria) > 1:
+            for i in range(len(trajetoria) - 1):
+                if i % 2 == 0:
+                    pygame.draw.line(surface, (100, 200, 100), trajetoria[i], trajetoria[i + 1], 1)
+
+            # Desenhar indicador de explosão no ponto final
+            if trajetoria:
+                pos_final = trajetoria[-1]
+
+                # Círculo pequeno mostrando ponto de impacto
+                pulso = int(3 * abs(math.sin(tempo_atual / 200)))
+                pygame.draw.circle(surface, (255, 100, 100), pos_final, 8 + pulso, 1)
+
+                # X pequeno marcando o ponto
+                tamanho_x = 4
+                pygame.draw.line(surface, (255, 80, 80),
+                               (pos_final[0] - tamanho_x, pos_final[1] - tamanho_x),
+                               (pos_final[0] + tamanho_x, pos_final[1] + tamanho_x), 1)
+                pygame.draw.line(surface, (255, 80, 80),
+                               (pos_final[0] + tamanho_x, pos_final[1] - tamanho_x),
+                               (pos_final[0] - tamanho_x, pos_final[1] + tamanho_x), 1)
+
+        # Posição da granada na mão
+        distancia_desenho = 12
+        granada_x = centro_x + dx * distancia_desenho
+        granada_y = centro_y + dy * distancia_desenho
+
+        # Tamanho e cores da granada (pequena)
+        tamanho_granada = 3
+        cor_granada = (60, 120, 60)
+
+        # Desenhar corpo da granada
+        pygame.draw.circle(surface, cor_granada, (int(granada_x), int(granada_y)), tamanho_granada)
+        pygame.draw.circle(surface, (40, 80, 40), (int(granada_x), int(granada_y)), tamanho_granada, 1)
+
+    def _calcular_trajetoria_granada(self, centro_x, centro_y, dx, dy):
+        """Calcula a trajetória prevista da granada com colisão nas paredes."""
+        import math
+
+        velocidade_base = 10.0
+        vel_x = dx * velocidade_base
+        vel_y = dy * velocidade_base
+        fricao = 0.99
+        elasticidade = 0.7
+        raio = 4
+
+        # Posição inicial (em coordenadas de tela)
+        pos_x = centro_x + dx * TAMANHO_MULTIPLAYER
+        pos_y = centro_y + dy * TAMANHO_MULTIPLAYER
+
+        trajetoria = []
+
+        # Simular até 90 frames
+        for frame in range(90):
+            vel_x *= fricao
+            vel_y *= fricao
+
+            # Próxima posição
+            nova_x = pos_x + vel_x
+            nova_y = pos_y + vel_y
+
+            # Converter para coordenadas do mundo para checar colisão
+            mundo_x = nova_x + self.camera_x
+            mundo_y = nova_y + self.camera_y
+
+            # Verificar colisão X
+            rect_teste_x = pygame.Rect(mundo_x - raio, pos_y + self.camera_y - raio, raio * 2, raio * 2)
+            colisoes_x = self.tilemap.get_colisoes_proximas(rect_teste_x)
+            colidiu_x = False
+            for rect_colisao in colisoes_x:
+                if rect_teste_x.colliderect(rect_colisao):
+                    vel_x = -vel_x * elasticidade
+                    nova_x = pos_x
+                    colidiu_x = True
+                    break
+
+            # Verificar colisão Y
+            rect_teste_y = pygame.Rect(pos_x + self.camera_x - raio, mundo_y - raio, raio * 2, raio * 2)
+            colisoes_y = self.tilemap.get_colisoes_proximas(rect_teste_y)
+            colidiu_y = False
+            for rect_colisao in colisoes_y:
+                if rect_teste_y.colliderect(rect_colisao):
+                    vel_y = -vel_y * elasticidade
+                    nova_y = pos_y
+                    colidiu_y = True
+                    break
+
+            # Aplicar nova posição
+            pos_x = nova_x
+            pos_y = nova_y
+
+            # Adicionar ponto à trajetória (a cada 3 frames)
+            if frame % 3 == 0:
+                trajetoria.append((int(pos_x), int(pos_y)))
+
+            # Parar se a velocidade for muito baixa
+            velocidade_total = math.sqrt(vel_x**2 + vel_y**2)
+            if velocidade_total < 0.5:
+                break
+
+        return trajetoria
+
     def _desenhar_arma_jogador(self, surface, tempo_atual):
         """Desenha a arma equipada (pequena) com laser funcional."""
         import math
@@ -3517,10 +3870,15 @@ class FaseMultiplayer(FaseBase):
         if self.jogador.vidas <= 0:
             return
 
-        # Se granada equipada, desenha granada ao invés de arma
-        if self.granada_equipada and self.classe_jogador == "granada":
-            self._desenhar_granada_mao(surface, tempo_atual)
+        # Se ghost invisível, não desenha arma
+        if hasattr(self.jogador, 'invisivel') and self.jogador.invisivel:
             return
+
+        # Se granada selecionada, desenha granada ao invés de arma
+        if hasattr(self.jogador, 'granada_selecionada') and self.jogador.granada_selecionada:
+            if hasattr(self.jogador, 'granadas') and self.jogador.granadas > 0:
+                self._desenhar_granada_selecionada(surface, tempo_atual)
+                return
 
         # Se não tem arma equipada, não desenha nada
         if not self.arma_equipada:
@@ -3940,9 +4298,11 @@ class FaseMultiplayer(FaseBase):
         desenhar_texto(self.tela, f"${self.moedas}", 24, VERDE, 85, 28)
 
         # Mostrar arma equipada ou granadas
-        if self.granada_equipada and self.classe_jogador == "granada":
-            # Mostra granadas equipadas
-            granadas = getattr(self.jogador, 'granadas', 0)
+        granada_selecionada = getattr(self.jogador, 'granada_selecionada', False)
+        granadas = getattr(self.jogador, 'granadas', 0)
+
+        if granada_selecionada and granadas > 0:
+            # Mostra granadas selecionadas
             pygame.draw.rect(self.tela, (80, 60, 30), (10, 50, 150, 25), 0, 5)
             pygame.draw.rect(self.tela, (60, 255, 60), (10, 50, 150, 25), 2, 5)
             desenhar_texto(self.tela, f"GRANADA x{granadas}", 16, (60, 255, 60), 85, 63)
@@ -3980,10 +4340,23 @@ class FaseMultiplayer(FaseBase):
                         # Habilidade pronta
                         desenhar_texto(self.tela, "ESPACO: Pronto!", 10, (100, 255, 100), 85, 112)
 
-                # Para classe granada, mostrar contagem de granadas
-                if self.classe_jogador == "granada":
-                    granadas = getattr(self.jogador, 'granadas', 0)
-                    desenhar_texto(self.tela, f"Q: Granada ({granadas}) | E: Arma", 10, (150, 200, 150), 85, 130)
+        # Mostrar granadas disponíveis (para qualquer classe)
+        granadas_disponiveis = getattr(self.jogador, 'granadas', 0)
+        if granadas_disponiveis > 0:
+            granada_selecionada = getattr(self.jogador, 'granada_selecionada', False)
+            # Posição no canto inferior esquerdo
+            if granada_selecionada:
+                cor_fundo = (80, 100, 80)
+                cor_borda = (100, 255, 100)
+                texto = f"GRANADA x{granadas_disponiveis} (E: Arma)"
+            else:
+                cor_fundo = (50, 80, 50)
+                cor_borda = (100, 200, 100)
+                texto = f"Q: Granada x{granadas_disponiveis}"
+
+            pygame.draw.rect(self.tela, cor_fundo, (10, ALTURA_JOGO - 50, 150, 40), 0, 8)
+            pygame.draw.rect(self.tela, cor_borda, (10, ALTURA_JOGO - 50, 150, 40), 2, 8)
+            desenhar_texto(self.tela, texto, 14, (100, 255, 100), 85, ALTURA_JOGO - 30)
 
         # Latência
         latencia = self.cliente.get_latency() if hasattr(self.cliente, 'get_latency') else 0
@@ -4160,7 +4533,7 @@ class FaseMultiplayer(FaseBase):
                     desenhar_texto(self.tela, "Segure F para defusar", 18, (50, 150, 255), LARGURA // 2, ALTURA_JOGO - 45)
 
     def _mostrar_menu_compra(self):
-        """Mostra o menu de compra de armas estilo Counter-Strike."""
+        """Mostra o menu de compra de armas e itens estilo Counter-Strike."""
         from src.utils.visual import desenhar_texto
         from src.utils.display_manager import convert_mouse_position
 
@@ -4174,76 +4547,147 @@ class FaseMultiplayer(FaseBase):
         tempo_restante = max(0, (self.tempo_compra - (pygame.time.get_ticks() - self.tempo_inicio_round)) // 1000)
 
         # Título do menu
-        desenhar_texto(self.tela, "MENU DE COMPRA", 50, AMARELO, LARGURA // 2, 60)
-        desenhar_texto(self.tela, f"Tempo restante: {tempo_restante}s", 24, BRANCO, LARGURA // 2, 100)
-        desenhar_texto(self.tela, f"Dinheiro: ${self.moedas}", 30, VERDE, LARGURA // 2, 140)
+        desenhar_texto(self.tela, "MENU DE COMPRA", 50, AMARELO, LARGURA // 2, 40)
+        desenhar_texto(self.tela, f"Tempo restante: {tempo_restante}s", 20, BRANCO, LARGURA // 2, 75)
+        desenhar_texto(self.tela, f"Dinheiro: ${self.moedas}", 26, VERDE, LARGURA // 2, 100)
 
-        # Dimensões dos botões de armas
+        # === ABAS ===
+        aba_largura = 150
+        aba_altura = 40
+        aba_y = 130
+        aba_armas_x = LARGURA // 2 - aba_largura - 10
+        aba_itens_x = LARGURA // 2 + 10
+
+        # Aba Armas
+        aba_armas_rect = pygame.Rect(aba_armas_x, aba_y, aba_largura, aba_altura)
+        cor_aba_armas = (60, 80, 100) if self.aba_loja_atual == 0 else (40, 50, 60)
+        borda_aba_armas = (100, 150, 255) if self.aba_loja_atual == 0 else (80, 100, 120)
+        pygame.draw.rect(self.tela, cor_aba_armas, aba_armas_rect, 0, 8)
+        pygame.draw.rect(self.tela, borda_aba_armas, aba_armas_rect, 2, 8)
+        desenhar_texto(self.tela, "ARMAS", 22, BRANCO if self.aba_loja_atual == 0 else (150, 150, 150),
+                      aba_armas_rect.centerx, aba_armas_rect.centery)
+
+        # Aba Itens
+        aba_itens_rect = pygame.Rect(aba_itens_x, aba_y, aba_largura, aba_altura)
+        cor_aba_itens = (60, 100, 60) if self.aba_loja_atual == 1 else (40, 60, 40)
+        borda_aba_itens = (100, 255, 100) if self.aba_loja_atual == 1 else (80, 120, 80)
+        pygame.draw.rect(self.tela, cor_aba_itens, aba_itens_rect, 0, 8)
+        pygame.draw.rect(self.tela, borda_aba_itens, aba_itens_rect, 2, 8)
+        desenhar_texto(self.tela, "ITENS", 22, BRANCO if self.aba_loja_atual == 1 else (150, 150, 150),
+                      aba_itens_rect.centerx, aba_itens_rect.centery)
+
+        # Dimensões dos botões
         btn_largura = 280
         btn_altura = 100
         espacamento = 20
-        inicio_y = 180
-
-        # Lista de armas para desenhar
-        armas_lista = list(self.armas_disponiveis.items())
+        inicio_y = 190
         num_colunas = 2
         coluna_esquerda_x = LARGURA // 4
         coluna_direita_x = 3 * LARGURA // 4
 
-        # Desenhar botões de armas
-        for i, (arma_id, arma_info) in enumerate(armas_lista):
-            col = i % num_colunas
-            row = i // num_colunas
+        # === ABA DE ARMAS ===
+        if self.aba_loja_atual == 0:
+            armas_lista = list(self.armas_disponiveis.items())
 
-            if col == 0:
-                btn_x = coluna_esquerda_x - btn_largura // 2
-            else:
-                btn_x = coluna_direita_x - btn_largura // 2
+            for i, (arma_id, arma_info) in enumerate(armas_lista):
+                col = i % num_colunas
+                row = i // num_colunas
 
-            btn_y = inicio_y + row * (btn_altura + espacamento)
-            btn_rect = pygame.Rect(btn_x, btn_y, btn_largura, btn_altura)
+                if col == 0:
+                    btn_x = coluna_esquerda_x - btn_largura // 2
+                else:
+                    btn_x = coluna_direita_x - btn_largura // 2
 
-            # Verificar hover
-            hover = btn_rect.collidepoint(mouse_pos)
+                btn_y = inicio_y + row * (btn_altura + espacamento)
+                btn_rect = pygame.Rect(btn_x, btn_y, btn_largura, btn_altura)
 
-            # Verificar se pode comprar
-            pode_comprar = self.moedas >= arma_info['preco']
+                hover = btn_rect.collidepoint(mouse_pos)
+                pode_comprar = self.moedas >= arma_info['preco']
 
-            # Cor do botão baseada no estado
-            if self.arma_equipada == arma_id:
-                cor_btn = (0, 100, 50)  # Verde escuro - já equipada
-                cor_borda = VERDE
-            elif hover and pode_comprar:
-                cor_btn = (60, 80, 60)  # Verde claro - hover e pode comprar
-                cor_borda = VERDE
-            elif pode_comprar:
-                cor_btn = (40, 50, 40)  # Verde escuro - pode comprar
-                cor_borda = (100, 150, 100)
-            else:
-                cor_btn = (50, 30, 30)  # Vermelho - não pode comprar
-                cor_borda = (150, 80, 80)
+                if self.arma_equipada == arma_id:
+                    cor_btn = (0, 100, 50)
+                    cor_borda = VERDE
+                elif hover and pode_comprar:
+                    cor_btn = (60, 80, 60)
+                    cor_borda = VERDE
+                elif pode_comprar:
+                    cor_btn = (40, 50, 40)
+                    cor_borda = (100, 150, 100)
+                else:
+                    cor_btn = (50, 30, 30)
+                    cor_borda = (150, 80, 80)
 
-            # Desenhar botão
-            pygame.draw.rect(self.tela, cor_btn, btn_rect, 0, 10)
-            pygame.draw.rect(self.tela, cor_borda, btn_rect, 3, 10)
+                pygame.draw.rect(self.tela, cor_btn, btn_rect, 0, 10)
+                pygame.draw.rect(self.tela, cor_borda, btn_rect, 3, 10)
 
-            # Nome da arma
-            cor_nome = BRANCO if pode_comprar else (150, 150, 150)
-            desenhar_texto(self.tela, arma_info['nome'], 26, cor_nome, btn_rect.centerx, btn_y + 25)
+                cor_nome = BRANCO if pode_comprar else (150, 150, 150)
+                desenhar_texto(self.tela, arma_info['nome'], 26, cor_nome, btn_rect.centerx, btn_y + 25)
 
-            # Preço
-            cor_preco = VERDE if pode_comprar else VERMELHO
-            desenhar_texto(self.tela, f"${arma_info['preco']}", 22, cor_preco, btn_rect.centerx, btn_y + 50)
+                cor_preco = VERDE if pode_comprar else VERMELHO
+                desenhar_texto(self.tela, f"${arma_info['preco']}", 22, cor_preco, btn_rect.centerx, btn_y + 50)
 
-            # Descrição
-            desenhar_texto(self.tela, arma_info['descricao'], 16, (180, 180, 180), btn_rect.centerx, btn_y + 75)
+                desenhar_texto(self.tela, arma_info['descricao'], 16, (180, 180, 180), btn_rect.centerx, btn_y + 75)
 
-            # Indicador de equipada
-            if self.arma_equipada == arma_id:
-                desenhar_texto(self.tela, "[EQUIPADA]", 14, VERDE, btn_rect.centerx, btn_y + 90)
+                if self.arma_equipada == arma_id:
+                    desenhar_texto(self.tela, "[EQUIPADA]", 14, VERDE, btn_rect.centerx, btn_y + 90)
+
+        # === ABA DE ITENS ===
+        else:
+            itens_lista = list(self.itens_disponiveis.items())
+
+            for i, (item_id, item_info) in enumerate(itens_lista):
+                col = i % num_colunas
+                row = i // num_colunas
+
+                if col == 0:
+                    btn_x = coluna_esquerda_x - btn_largura // 2
+                else:
+                    btn_x = coluna_direita_x - btn_largura // 2
+
+                btn_y = inicio_y + row * (btn_altura + espacamento)
+                btn_rect = pygame.Rect(btn_x, btn_y, btn_largura, btn_altura)
+
+                hover = btn_rect.collidepoint(mouse_pos)
+                pode_comprar = self.moedas >= item_info['preco']
+
+                # Verificar quantidade atual
+                quantidade_atual = 0
+                if item_id == 'granada':
+                    quantidade_atual = getattr(self.jogador, 'granadas', 0)
+                max_quantidade = item_info.get('max', 3)
+                no_limite = quantidade_atual >= max_quantidade
+
+                if no_limite:
+                    cor_btn = (80, 80, 40)
+                    cor_borda = AMARELO
+                elif hover and pode_comprar:
+                    cor_btn = (60, 80, 60)
+                    cor_borda = VERDE
+                elif pode_comprar:
+                    cor_btn = (40, 50, 40)
+                    cor_borda = (100, 150, 100)
+                else:
+                    cor_btn = (50, 30, 30)
+                    cor_borda = (150, 80, 80)
+
+                pygame.draw.rect(self.tela, cor_btn, btn_rect, 0, 10)
+                pygame.draw.rect(self.tela, cor_borda, btn_rect, 3, 10)
+
+                cor_nome = BRANCO if pode_comprar and not no_limite else (150, 150, 150)
+                desenhar_texto(self.tela, item_info['nome'], 26, cor_nome, btn_rect.centerx, btn_y + 20)
+
+                cor_preco = VERDE if pode_comprar else VERMELHO
+                desenhar_texto(self.tela, f"${item_info['preco']}", 22, cor_preco, btn_rect.centerx, btn_y + 45)
+
+                desenhar_texto(self.tela, item_info['descricao'], 16, (180, 180, 180), btn_rect.centerx, btn_y + 68)
+
+                # Mostrar quantidade atual
+                desenhar_texto(self.tela, f"[{quantidade_atual}/{max_quantidade}]", 16,
+                              AMARELO if no_limite else (150, 200, 150), btn_rect.centerx, btn_y + 88)
 
         # Instruções
-        desenhar_texto(self.tela, "Clique para comprar | B para fechar", 20, (150, 150, 150), LARGURA // 2, ALTURA_JOGO - 40)
+        desenhar_texto(self.tela, "Clique para comprar | TAB para trocar aba | B para fechar", 18,
+                      (150, 150, 150), LARGURA // 2, ALTURA_JOGO - 40)
 
         # Processar cliques no menu
         for evento in pygame.event.get():
@@ -4255,35 +4699,61 @@ class FaseMultiplayer(FaseBase):
                     self.menu_compra_aberto = False
                     pygame.mouse.set_visible(False)
                     return None
-                # Atalhos numéricos para comprar armas
-                if evento.key == pygame.K_1:
-                    self._comprar_arma('desert_eagle')
-                elif evento.key == pygame.K_2:
-                    self._comprar_arma('spas12')
-                elif evento.key == pygame.K_3:
-                    self._comprar_arma('metralhadora')
-                elif evento.key == pygame.K_4:
-                    self._comprar_arma('sniper')
+                # TAB para trocar de aba
+                if evento.key == pygame.K_TAB:
+                    self.aba_loja_atual = 1 - self.aba_loja_atual
+                # Atalhos numéricos
+                if self.aba_loja_atual == 0:
+                    if evento.key == pygame.K_1:
+                        self._comprar_arma('desert_eagle')
+                    elif evento.key == pygame.K_2:
+                        self._comprar_arma('spas12')
+                    elif evento.key == pygame.K_3:
+                        self._comprar_arma('metralhadora')
+                    elif evento.key == pygame.K_4:
+                        self._comprar_arma('sniper')
+                else:
+                    if evento.key == pygame.K_1:
+                        self._comprar_item('granada')
 
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 mouse_click_pos = convert_mouse_position(evento.pos)
 
-                # Verificar clique em cada botão
-                for i, (arma_id, arma_info) in enumerate(armas_lista):
-                    col = i % num_colunas
-                    row = i // num_colunas
+                # Verificar clique nas abas
+                if aba_armas_rect.collidepoint(mouse_click_pos):
+                    self.aba_loja_atual = 0
+                elif aba_itens_rect.collidepoint(mouse_click_pos):
+                    self.aba_loja_atual = 1
 
-                    if col == 0:
-                        btn_x = coluna_esquerda_x - btn_largura // 2
-                    else:
-                        btn_x = coluna_direita_x - btn_largura // 2
-
-                    btn_y = inicio_y + row * (btn_altura + espacamento)
-                    btn_rect = pygame.Rect(btn_x, btn_y, btn_largura, btn_altura)
-
-                    if btn_rect.collidepoint(mouse_click_pos):
-                        self._comprar_arma(arma_id)
-                        break
+                # Verificar clique nos itens/armas
+                if self.aba_loja_atual == 0:
+                    armas_lista = list(self.armas_disponiveis.items())
+                    for i, (arma_id, arma_info) in enumerate(armas_lista):
+                        col = i % num_colunas
+                        row = i // num_colunas
+                        if col == 0:
+                            btn_x = coluna_esquerda_x - btn_largura // 2
+                        else:
+                            btn_x = coluna_direita_x - btn_largura // 2
+                        btn_y = inicio_y + row * (btn_altura + espacamento)
+                        btn_rect = pygame.Rect(btn_x, btn_y, btn_largura, btn_altura)
+                        if btn_rect.collidepoint(mouse_click_pos):
+                            self._comprar_arma(arma_id)
+                            break
+                else:
+                    itens_lista = list(self.itens_disponiveis.items())
+                    for i, (item_id, item_info) in enumerate(itens_lista):
+                        col = i % num_colunas
+                        row = i // num_colunas
+                        if col == 0:
+                            btn_x = coluna_esquerda_x - btn_largura // 2
+                        else:
+                            btn_x = coluna_direita_x - btn_largura // 2
+                        btn_y = inicio_y + row * (btn_altura + espacamento)
+                        btn_rect = pygame.Rect(btn_x, btn_y, btn_largura, btn_altura)
+                        if btn_rect.collidepoint(mouse_click_pos):
+                            self._comprar_item(item_id)
+                            break
 
         return None
 
@@ -4308,6 +4778,36 @@ class FaseMultiplayer(FaseBase):
         self.moedas -= arma_info['preco']
         self.arma_equipada = arma_id
         print(f"[COMPRA] Comprou {arma_info['nome']} por ${arma_info['preco']}! Saldo: ${self.moedas}")
+
+        return True
+
+    def _comprar_item(self, item_id):
+        """Compra um item se tiver dinheiro suficiente."""
+        if item_id not in self.itens_disponiveis:
+            return False
+
+        item_info = self.itens_disponiveis[item_id]
+
+        # Verificar se tem dinheiro
+        if self.moedas < item_info['preco']:
+            print(f"[COMPRA] Dinheiro insuficiente para {item_info['nome']}")
+            return False
+
+        # Verificar limite de quantidade
+        if item_id == 'granada':
+            quantidade_atual = getattr(self.jogador, 'granadas', 0)
+            max_quantidade = item_info.get('max', 3)
+
+            if quantidade_atual >= max_quantidade:
+                print(f"[COMPRA] Limite de {item_info['nome']} atingido ({max_quantidade})")
+                return False
+
+            # Comprar granada
+            self.moedas -= item_info['preco']
+            if not hasattr(self.jogador, 'granadas'):
+                self.jogador.granadas = 0
+            self.jogador.granadas += item_info.get('quantidade', 1)
+            print(f"[COMPRA] Comprou {item_info['nome']} por ${item_info['preco']}! Total: {self.jogador.granadas}")
 
         return True
 

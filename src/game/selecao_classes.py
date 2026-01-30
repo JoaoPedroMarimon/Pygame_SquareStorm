@@ -30,7 +30,7 @@ CLASSES_TIME_T = {
         "descricao2": "ESPACO: Escudo por 4s",
         "cor": (255, 255, 255),  # Branco
         "cor_escura": (180, 180, 180),
-        "vidas": 3,
+        "vidas": 5,
         "velocidade_base": 1.0,
         "habilidade_duracao": 4000,  # 4 segundos
         "habilidade_cooldown": 10000,  # 10 segundos
@@ -42,7 +42,7 @@ CLASSES_TIME_T = {
         "descricao2": "ESPACO: Invisivel por 4s",
         "cor": (150, 150, 200),  # Cinza-azul
         "cor_escura": (100, 100, 150),
-        "vidas": 2,
+        "vidas": 5,
         "velocidade_base": 1.0,
         "habilidade_duracao": 4000,  # 4 segundos
         "habilidade_cooldown": 10000,  # 10 segundos
@@ -50,12 +50,12 @@ CLASSES_TIME_T = {
     "granada": {
         "nome": "Granada",
         "descricao": "Especialista em granadas!",
-        "descricao2": "Q: Granadas | E: Arma",
+        "descricao2": "ESPACO: Lanca granada",
         "cor": (101, 67, 33),  # Marrom terra
         "cor_escura": (70, 45, 20),
-        "vidas": 3,
+        "vidas": 5,
         "velocidade_base": 1.0,
-        "granadas_iniciais": 3,
+        "habilidade_cooldown": 2000,  # 2 segundos
     },
     "metralhadora": {
         "nome": "Metralhadora",
@@ -63,8 +63,8 @@ CLASSES_TIME_T = {
         "descricao2": "Comeca com metralhadora",
         "cor": (107, 142, 35),  # Verde-oliva
         "cor_escura": (70, 95, 20),
-        "vidas": 3,
-        "velocidade_base": 0.9,  # Um pouco mais lento
+        "vidas": 5,
+        "velocidade_base": 1.0,  # Um pouco mais lento
         "arma_inicial": "metralhadora",
     },
 }
@@ -77,7 +77,7 @@ CLASSES_TIME_Q = {
         "descricao2": "ESPACO: Turbo por 5s",
         "cor": (0, 255, 255),  # CIANO
         "cor_escura": (0, 150, 150),
-        "vidas": 2,  # Menos vida
+        "vidas": 4,  # Menos vida
         "velocidade_base": 1.0,
         "habilidade_duracao": 5000,  # 5 segundos
         "habilidade_cooldown": 15000,  # 15 segundos
@@ -88,7 +88,7 @@ CLASSES_TIME_Q = {
         "descricao2": "ESPACO: Tiros em todas direcoes",
         "cor": (255, 140, 0),  # Laranja (perseguidor)
         "cor_escura": (180, 100, 0),
-        "vidas": 3,
+        "vidas": 5,
         "velocidade_base": 1.0,
         "habilidade_cooldown": 8000,  # 8 segundos
         "tiros_explosao": 12,
@@ -99,7 +99,7 @@ CLASSES_TIME_Q = {
         "descricao2": "ESPACO: Dash rapido",
         "cor": (100, 150, 255),  # Azul (Time Q padrão)
         "cor_escura": (60, 100, 180),
-        "vidas": 3,
+        "vidas": 5,
         "velocidade_base": 1.0,
         "dash_velocidade": 25,
         "dash_duracao": 8,
@@ -111,8 +111,8 @@ CLASSES_TIME_Q = {
         "descricao2": "Mais vida, sem habilidade",
         "cor": (180, 50, 230),  # ROXO
         "cor_escura": (120, 30, 160),
-        "vidas": 5,
-        "velocidade_base": 0.9,
+        "vidas": 11,
+        "velocidade_base": 1.0,
     },
 }
 

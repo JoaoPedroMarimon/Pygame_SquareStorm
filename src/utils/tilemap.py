@@ -18,7 +18,7 @@ class TileMap:
     """
 
     # Tiles que são considerados "chão" (onde pode andar)
-    TILES_CHAO = [182, 114, 322,96,97,98,99,100,419,416,216, 250, 284, 318, 216,1621,1622,1623,1624,1625]  # 182, 114 e 322 são pisos caminháveis
+    TILES_CHAO = [182, 114, 322,96,97,98,99,100,419,416,216, 250, 284, 318, 216,708,709,710,711,712]  # 182, 114 e 322 são pisos caminháveis
 
     def __init__(self, caminho_tmx):
         """

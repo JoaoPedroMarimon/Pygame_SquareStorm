@@ -298,9 +298,15 @@ def desenhar_barra_cooldown_sniper(tela, jogador, tempo_atual, pos_mouse):
         # Desenhar barra de progresso (de baixo para cima)
         # Cor gradiente baseada no progresso (azul -> ciano para sniper)
         if progresso < 0.5:
-            cor_barra = (0, int(progresso * 300), 255)  # Azul -> Ciano
+            verde = min(255, max(0, int(progresso * 300)))
+            cor_barra = (0, verde, 255)  # Azul -> Ciano
         else:
-            cor_barra = (0, 255, int(255 - (progresso - 0.5) * 200))  # Ciano -> Verde-água
+            azul = min(255, max(0, int(255 - (progresso - 0.5) * 200)))
+            cor_barra = (0, 255, azul)  # Ciano -> Verde-água
+
+        # Garantir altura mínima para evitar erros
+        if altura_preenchida < 1:
+            altura_preenchida = 1
 
         pygame.draw.rect(tela, cor_barra,
                         (pos_barra_x - largura_barra // 2,
