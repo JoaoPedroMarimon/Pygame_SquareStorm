@@ -30,7 +30,7 @@ CLASSES_TIME_T = {
         "descricao2": "ESPACO: Escudo por 4s",
         "cor": (255, 255, 255),  # Branco
         "cor_escura": (180, 180, 180),
-        "vidas": 5,
+        "vidas": 6,
         "velocidade_base": 1.0,
         "habilidade_duracao": 4000,  # 4 segundos
         "habilidade_cooldown": 10000,  # 10 segundos
@@ -60,12 +60,13 @@ CLASSES_TIME_T = {
     "metralhadora": {
         "nome": "Metralhadora",
         "descricao": "Fogo rapido!",
-        "descricao2": "Comeca com metralhadora",
+        "descricao2": "Metralhadora gratis + 2x dano",
         "cor": (107, 142, 35),  # Verde-oliva
         "cor_escura": (70, 95, 20),
-        "vidas": 5,
-        "velocidade_base": 1.0,  # Um pouco mais lento
-        "arma_inicial": "metralhadora",
+        "vidas": 6,
+        "velocidade_base": 1.0,
+        "metralhadora_gratis": True,
+        "metralhadora_dano_bonus": 2,  # Dano = 2 ao invés de 1
     },
 }
 
@@ -99,7 +100,7 @@ CLASSES_TIME_Q = {
         "descricao2": "ESPACO: Dash rapido",
         "cor": (100, 150, 255),  # Azul (Time Q padrão)
         "cor_escura": (60, 100, 180),
-        "vidas": 5,
+        "vidas": 6,
         "velocidade_base": 1.0,
         "dash_velocidade": 25,
         "dash_duracao": 8,
@@ -282,9 +283,29 @@ class SelecaoClasses:
         pygame.draw.rect(self.tela, tuple(min(255, c + 50) for c in cor_principal),
                         (preview_x + 4, preview_y + 4, 8, 8), 0, 2)
 
-        # Desenhar chapéu de mago se for a classe mago
+        # Desenhar elementos visuais específicos de cada classe
+        centro_preview_x = preview_x + preview_size // 2
+        centro_preview_y = preview_y + preview_size // 2
+
+        # Mago - Chapéu
         if dados.get("tem_chapeu_mago", False):
-            self._desenhar_chapeu_mago(preview_x + preview_size // 2, preview_y - 5)
+            self._desenhar_chapeu_mago(centro_preview_x, preview_y - 5)
+
+        # Ghost - Rosto assustador
+        if card["id"] == "ghost":
+            self._desenhar_rosto_ghost(preview_x, preview_y, preview_size)
+
+        # Granada - Cinto com granadas
+        if card["id"] == "granada":
+            self._desenhar_cinto_granadas(preview_x, preview_y, preview_size)
+
+        # Metralhadora - NVG e visual tático
+        if card["id"] == "metralhadora":
+            self._desenhar_visual_metralhadora(preview_x, preview_y, preview_size)
+
+        # Explosive - Efeito de chamas
+        if card["id"] == "explosive":
+            self._desenhar_chamas_explosive(preview_x, preview_y, preview_size)
 
         # Nome da classe
         desenhar_texto(self.tela, dados["nome"], 20, cor_principal,
@@ -306,15 +327,140 @@ class SelecaoClasses:
                       rect_desenho.centerx, rect_desenho.bottom - 25)
 
     def _desenhar_chapeu_mago(self, x, y):
-        """Desenha um chapéu de mago em miniatura."""
-        # Triângulo do chapéu
-        pontos = [(x, y - 15), (x - 12, y + 5), (x + 12, y + 5)]
+        """Desenha um chapéu de mago."""
+        # Triângulo do chapéu (maior)
+        pontos = [(x, y - 28), (x - 18, y + 8), (x + 18, y + 8)]
         pygame.draw.polygon(self.tela, (100, 50, 150), pontos)  # Roxo escuro
         pygame.draw.polygon(self.tela, (150, 100, 200), pontos, 2)  # Borda
-        # Aba do chapéu
-        pygame.draw.ellipse(self.tela, (100, 50, 150), (x - 15, y + 2, 30, 8))
-        # Estrela
-        pygame.draw.circle(self.tela, (255, 255, 100), (x, y - 5), 3)
+        # Aba do chapéu (maior)
+        pygame.draw.ellipse(self.tela, (100, 50, 150), (x - 22, y + 4, 44, 12))
+        pygame.draw.ellipse(self.tela, (150, 100, 200), (x - 22, y + 4, 44, 12), 2)
+        # Estrela (maior)
+        pygame.draw.circle(self.tela, (255, 255, 100), (x, y - 10), 5)
+
+    def _desenhar_rosto_ghost(self, x, y, tamanho):
+        """Desenha o rosto assustador do ghost no preview."""
+        # Aura fantasmagórica
+        for i in range(2):
+            pygame.draw.rect(self.tela, (180, 180, 220),
+                           (x - i - 1, y - i - 1, tamanho + i * 2 + 2, tamanho + i * 2 + 2), 1, 5)
+
+        # Olhos vermelhos
+        olho_esq_x = x + tamanho // 3
+        olho_dir_x = x + 2 * tamanho // 3
+        olho_y = y + tamanho // 3
+
+        # Brilho dos olhos
+        pygame.draw.circle(self.tela, (255, 150, 150), (olho_esq_x, olho_y), 6)
+        pygame.draw.circle(self.tela, (255, 150, 150), (olho_dir_x, olho_y), 6)
+
+        # Olhos internos (vermelho)
+        pygame.draw.circle(self.tela, (255, 30, 30), (olho_esq_x, olho_y), 4)
+        pygame.draw.circle(self.tela, (255, 30, 30), (olho_dir_x, olho_y), 4)
+
+        # Pupilas
+        pygame.draw.circle(self.tela, (0, 0, 0), (olho_esq_x, olho_y), 2)
+        pygame.draw.circle(self.tela, (0, 0, 0), (olho_dir_x, olho_y), 2)
+
+        # Boca assustadora
+        boca_x = x + tamanho // 2
+        boca_y = y + 2 * tamanho // 3
+        pygame.draw.ellipse(self.tela, (30, 0, 0), (boca_x - 8, boca_y, 16, 10))
+
+        # Dentes
+        for i in range(4):
+            dente_x = boca_x - 6 + i * 4
+            pygame.draw.rect(self.tela, (255, 255, 200), (dente_x, boca_y + 1, 2, 4))
+
+    def _desenhar_cinto_granadas(self, x, y, tamanho):
+        """Desenha o cinto com granadas no preview."""
+        # Cinto dourado
+        cinto_y = y + int(tamanho * 0.65)
+        pygame.draw.line(self.tela, (200, 150, 50),
+                       (x + 5, cinto_y), (x + tamanho - 5, cinto_y), 3)
+
+        # 3 granadas no cinto
+        espacamento = tamanho // 4
+        for i in range(3):
+            granada_x = x + espacamento * (i + 1)
+            granada_y = cinto_y + 8
+
+            # Corpo da granada
+            pygame.draw.circle(self.tela, (60, 120, 60), (granada_x, granada_y), 5)
+            pygame.draw.circle(self.tela, (40, 80, 40), (granada_x, granada_y), 5, 1)
+
+            # Detalhe
+            pygame.draw.line(self.tela, (40, 80, 40),
+                           (granada_x - 3, granada_y), (granada_x + 3, granada_y), 1)
+
+            # Bocal
+            pygame.draw.rect(self.tela, (150, 150, 150),
+                           (granada_x - 2, granada_y - 7, 4, 4))
+
+            # Pino
+            pygame.draw.circle(self.tela, (220, 220, 100), (granada_x + 4, granada_y - 6), 2, 1)
+
+    def _desenhar_visual_metralhadora(self, x, y, tamanho):
+        """Desenha o visual tático do metralhadora no preview."""
+        import random
+        centro_x = x + tamanho // 2
+
+        # Padrão de camuflagem
+        random.seed(42)
+        for _ in range(6):
+            mancha_x = x + random.randint(5, tamanho - 5)
+            mancha_y = y + random.randint(5, tamanho - 5)
+            cor_mancha = random.choice([(70, 80, 55), (50, 60, 40)])
+            pygame.draw.circle(self.tela, cor_mancha, (mancha_x, mancha_y), 4)
+
+        # Colete tático
+        pygame.draw.rect(self.tela, (30, 35, 25),
+                       (x + 5, y + 8, tamanho - 10, tamanho - 12), 2, 3)
+
+        # Faixas MOLLE
+        for i in range(3):
+            faixa_y = y + 15 + i * 10
+            pygame.draw.line(self.tela, (100, 100, 110),
+                           (x + 8, faixa_y), (x + tamanho - 8, faixa_y), 1)
+
+        # NVG (óculos de visão noturna)
+        nvg_y = y - 3
+        nvg_esq_x = centro_x - 8
+        nvg_dir_x = centro_x + 8
+
+        # Suporte
+        pygame.draw.line(self.tela, (100, 100, 110),
+                       (centro_x - 12, nvg_y), (centro_x + 12, nvg_y), 2)
+
+        # Lentes NVG
+        pygame.draw.circle(self.tela, (20, 20, 40), (nvg_esq_x, nvg_y + 4), 5)
+        pygame.draw.circle(self.tela, (0, 255, 100), (nvg_esq_x, nvg_y + 4), 3)
+        pygame.draw.circle(self.tela, (20, 20, 40), (nvg_dir_x, nvg_y + 4), 5)
+        pygame.draw.circle(self.tela, (0, 255, 100), (nvg_dir_x, nvg_y + 4), 3)
+
+    def _desenhar_chamas_explosive(self, x, y, tamanho):
+        """Desenha o efeito de chamas ao redor do explosive no preview."""
+        import random
+        random.seed(42)  # Seed fixa para não piscar
+
+        # Partículas de fogo ao redor do quadrado
+        for i in range(8):
+            # Variação no tamanho e posição
+            offset_x = random.uniform(-tamanho / 3, tamanho / 3)
+            offset_y = random.uniform(-tamanho / 3, tamanho / 3)
+
+            # Cores variando de laranja a amarelo
+            cor_r = min(255, 255 + random.randint(-40, 0))
+            cor_g = min(255, 140 + random.randint(-40, 60))
+            cor_b = 0  # Sem componente azul para manter o visual de fogo
+
+            tamanho_particula = random.randint(3, 6)
+
+            # Desenhar partícula de fogo
+            particula_x = int(x - offset_x + random.uniform(0, tamanho))
+            particula_y = int(y - offset_y + random.uniform(0, tamanho))
+            pygame.draw.circle(self.tela, (cor_r, cor_g, cor_b),
+                             (particula_x, particula_y), tamanho_particula)
 
 
 def obter_dados_classe(classe_id, time='Q'):

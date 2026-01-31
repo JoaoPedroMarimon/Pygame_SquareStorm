@@ -243,7 +243,11 @@ class FaseMultiplayer(FaseBase):
                 dx /= dist_nova
                 dy /= dist_nova
             tiro = Tiro(centro_x, centro_y, dx, dy, self.jogador.cor, velocidade)
-            tiro.dano = dano
+            # Classe Metralhadora: dano dobrado (2 ao invés de 1)
+            if self.classe_jogador == 'metralhadora':
+                tiro.dano = 2
+            else:
+                tiro.dano = dano
             tiro.time_origem = self.time_jogador
             self.tiros_jogador.append(tiro)
         else:
@@ -376,6 +380,10 @@ class FaseMultiplayer(FaseBase):
 
                 # Atualizar bots com colisões
                 self._atualizar_bots()
+
+                # Atualizar habilidades de classe dos bots
+                tempo_atual = pygame.time.get_ticks()
+                self._atualizar_habilidades_bots(tempo_atual)
 
                 # Processar colisões de tiros com jogadores (PvP)
                 self._processar_pvp()
@@ -714,10 +722,21 @@ class FaseMultiplayer(FaseBase):
             if "velocidade_base" in dados and dados["velocidade_base"] != 1.0:
                 self.jogador.velocidade *= dados["velocidade_base"]
 
-            # === CLASSE METRALHADORA (Time T) - Começa com metralhadora ===
-            if dados.get("arma_inicial") == "metralhadora":
-                self.arma_equipada = "metralhadora"
-                print(f"[CLASSE] Arma inicial: Metralhadora")
+            # Resetar invulnerabilidade para garantir que o jogador não fique permanentemente invulnerável
+            self.jogador.invulneravel = False
+
+            # Inicializar atributos específicos de cada classe
+            if self.classe_jogador == "normal":
+                self.jogador.dash_ativo = False
+                self.jogador.dash_frames_restantes = 0
+                self.jogador.dash_direcao = (0, 0)
+                self.jogador.dash_velocidade = dados.get("dash_velocidade", 25)
+            elif self.classe_jogador == "mago":
+                self.jogador.escudo_ativo = False
+            elif self.classe_jogador == "ghost":
+                self.jogador.invisivel = False
+            elif self.classe_jogador == "cyan":
+                self.jogador.posicoes_turbo = []
 
             print(f"[CLASSE] Classe '{dados['nome']}' aplicada! Vidas: {dados['vidas']}")
         else:
@@ -757,6 +776,8 @@ class FaseMultiplayer(FaseBase):
             # Velocidade turbo: 4x a velocidade normal
             self.jogador.velocidade = self.velocidade_original * 4.0
             self.habilidade_cooldown = tempo_atual
+            # Inicializar rastro do turbo
+            self.jogador.posicoes_turbo = []
             print(f"[CLASSE] TURBO ATIVADO! Velocidade: {self.jogador.velocidade:.1f} (era {self.velocidade_original:.1f})")
 
         # ====== EXPLOSIVE - EXPLOSÃO DE TIROS ======
@@ -851,7 +872,7 @@ class FaseMultiplayer(FaseBase):
 
         # ====== METRALHADORA - SEM HABILIDADE DE ESPAÇO ======
         elif self.classe_jogador == "metralhadora":
-            print("[CLASSE] Metralhadora: Já começa com a metralhadora equipada!")
+            pass  # Passivo: metralhadora grátis + dano dobrado
 
     def _atualizar_habilidade_classe(self, tempo_atual):
         """Atualiza o estado das habilidades de classe (chamado a cada frame)."""
@@ -870,6 +891,9 @@ class FaseMultiplayer(FaseBase):
             if tempo_atual - self.habilidade_tempo_inicio >= duracao:
                 self.jogador.velocidade = self.velocidade_original
                 self.habilidade_ativa = False
+                # Limpar rastro quando turbo termina
+                if hasattr(self.jogador, 'posicoes_turbo'):
+                    self.jogador.posicoes_turbo.clear()
                 print("[CLASSE] Turbo desativado!")
 
         # ====== NORMAL - ATUALIZAR DASH ======
@@ -1117,6 +1141,9 @@ class FaseMultiplayer(FaseBase):
                 continue
             # Só causar dano em bots do time oposto
             if bot.time == granada.time:
+                continue
+            # Verificar invulnerabilidade (escudo do mago)
+            if getattr(bot, 'invulneravel', False):
                 continue
             # Calcular distância
             dx = granada.x - (bot.x + bot.tamanho // 2)
@@ -1643,7 +1670,7 @@ class FaseMultiplayer(FaseBase):
         self.tempo_compra = 6000  # 6 segundos de tempo de compra
         self.em_tempo_compra = True  # Flag para saber se ainda está no tempo de compra
         self.menu_compra_aberto = False  # Menu de compra aberto (tecla B)
-        self.moedas = 8000  # Dinheiro inicial
+        self.moedas = 800  # Dinheiro inicial
         self.arma_equipada = None  # None = pistola padrão
 
         # Sistema de granadas
@@ -1743,27 +1770,81 @@ class FaseMultiplayer(FaseBase):
         # Aba atual da loja (0 = armas, 1 = itens)
         self.aba_loja_atual = 0
 
-        print(f"[MULTIPLAYER] Jogo carregado! Modo: VERSUS - {len(self.bots_locais)} bots")
+        print(f"[MULTIPLAYER] Jogo carregado! Modo: VERSUS - {len(self.bots_locais)} bots (4v4)")
 
     def _criar_bots_distribuidos(self):
-        """Cria bots distribuídos entre os dois times."""
+        """
+        Cria bots distribuídos entre os dois times.
+        Cada time SEMPRE tem 4 quadrados:
+        - Time do jogador: 1 jogador + 3 bots = 4
+        - Time inimigo: 4 bots = 4
+
+        Cada bot recebe uma classe única (sem repetir no mesmo time).
+        A classe do jogador é excluída dos bots do mesmo time.
+        """
+        from src.game.selecao_classes import CLASSES_TIME_T, CLASSES_TIME_Q
+
         self.bots_locais = []
 
-        if not self.bots_info:
-            return
+        # Nomes para os bots
+        nomes_time_t = ["Bernado", "Lucas", "Melina", "Felipe"]
+        nomes_time_q = ["Duda", "Marcelo", "João", "Walter"]
 
-        # Dividir bots entre times T e Q
-        metade = len(self.bots_info) // 2
+        # Classes disponíveis para cada time
+        classes_t = list(CLASSES_TIME_T.keys())  # ["mago", "ghost", "granada", "metralhadora"]
+        classes_q = list(CLASSES_TIME_Q.keys())  # ["cyan", "explosive", "normal", "purple"]
 
-        for i, bot_info in enumerate(self.bots_info):
-            # Primeira metade vai pro time T, segunda pro time Q
-            time_bot = 'T' if i < metade else 'Q'
-            bot = self._criar_bot_com_time(bot_info, time_bot)
-            self.bots_locais.append(bot)
-            print(f"[MULTIPLAYER] Bot criado: {bot.nome} - Time {time_bot}")
+        # Embaralhar classes para variedade
+        random.shuffle(classes_t)
+        random.shuffle(classes_q)
+
+        # Remover a classe do jogador da lista do seu time
+        if self.time_jogador == 'T' and self.classe_jogador in classes_t:
+            classes_t.remove(self.classe_jogador)
+        elif self.time_jogador == 'Q' and self.classe_jogador in classes_q:
+            classes_q.remove(self.classe_jogador)
+
+        # Criar bots para cada time
+        # Time do jogador: 3 bots (jogador é o 4º)
+        # Time inimigo: 4 bots
+
+        if self.time_jogador == 'T':
+            # Jogador está no Time T -> criar 3 bots no T e 4 no Q
+            for i in range(3):
+                classe_bot = classes_t[i] if i < len(classes_t) else classes_t[0]
+                bot_info = {'nome': nomes_time_t[i], 'classe': classe_bot}
+                bot = self._criar_bot_com_time(bot_info, 'T')
+                self.bots_locais.append(bot)
+                print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time T (aliado)")
+
+            for i in range(4):
+                classe_bot = classes_q[i] if i < len(classes_q) else classes_q[0]
+                bot_info = {'nome': nomes_time_q[i], 'classe': classe_bot}
+                bot = self._criar_bot_com_time(bot_info, 'Q')
+                self.bots_locais.append(bot)
+                print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time Q (inimigo)")
+        else:
+            # Jogador está no Time Q -> criar 4 bots no T e 3 no Q
+            for i in range(4):
+                classe_bot = classes_t[i] if i < len(classes_t) else classes_t[0]
+                bot_info = {'nome': nomes_time_t[i], 'classe': classe_bot}
+                bot = self._criar_bot_com_time(bot_info, 'T')
+                self.bots_locais.append(bot)
+                print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time T (inimigo)")
+
+            for i in range(3):
+                classe_bot = classes_q[i] if i < len(classes_q) else classes_q[0]
+                bot_info = {'nome': nomes_time_q[i], 'classe': classe_bot}
+                bot = self._criar_bot_com_time(bot_info, 'Q')
+                self.bots_locais.append(bot)
+                print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time Q (aliado)")
+
+        print(f"[MULTIPLAYER] Times configurados: 4v4 com classes únicas")
 
     def _criar_bot_com_time(self, bot_info, time_bot):
-        """Cria um bot para um time específico."""
+        """Cria um bot para um time específico com classe."""
+        from src.game.selecao_classes import obter_dados_classe
+
         # Posição no spawn do time
         spawn_name = f"Start_{time_bot}"
         spawn_obj = self.tilemap.get_objeto(spawn_name)
@@ -1775,18 +1856,55 @@ class FaseMultiplayer(FaseBase):
         else:
             x, y = self._encontrar_posicao_valida()
 
-        # Cor baseada no time
-        if time_bot == 'T':
-            cor = self.COR_TIME_T
+        # Obter classe do bot
+        classe_id = bot_info.get('classe', None)
+        dados_classe = obter_dados_classe(classe_id, time_bot) if classe_id else None
+
+        # Cor baseada na classe (ou cor do time se não tiver classe)
+        if dados_classe:
+            cor = dados_classe.get('cor', self.COR_TIME_T if time_bot == 'T' else self.COR_TIME_Q)
+            cor_escura = dados_classe.get('cor_escura', (cor[0] // 2, cor[1] // 2, cor[2] // 2))
+            vidas = dados_classe.get('vidas', 5)
         else:
-            cor = self.COR_TIME_Q
+            cor = self.COR_TIME_T if time_bot == 'T' else self.COR_TIME_Q
+            cor_escura = (cor[0] // 2, cor[1] // 2, cor[2] // 2)
+            vidas = 5
 
         # Criar entidade do bot com velocidade adequada para multiplayer
         bot = Quadrado(x, y, TAMANHO_MULTIPLAYER, cor, 2.5)
         bot.nome = bot_info['nome']
-        bot.vidas = 5
-        bot.vidas_max = 5
+        bot.vidas = vidas
+        bot.vidas_max = vidas
         bot.time = time_bot  # Guardar o time do bot
+        bot.cor_escura = cor_escura
+
+        # Classe do bot
+        bot.classe = classe_id
+        bot.dados_classe = dados_classe
+
+        # Sistema de habilidade do bot
+        bot.habilidade_cooldown = 0  # Tempo do último uso
+        bot.habilidade_ativa = False
+        bot.habilidade_tempo_inicio = 0
+        bot.velocidade_original = bot.velocidade
+
+        # Atributos específicos de classe
+        if classe_id == 'mago':
+            bot.escudo_ativo = False
+            bot.invulneravel = False
+        elif classe_id == 'ghost':
+            bot.invisivel = False
+        elif classe_id == 'granada':
+            bot.granadas_habilidade = 999  # Ilimitadas com cooldown
+        elif classe_id == 'metralhadora':
+            bot.metralhadora_dano_bonus = dados_classe.get('metralhadora_dano_bonus', 2)
+        elif classe_id == 'cyan':
+            bot.posicoes_turbo = []
+        elif classe_id == 'normal':
+            bot.dash_ativo = False
+            bot.dash_frames_restantes = 0
+            bot.dash_direcao = (0, 0)
+            bot.dash_velocidade = dados_classe.get('dash_velocidade', 25)
 
         # IA do bot - atributos básicos
         bot.is_bot = True
@@ -1796,10 +1914,16 @@ class FaseMultiplayer(FaseBase):
         bot.tempo_mudar_alvo = pygame.time.get_ticks()
 
         # IA avançada - economia e armas
-        bot.moedas = 8000  # Dinheiro inicial igual ao jogador
+        bot.moedas = 800  # Dinheiro inicial igual ao jogador
         bot.arma = None  # Arma equipada (None = sem arma)
         bot.dano_arma = 1  # Dano da arma
         bot.cadencia_arma = 800  # Tempo entre tiros (ms)
+
+        # Classe metralhadora: começa com metralhadora grátis e dano dobrado
+        if classe_id == 'metralhadora':
+            bot.arma = 'metralhadora'
+            bot.dano_arma = 2
+            bot.cadencia_arma = 100  # Metralhadora é rápida
 
         # IA avançada - comportamento
         bot.estado = 'comprando'  # Estados: comprando, movendo, atacando, plantando, defusando
@@ -2035,6 +2159,15 @@ class FaseMultiplayer(FaseBase):
         self.jogador.rect.y = novo_y
         self.jogador.rect.width = TAMANHO_MULTIPLAYER
         self.jogador.rect.height = TAMANHO_MULTIPLAYER
+
+        # ====== CYAN TURBO - RASTRO ======
+        # Salvar posição para o rastro quando turbo está ativo
+        if self.classe_jogador == "cyan" and self.habilidade_ativa:
+            if hasattr(self.jogador, 'posicoes_turbo'):
+                self.jogador.posicoes_turbo.insert(0, (novo_x, novo_y))
+                # Limitar a 15 posições
+                if len(self.jogador.posicoes_turbo) > 15:
+                    self.jogador.posicoes_turbo.pop()
 
         # Atualizar outros aspectos do jogador
         self.jogador.atualizar()
@@ -2596,6 +2729,25 @@ class FaseMultiplayer(FaseBase):
         """
         import math
 
+        # === TIME Q: PRIORIDADE DEFUSE SE BOMBA PLANTADA ===
+        if bot.time == 'Q' and self.bomba_plantada and not self.bomba_defusada:
+            # Bot do time Q vai correndo para a bomba para defusar
+            if self.bomba_posicao:
+                dist_bomba = math.sqrt((bot.x - self.bomba_posicao[0])**2 +
+                                       (bot.y - self.bomba_posicao[1])**2)
+
+                # Se está perto da bomba, começar a defusar
+                if dist_bomba < 30:
+                    # Marcar que está defusando (para visual)
+                    bot.bot_defusando = True
+                    # Bot fica parado defusando
+                    return
+                else:
+                    # Ir direto para a bomba
+                    bot.bot_defusando = False
+                    self._ia_mover_direto(bot, self.bomba_posicao)
+                    return
+
         # === SELECIONAR ROTAS DO TIME DO BOT ===
         if hasattr(bot, 'time') and bot.time == 'T':
             rotas_time = self.dev_rotas_t
@@ -2712,15 +2864,226 @@ class FaseMultiplayer(FaseBase):
         Comportamento:
         1. Parar avanço ao tile 322
         2. Movimento de combate (strafe)
-        3. Atirar (feito no loop principal)
-        4. Retornar a patrulhar se perder o alvo
+        3. Usar habilidade de classe (se disponível)
+        4. Atirar (feito no loop principal)
+        5. Retornar a patrulhar se perder o alvo
         """
         if not bot.ia_alvo_inimigo:
             bot.ia_estado = 'patrulhando'
             return
 
+        # Tentar usar habilidade de classe (chance aleatória durante combate)
+        self._bot_tentar_usar_habilidade(bot, tempo_atual)
+
         # Movimento de combate
         self._ia_mover_combate(bot, tempo_atual)
+
+    def _bot_tentar_usar_habilidade(self, bot, tempo_atual):
+        """
+        Tenta usar a habilidade de classe do bot durante combate.
+        Uso aleatório baseado em cooldown e situação.
+        """
+        from src.game.selecao_classes import obter_dados_classe
+        import math
+
+        classe = getattr(bot, 'classe', None)
+        if not classe:
+            return
+
+        dados = obter_dados_classe(classe, bot.time)
+        if not dados:
+            return
+
+        cooldown = dados.get('habilidade_cooldown', 0)
+        if cooldown == 0:
+            return  # Classe sem habilidade ativa (purple, metralhadora passiva)
+
+        # Verificar cooldown
+        if tempo_atual - bot.habilidade_cooldown < cooldown:
+            return
+
+        # Chance de usar habilidade baseada na classe e situação
+        chance_uso = 0.03  # Base: 3% por frame
+
+        if classe == 'mago':
+            # Mago usa escudo quando está com pouca vida ou inimigo perto
+            if bot.vidas <= bot.vidas_max * 0.6:
+                chance_uso = 0.20  # 20% quando com pouca vida
+            elif bot.ia_dist_inimigo < 100:
+                chance_uso = 0.15  # 15% quando inimigo perto
+            else:
+                chance_uso = 0.08
+        elif classe == 'granada':
+            # Granada usa frequentemente em combate
+            chance_uso = 0.10  # 10% por frame
+        elif classe == 'ghost':
+            # Ghost usa quando está em perigo
+            if bot.vidas <= bot.vidas_max * 0.5:
+                chance_uso = 0.15
+            else:
+                chance_uso = 0.05
+        elif classe == 'explosive':
+            chance_uso = 0.06
+        elif classe == 'cyan':
+            chance_uso = 0.05
+        elif classe == 'normal':
+            chance_uso = 0.08
+
+        if random.random() > chance_uso:
+            return
+
+        # ====== USAR HABILIDADE BASEADA NA CLASSE ======
+
+        # === MAGO - ESCUDO PROTETOR ===
+        if classe == 'mago':
+            bot.escudo_ativo = True
+            bot.invulneravel = True
+            bot.habilidade_ativa = True
+            bot.habilidade_tempo_inicio = tempo_atual
+            bot.habilidade_cooldown = tempo_atual
+            print(f"[BOT IA] {bot.nome} (Mago) ativou ESCUDO!")
+
+        # === GHOST - INVISIBILIDADE ===
+        elif classe == 'ghost':
+            bot.invisivel = True
+            bot.habilidade_ativa = True
+            bot.habilidade_tempo_inicio = tempo_atual
+            bot.habilidade_cooldown = tempo_atual
+            print(f"[BOT IA] {bot.nome} (Ghost) ficou INVISÍVEL!")
+
+        # === GRANADA - LANÇAR GRANADA ===
+        elif classe == 'granada':
+            self._bot_lancar_granada_classe(bot, tempo_atual)
+            bot.habilidade_cooldown = tempo_atual
+            print(f"[BOT IA] {bot.nome} (Granada) lançou GRANADA!")
+
+        # === CYAN - TURBO VELOCIDADE ===
+        elif classe == 'cyan':
+            bot.velocidade_original = bot.velocidade
+            bot.velocidade = bot.velocidade * 4.0
+            bot.habilidade_ativa = True
+            bot.habilidade_tempo_inicio = tempo_atual
+            bot.habilidade_cooldown = tempo_atual
+            bot.posicoes_turbo = []
+            print(f"[BOT IA] {bot.nome} (Cyan) ativou TURBO!")
+
+        # === EXPLOSIVE - EXPLOSÃO DE TIROS ===
+        elif classe == 'explosive':
+            self._bot_explosao_tiros(bot, tempo_atual)
+            bot.habilidade_cooldown = tempo_atual
+            print(f"[BOT IA] {bot.nome} (Explosive) usou EXPLOSÃO!")
+
+        # === NORMAL - DASH ===
+        elif classe == 'normal':
+            # Dash na direção do inimigo ou oposta (fuga)
+            if bot.ia_alvo_inimigo:
+                dx = bot.ia_alvo_inimigo.x - bot.x
+                dy = bot.ia_alvo_inimigo.y - bot.y
+                dist = math.sqrt(dx**2 + dy**2)
+                if dist > 0:
+                    # 50% chance de ir em direção ao inimigo, 50% fugir
+                    mult = 1 if random.random() > 0.5 else -1
+                    bot.dash_direcao = (mult * dx / dist, mult * dy / dist)
+                    bot.dash_ativo = True
+                    bot.dash_frames_restantes = dados.get('dash_duracao', 8)
+                    bot.invulneravel = True
+                    bot.habilidade_ativa = True
+                    bot.habilidade_tempo_inicio = tempo_atual
+                    bot.habilidade_cooldown = tempo_atual
+                    print(f"[BOT IA] {bot.nome} (Normal) usou DASH!")
+
+    def _bot_lancar_granada_classe(self, bot, tempo_atual):
+        """Bot lança granada da habilidade de classe."""
+        from src.items.granada import Granada
+        import math
+
+        if not bot.ia_alvo_inimigo:
+            return
+
+        centro_x = bot.x + TAMANHO_MULTIPLAYER / 2
+        centro_y = bot.y + TAMANHO_MULTIPLAYER / 2
+
+        # Direção para o inimigo
+        alvo_x = bot.ia_alvo_inimigo.x + TAMANHO_MULTIPLAYER / 2
+        alvo_y = bot.ia_alvo_inimigo.y + TAMANHO_MULTIPLAYER / 2
+
+        dx = alvo_x - centro_x
+        dy = alvo_y - centro_y
+        dist = math.sqrt(dx**2 + dy**2)
+
+        if dist > 0:
+            dx /= dist
+            dy /= dist
+
+        granada = Granada(centro_x, centro_y, dx, dy)
+        granada.time = bot.time  # Marcar time da granada
+        self.granadas_ativas.append(granada)
+
+    def _bot_explosao_tiros(self, bot, tempo_atual):
+        """Bot usa habilidade explosive - tiros em todas direções."""
+        from src.entities.tiro import Tiro
+        from src.game.selecao_classes import obter_dados_classe
+        import math
+
+        dados = obter_dados_classe('explosive', bot.time)
+        num_tiros = dados.get('tiros_explosao', 12) if dados else 12
+
+        centro_x = bot.x + TAMANHO_MULTIPLAYER / 2
+        centro_y = bot.y + TAMANHO_MULTIPLAYER / 2
+
+        for i in range(num_tiros):
+            angulo = (2 * math.pi * i) / num_tiros
+            dx = math.cos(angulo)
+            dy = math.sin(angulo)
+
+            tiro = Tiro(centro_x, centro_y, dx, dy, bot.cor, 8)
+            tiro.dano = 1
+            tiro.time_origem = bot.time
+            self.tiros_inimigo.append(tiro)
+
+    def _atualizar_habilidades_bots(self, tempo_atual):
+        """Atualiza estado das habilidades ativas dos bots."""
+        from src.game.selecao_classes import obter_dados_classe
+
+        for bot in self.bots_locais:
+            if bot.vidas <= 0:
+                continue
+
+            classe = getattr(bot, 'classe', None)
+            if not classe or not getattr(bot, 'habilidade_ativa', False):
+                continue
+
+            dados = obter_dados_classe(classe, bot.time)
+            if not dados:
+                continue
+
+            duracao = dados.get('habilidade_duracao', 0)
+            if duracao == 0:
+                continue
+
+            # Verificar se a habilidade expirou
+            if tempo_atual - bot.habilidade_tempo_inicio >= duracao:
+                # Desativar habilidade baseada na classe
+                if classe == 'mago':
+                    bot.escudo_ativo = False
+                    bot.invulneravel = False
+                    bot.habilidade_ativa = False
+                elif classe == 'ghost':
+                    bot.invisivel = False
+                    bot.habilidade_ativa = False
+                elif classe == 'cyan':
+                    bot.velocidade = bot.velocidade_original
+                    bot.habilidade_ativa = False
+                    if hasattr(bot, 'posicoes_turbo'):
+                        bot.posicoes_turbo.clear()
+                elif classe == 'normal':
+                    if hasattr(bot, 'dash_ativo') and bot.dash_ativo:
+                        if bot.dash_frames_restantes > 0:
+                            bot.dash_frames_restantes -= 1
+                        else:
+                            bot.dash_ativo = False
+                            bot.invulneravel = False
+                            bot.habilidade_ativa = False
 
     def _ia_estado_recalculando(self, bot, tempo_atual):
         """
@@ -3082,6 +3445,10 @@ class FaseMultiplayer(FaseBase):
                     if tiro in self.tiros_jogador:
                         self.tiros_jogador.remove(tiro)
                         tiro_removido = True
+                    # Verificar invulnerabilidade (escudo do mago, dash, etc)
+                    if getattr(bot, 'invulneravel', False):
+                        print(f"[PVP] {bot.nome} bloqueou o dano (ESCUDO ATIVO)!")
+                        break
                     dano = getattr(tiro, 'dano', 1)
                     vida_antes = bot.vidas
                     bot.vidas = max(0, bot.vidas - dano)
@@ -3133,6 +3500,10 @@ class FaseMultiplayer(FaseBase):
                         criar_explosao(tiro.x, tiro.y, tiro.cor, self.particulas)
                         if tiro in self.tiros_inimigo:
                             self.tiros_inimigo.remove(tiro)
+                        # Verificar invulnerabilidade (escudo do mago, dash, etc)
+                        if getattr(bot, 'invulneravel', False):
+                            print(f"[PVP] {bot.nome} bloqueou o dano (ESCUDO ATIVO)!")
+                            break
                         dano = getattr(tiro, 'dano', 1)
                         bot.vidas = max(0, bot.vidas - dano)
                         print(f"[PVP] Tiro do Time {tiro_time} acertou {bot.nome} (Time {bot_time})!")
@@ -3165,7 +3536,13 @@ class FaseMultiplayer(FaseBase):
 
         # Verificar se algum time foi eliminado neste round
         if time_t_vivos == 0 and time_q_vivos > 0:
-            self._time_venceu_round('Q')
+            # Se a bomba está plantada, Time Q precisa defusar para vencer
+            # Se não defusar, a bomba explode e Time T vence
+            if self.bomba_plantada and not self.bomba_defusada:
+                # Não declarar vitória ainda - bomba precisa ser defusada ou explodir
+                pass
+            else:
+                self._time_venceu_round('Q')
         elif time_q_vivos == 0 and time_t_vivos > 0:
             self._time_venceu_round('T')
 
@@ -3230,6 +3607,24 @@ class FaseMultiplayer(FaseBase):
             self.jogador.rect.x = spawn_pos[0]
             self.jogador.rect.y = spawn_pos[1]
 
+        # Resetar atributos de classe do jogador
+        self.jogador.invulneravel = False
+        self.habilidade_ativa = False
+        self.habilidade_cooldown = 0
+        self.habilidade_tempo_inicio = 0
+
+        if self.classe_jogador == "normal":
+            self.jogador.dash_ativo = False
+            self.jogador.dash_frames_restantes = 0
+        elif self.classe_jogador == "mago":
+            self.jogador.escudo_ativo = False
+        elif self.classe_jogador == "ghost":
+            self.jogador.invisivel = False
+        elif self.classe_jogador == "cyan":
+            self.jogador.velocidade = self.velocidade_original
+            if hasattr(self.jogador, 'posicoes_turbo'):
+                self.jogador.posicoes_turbo.clear()
+
         # Resetar bots
         for bot in self.bots_locais:
             bot.vidas = bot.vidas_max
@@ -3253,6 +3648,27 @@ class FaseMultiplayer(FaseBase):
 
             # Resetar rota - bot vai escolher nova rota aleatória no início do round
             bot.ia_rota_idx = None
+
+            # Resetar atributos de classe
+            bot.habilidade_cooldown = 0
+            bot.habilidade_ativa = False
+            bot.habilidade_tempo_inicio = 0
+
+            classe = getattr(bot, 'classe', None)
+            if classe == 'mago':
+                bot.escudo_ativo = False
+                bot.invulneravel = False
+            elif classe == 'ghost':
+                bot.invisivel = False
+            elif classe == 'cyan':
+                bot.velocidade = 2.5  # Velocidade base
+                bot.velocidade_original = 2.5
+                if hasattr(bot, 'posicoes_turbo'):
+                    bot.posicoes_turbo.clear()
+            elif classe == 'normal':
+                bot.dash_ativo = False
+                bot.dash_frames_restantes = 0
+                bot.invulneravel = False
             bot.ia_caminho = []
             bot.ia_waypoint_atual = 0
 
@@ -3382,6 +3798,32 @@ class FaseMultiplayer(FaseBase):
                         if self.defusando_bomba:
                             print("[BOMBA] Defuse cancelado!")
                         self.defusando_bomba = False
+
+            # === BOTS DO TIME Q DEFUSANDO ===
+            for bot in self.bots_locais:
+                if bot.vidas <= 0 or getattr(bot, 'time', '') != 'Q':
+                    continue
+
+                if self.bomba_posicao:
+                    dist_x = abs(bot.x - self.bomba_posicao[0])
+                    dist_y = abs(bot.y - self.bomba_posicao[1])
+                    perto_bomba = dist_x < 30 and dist_y < 30
+
+                    if perto_bomba and getattr(bot, 'bot_defusando', False):
+                        # Iniciar ou continuar defuse
+                        if not hasattr(bot, 'bot_tempo_inicio_defusar'):
+                            bot.bot_tempo_inicio_defusar = tempo_atual
+                            print(f"[BOMBA] {bot.nome} começou a defusar!")
+
+                        tempo_defusando = tempo_atual - bot.bot_tempo_inicio_defusar
+                        if tempo_defusando >= self.tempo_para_defusar:
+                            print(f"[BOMBA] {bot.nome} defusou a bomba!")
+                            self._defusar_bomba()
+                            break
+                    else:
+                        # Resetar tempo de defuse se saiu de perto
+                        if hasattr(bot, 'bot_tempo_inicio_defusar'):
+                            del bot.bot_tempo_inicio_defusar
 
     def _plantar_bomba(self, x, y):
         """Planta a bomba na posição especificada."""
@@ -3576,6 +4018,50 @@ class FaseMultiplayer(FaseBase):
         if jogador.invulneravel and not escudo_ativo and tempo_atual % 200 < 100:
             return
 
+        # ====== CYAN TURBO - DESENHAR RASTRO ======
+        if self.classe_jogador == "cyan" and hasattr(jogador, 'posicoes_turbo') and jogador.posicoes_turbo:
+            for i, (pos_x, pos_y) in enumerate(jogador.posicoes_turbo):
+                # Converter para coordenadas de tela
+                rastro_tela_x = pos_x - self.camera_x
+                rastro_tela_y = pos_y - self.camera_y
+
+                # Calcular alpha (mais antigo = mais transparente)
+                alpha = int(180 * (1 - i / len(jogador.posicoes_turbo)))
+
+                # Calcular tamanho (mais antigo = menor)
+                rastro_tamanho = int(tamanho * (1 - i / len(jogador.posicoes_turbo) * 0.7))
+
+                # Cor do rastro (cyan mais escuro)
+                cor_rastro = (0, max(0, jogador.cor[1] - 80), max(0, jogador.cor[2] - 80))
+
+                # Desenhar rastro
+                offset_x = (tamanho - rastro_tamanho) // 2
+                offset_y = (tamanho - rastro_tamanho) // 2
+                pygame.draw.rect(surface, cor_rastro,
+                               (rastro_tela_x + offset_x, rastro_tela_y + offset_y,
+                                rastro_tamanho, rastro_tamanho), 0, 2)
+
+        # ====== EXPLOSIVE - EFEITO DE CHAMAS ======
+        if self.classe_jogador == "explosive":
+            import random
+            for i in range(6):
+                # Variação no tamanho e posição (proporcional ao tamanho menor)
+                offset_x = random.uniform(-tamanho / 3, tamanho / 3)
+                offset_y = random.uniform(-tamanho / 3, tamanho / 3)
+
+                # Cores variando de laranja a amarelo
+                cor_r = min(255, jogador.cor[0] + random.randint(-40, 40))
+                cor_g = min(255, jogador.cor[1] + random.randint(-40, 20))
+                cor_b = 0  # Sem componente azul para manter o visual de fogo
+
+                tamanho_particula = random.randint(2, 5)
+
+                # Desenhar partícula de fogo
+                particula_x = int(tela_x - offset_x + random.uniform(0, tamanho))
+                particula_y = int(tela_y - offset_y + random.uniform(0, tamanho))
+                pygame.draw.circle(surface, (cor_r, cor_g, cor_b),
+                                 (particula_x, particula_y), tamanho_particula)
+
         # Desenhar sombra
         pygame.draw.rect(surface, (20, 20, 20),
                         (tela_x + 2, tela_y + 2, tamanho, tamanho), 0, 2)
@@ -3635,16 +4121,119 @@ class FaseMultiplayer(FaseBase):
         # ===== MAGO - CHAPÉU DE MAGO =====
         if self.classe_jogador == "mago":
             chapeu_x = tela_x + tamanho // 2
-            chapeu_y = tela_y - 5
-            # Triângulo do chapéu
-            pontos = [(chapeu_x, chapeu_y - 15), (chapeu_x - 12, chapeu_y + 5), (chapeu_x + 12, chapeu_y + 5)]
+            chapeu_y = tela_y - 2
+            # Triângulo do chapéu (menor)
+            pontos = [(chapeu_x, chapeu_y - 8), (chapeu_x - 7, chapeu_y + 3), (chapeu_x + 7, chapeu_y + 3)]
             pygame.draw.polygon(surface, (100, 50, 150), pontos)  # Roxo escuro
-            pygame.draw.polygon(surface, (150, 100, 200), pontos, 2)  # Borda
-            # Aba do chapéu
-            pygame.draw.ellipse(surface, (100, 50, 150), (chapeu_x - 15, chapeu_y + 2, 30, 8))
-            # Estrela animada
+            pygame.draw.polygon(surface, (150, 100, 200), pontos, 1)  # Borda
+            # Aba do chapéu (menor)
+            pygame.draw.ellipse(surface, (100, 50, 150), (chapeu_x - 9, chapeu_y + 1, 18, 5))
+            # Estrela animada (menor)
             brilho = 150 + int(50 * math.sin(tempo_atual / 200))
-            pygame.draw.circle(surface, (255, 255, brilho), (chapeu_x, chapeu_y - 5), 3)
+            pygame.draw.circle(surface, (255, 255, brilho), (chapeu_x, chapeu_y - 3), 2)
+
+        # ===== GHOST - ROSTO ASSUSTADOR =====
+        if self.classe_jogador == "ghost":
+            # Aura fantasmagórica ao redor
+            for i in range(2):
+                aura_alpha = 40 - i * 15
+                pygame.draw.rect(surface, (180, 180, 220),
+                               (tela_x - i - 1, tela_y - i - 1, tamanho + i * 2 + 2, tamanho + i * 2 + 2), 1, 3)
+
+            # Olhos vermelhos assustadores (pequenos, ajustados ao tamanho)
+            olho_esquerdo_x = tela_x + tamanho // 3
+            olho_direito_x = tela_x + 2 * tamanho // 3
+            olho_y = tela_y + tamanho // 3
+
+            # Brilho dos olhos
+            pygame.draw.circle(surface, (255, 150, 150), (olho_esquerdo_x, olho_y), 3)
+            pygame.draw.circle(surface, (255, 150, 150), (olho_direito_x, olho_y), 3)
+
+            # Olhos internos (vermelho)
+            pygame.draw.circle(surface, (255, 30, 30), (olho_esquerdo_x, olho_y), 2)
+            pygame.draw.circle(surface, (255, 30, 30), (olho_direito_x, olho_y), 2)
+
+            # Pupilas
+            pygame.draw.circle(surface, (0, 0, 0), (olho_esquerdo_x, olho_y), 1)
+            pygame.draw.circle(surface, (0, 0, 0), (olho_direito_x, olho_y), 1)
+
+            # Boca assustadora (pequena)
+            boca_x = tela_x + tamanho // 2
+            boca_y = tela_y + 2 * tamanho // 3
+            pygame.draw.ellipse(surface, (30, 0, 0), (boca_x - 4, boca_y, 8, 5))
+
+            # Dentes pequenos
+            for i in range(3):
+                dente_x = boca_x - 3 + i * 3
+                pygame.draw.rect(surface, (255, 255, 200), (dente_x, boca_y, 1, 2))
+
+        # ===== GRANADA - CINTO COM GRANADAS =====
+        if self.classe_jogador == "granada":
+            # Cinto na cintura (65% da altura)
+            cinto_y = tela_y + int(tamanho * 0.65)
+
+            # Linha do cinto (dourado)
+            pygame.draw.line(surface, (200, 150, 50),
+                           (tela_x + 2, cinto_y),
+                           (tela_x + tamanho - 2, cinto_y), 2)
+
+            # 3 granadas penduradas no cinto (pequenas)
+            num_granadas = 3
+            espacamento = tamanho // (num_granadas + 1)
+
+            for i in range(num_granadas):
+                granada_x = tela_x + espacamento * (i + 1)
+                granada_y = cinto_y + 3
+
+                # Corpo da granada (pequeno)
+                pygame.draw.circle(surface, (60, 120, 60), (granada_x, granada_y), 2)
+                pygame.draw.circle(surface, (40, 80, 40), (granada_x, granada_y), 2, 1)
+
+                # Bocal (topo)
+                pygame.draw.rect(surface, (150, 150, 150),
+                               (granada_x - 1, granada_y - 3, 2, 2))
+
+        # ===== METRALHADORA - VISUAL TÁTICO =====
+        if self.classe_jogador == "metralhadora":
+            centro_x = tela_x + tamanho // 2
+
+            # Padrão de camuflagem (manchas pequenas)
+            import random
+            random.seed(42)  # Seed fixa para não piscar
+            for _ in range(4):
+                mancha_x = tela_x + random.randint(2, tamanho - 2)
+                mancha_y = tela_y + random.randint(2, tamanho - 2)
+                cor_mancha = random.choice([(70, 80, 55), (50, 60, 40)])
+                pygame.draw.circle(surface, cor_mancha, (mancha_x, mancha_y), 2)
+
+            # Colete tático (contorno)
+            colete_x = tela_x + 2
+            colete_y = tela_y + 3
+            colete_w = tamanho - 4
+            colete_h = tamanho - 5
+            pygame.draw.rect(surface, (30, 35, 25), (colete_x, colete_y, colete_w, colete_h), 1, 2)
+
+            # Faixas MOLLE no colete
+            for i in range(2):
+                faixa_y = colete_y + 4 + i * 5
+                pygame.draw.line(surface, (100, 100, 110),
+                               (colete_x + 2, faixa_y),
+                               (colete_x + colete_w - 2, faixa_y), 1)
+
+            # NVG (óculos de visão noturna) - acima da cabeça
+            nvg_y = tela_y - 1
+            nvg_esq_x = centro_x - 4
+            nvg_dir_x = centro_x + 3
+
+            # Suporte
+            pygame.draw.line(surface, (100, 100, 110),
+                           (centro_x - 5, nvg_y), (centro_x + 5, nvg_y), 1)
+
+            # Lentes NVG
+            pygame.draw.circle(surface, (20, 20, 40), (nvg_esq_x, nvg_y + 2), 2)
+            pygame.draw.circle(surface, (0, 255, 100), (nvg_esq_x, nvg_y + 2), 1)
+            pygame.draw.circle(surface, (20, 20, 40), (nvg_dir_x, nvg_y + 2), 2)
+            pygame.draw.circle(surface, (0, 255, 100), (nvg_dir_x, nvg_y + 2), 1)
 
         # Barra de vida acima do jogador
         vida_largura = tamanho + 4
@@ -4190,6 +4779,29 @@ class FaseMultiplayer(FaseBase):
 
             # Só desenhar se estiver visível na tela
             if -50 < tela_x < largura_visivel + 50 and -50 < tela_y < altura_visivel + 50:
+                # === GHOST - INVISIBILIDADE (VERIFICAR ANTES DE DESENHAR!) ===
+                if getattr(bot, 'invisivel', False):
+                    bot_time = getattr(bot, 'time', None)
+                    # Se o bot é do time INIMIGO, fica COMPLETAMENTE invisível - NÃO DESENHAR NADA
+                    if bot_time != self.time_jogador:
+                        continue  # Pular completamente este bot
+                    else:
+                        # Aliado invisível - desenhar apenas contorno fantasmagórico
+                        import math
+                        ghost_surface = pygame.Surface((tamanho + 10, tamanho + 10), pygame.SRCALPHA)
+                        alpha = 60 + int(30 * math.sin(tempo_atual / 200))
+                        cor_fantasma = (150, 150, 200, alpha)
+                        pygame.draw.rect(ghost_surface, cor_fantasma, (5, 5, tamanho, tamanho), 2, 3)
+                        surface.blit(ghost_surface, (tela_x - 5, tela_y - 5))
+                        # Desenhar nome do aliado invisível (para identificar)
+                        nome_surface = self.fonte_pequena.render(bot.nome, True, (150, 150, 200))
+                        nome_surface = pygame.transform.scale(nome_surface,
+                            (nome_surface.get_width() // 2, nome_surface.get_height() // 2))
+                        nome_surface.set_alpha(alpha)
+                        nome_rect = nome_surface.get_rect(center=(tela_x + tamanho // 2, tela_y - 14))
+                        surface.blit(nome_surface, nome_rect)
+                        continue  # Pular o resto do desenho
+
                 # Gerar cores derivadas
                 cor = bot.cor
                 cor_escura = tuple(max(0, c - 50) for c in cor)
@@ -4223,6 +4835,110 @@ class FaseMultiplayer(FaseBase):
                 # Brilho no canto
                 pygame.draw.rect(surface, cor_brilhante,
                                 (tela_x + 2, tela_y + 2, 3, 3), 0, 1)
+
+                # ====== VISUAIS DE CLASSE DO BOT ======
+                classe_bot = getattr(bot, 'classe', None)
+
+                # === MAGO - ESCUDO PROTETOR ===
+                if getattr(bot, 'escudo_ativo', False):
+                    import math
+                    centro_x = tela_x + tamanho // 2
+                    centro_y = tela_y + tamanho // 2
+                    raio = tamanho + 8
+                    pulso = math.sin(tempo_atual / 100) * 3
+                    raio_atual = int(raio + pulso)
+                    for i in range(3):
+                        pygame.draw.circle(surface, (100, 150, 255),
+                                          (centro_x, centro_y), raio_atual + i * 2, 2)
+
+                # === MAGO - CHAPÉU ===
+                if classe_bot == 'mago':
+                    chapeu_x = tela_x + tamanho // 2
+                    chapeu_y = tela_y - 2
+                    pontos = [(chapeu_x, chapeu_y - 8), (chapeu_x - 7, chapeu_y + 3), (chapeu_x + 7, chapeu_y + 3)]
+                    pygame.draw.polygon(surface, (100, 50, 150), pontos)
+                    pygame.draw.polygon(surface, (150, 100, 200), pontos, 1)
+                    pygame.draw.ellipse(surface, (100, 50, 150), (chapeu_x - 9, chapeu_y + 1, 18, 5))
+                    import math
+                    brilho = 150 + int(50 * math.sin(tempo_atual / 200))
+                    pygame.draw.circle(surface, (255, 255, brilho), (chapeu_x, chapeu_y - 3), 2)
+
+                # === GHOST - ROSTO ASSUSTADOR ===
+                elif classe_bot == 'ghost' and not getattr(bot, 'invisivel', False):
+                    # Aura
+                    for i in range(2):
+                        pygame.draw.rect(surface, (180, 180, 220),
+                                       (tela_x - i - 1, tela_y - i - 1, tamanho + i * 2 + 2, tamanho + i * 2 + 2), 1, 3)
+                    # Olhos vermelhos
+                    olho_esq_x = tela_x + tamanho // 3
+                    olho_dir_x = tela_x + 2 * tamanho // 3
+                    olho_y = tela_y + tamanho // 3
+                    pygame.draw.circle(surface, (255, 150, 150), (olho_esq_x, olho_y), 3)
+                    pygame.draw.circle(surface, (255, 150, 150), (olho_dir_x, olho_y), 3)
+                    pygame.draw.circle(surface, (255, 30, 30), (olho_esq_x, olho_y), 2)
+                    pygame.draw.circle(surface, (255, 30, 30), (olho_dir_x, olho_y), 2)
+                    pygame.draw.circle(surface, (0, 0, 0), (olho_esq_x, olho_y), 1)
+                    pygame.draw.circle(surface, (0, 0, 0), (olho_dir_x, olho_y), 1)
+                    # Boca
+                    boca_x = tela_x + tamanho // 2
+                    boca_y = tela_y + 2 * tamanho // 3
+                    pygame.draw.ellipse(surface, (30, 0, 0), (boca_x - 4, boca_y, 8, 5))
+
+                # === GRANADA - CINTO ===
+                elif classe_bot == 'granada':
+                    cinto_y = tela_y + int(tamanho * 0.65)
+                    pygame.draw.line(surface, (200, 150, 50),
+                                   (tela_x + 2, cinto_y), (tela_x + tamanho - 2, cinto_y), 2)
+                    num_granadas = 3
+                    espacamento = tamanho // (num_granadas + 1)
+                    for i in range(num_granadas):
+                        granada_x = tela_x + espacamento * (i + 1)
+                        granada_y = cinto_y + 3
+                        pygame.draw.circle(surface, (60, 120, 60), (granada_x, granada_y), 2)
+
+                # === METRALHADORA - VISUAL TÁTICO ===
+                elif classe_bot == 'metralhadora':
+                    import random
+                    random.seed(id(bot))
+                    for _ in range(4):
+                        mancha_x = tela_x + random.randint(2, tamanho - 2)
+                        mancha_y = tela_y + random.randint(2, tamanho - 2)
+                        cor_mancha = random.choice([(70, 80, 55), (50, 60, 40)])
+                        pygame.draw.circle(surface, cor_mancha, (mancha_x, mancha_y), 2)
+
+                # === EXPLOSIVE - CHAMAS ===
+                elif classe_bot == 'explosive':
+                    import random
+                    for _ in range(6):
+                        offset_x = random.uniform(-tamanho / 3, tamanho / 3)
+                        offset_y = random.uniform(-tamanho / 3, tamanho / 3)
+                        cor_r = min(255, cor[0] + random.randint(-40, 40))
+                        cor_g = min(255, cor[1] + random.randint(-40, 20))
+                        cor_b = 0
+                        tamanho_particula = random.randint(2, 5)
+                        particula_x = int(tela_x - offset_x + random.uniform(0, tamanho))
+                        particula_y = int(tela_y - offset_y + random.uniform(0, tamanho))
+                        pygame.draw.circle(surface, (cor_r, cor_g, cor_b),
+                                         (particula_x, particula_y), tamanho_particula)
+
+                # === CYAN - RASTRO TURBO ===
+                elif classe_bot == 'cyan':
+                    if getattr(bot, 'habilidade_ativa', False) and hasattr(bot, 'posicoes_turbo'):
+                        # Salvar posição para rastro
+                        bot.posicoes_turbo.insert(0, (bot.x, bot.y))
+                        if len(bot.posicoes_turbo) > 15:
+                            bot.posicoes_turbo.pop()
+                        # Desenhar rastro
+                        for i, (pos_x, pos_y) in enumerate(bot.posicoes_turbo):
+                            rastro_tela_x = pos_x - self.camera_x
+                            rastro_tela_y = pos_y - self.camera_y
+                            rastro_tamanho = int(tamanho * (1 - i / len(bot.posicoes_turbo) * 0.7))
+                            cor_rastro = (0, max(0, cor[1] - 80), max(0, cor[2] - 80))
+                            offset_x = (tamanho - rastro_tamanho) // 2
+                            offset_y = (tamanho - rastro_tamanho) // 2
+                            pygame.draw.rect(surface, cor_rastro,
+                                           (rastro_tela_x + offset_x, rastro_tela_y + offset_y,
+                                            rastro_tamanho, rastro_tamanho), 0, 2)
 
                 # Desenhar arma do bot (se tiver)
                 self._desenhar_arma_bot(surface, bot, tempo_atual)
@@ -4602,7 +5318,14 @@ class FaseMultiplayer(FaseBase):
                 btn_rect = pygame.Rect(btn_x, btn_y, btn_largura, btn_altura)
 
                 hover = btn_rect.collidepoint(mouse_pos)
-                pode_comprar = self.moedas >= arma_info['preco']
+
+                # Classe Metralhadora: metralhadora é grátis
+                preco = arma_info['preco']
+                is_gratis = (arma_id == 'metralhadora' and self.classe_jogador == 'metralhadora')
+                if is_gratis:
+                    preco = 0
+
+                pode_comprar = self.moedas >= preco
 
                 if self.arma_equipada == arma_id:
                     cor_btn = (0, 100, 50)
@@ -4623,8 +5346,12 @@ class FaseMultiplayer(FaseBase):
                 cor_nome = BRANCO if pode_comprar else (150, 150, 150)
                 desenhar_texto(self.tela, arma_info['nome'], 26, cor_nome, btn_rect.centerx, btn_y + 25)
 
-                cor_preco = VERDE if pode_comprar else VERMELHO
-                desenhar_texto(self.tela, f"${arma_info['preco']}", 22, cor_preco, btn_rect.centerx, btn_y + 50)
+                # Mostrar preço ou GRÁTIS
+                if is_gratis:
+                    desenhar_texto(self.tela, "GRATIS!", 22, (100, 255, 100), btn_rect.centerx, btn_y + 50)
+                else:
+                    cor_preco = VERDE if pode_comprar else VERMELHO
+                    desenhar_texto(self.tela, f"${preco}", 22, cor_preco, btn_rect.centerx, btn_y + 50)
 
                 desenhar_texto(self.tela, arma_info['descricao'], 16, (180, 180, 180), btn_rect.centerx, btn_y + 75)
 
@@ -4764,20 +5491,28 @@ class FaseMultiplayer(FaseBase):
 
         arma_info = self.armas_disponiveis[arma_id]
 
-        # Verificar se tem dinheiro
-        if self.moedas < arma_info['preco']:
-            print(f"[COMPRA] Dinheiro insuficiente para {arma_info['nome']}")
-            return False
-
         # Verificar se já está equipada
         if self.arma_equipada == arma_id:
             print(f"[COMPRA] {arma_info['nome']} ja esta equipada")
             return False
 
+        # Classe Metralhadora: metralhadora é grátis
+        preco = arma_info['preco']
+        if arma_id == 'metralhadora' and self.classe_jogador == 'metralhadora':
+            preco = 0
+
+        # Verificar se tem dinheiro
+        if self.moedas < preco:
+            print(f"[COMPRA] Dinheiro insuficiente para {arma_info['nome']}")
+            return False
+
         # Comprar a arma
-        self.moedas -= arma_info['preco']
+        self.moedas -= preco
         self.arma_equipada = arma_id
-        print(f"[COMPRA] Comprou {arma_info['nome']} por ${arma_info['preco']}! Saldo: ${self.moedas}")
+        if preco == 0:
+            print(f"[COMPRA] {arma_info['nome']} GRATIS (classe metralhadora)!")
+        else:
+            print(f"[COMPRA] Comprou {arma_info['nome']} por ${preco}! Saldo: ${self.moedas}")
 
         return True
 

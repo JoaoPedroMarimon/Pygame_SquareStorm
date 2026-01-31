@@ -364,13 +364,23 @@ def desenhar_desert_eagle(tela, jogador, pos_mouse):
     pygame.draw.rect(surf, cor_metal_escuro, (mira_tras_x - 3, mira_tras_y, 6, 4))
     pygame.draw.rect(surf, (100, 255, 100), (mira_tras_x - 1, mira_tras_y + 1, 2, 2))
 
+    # Quando apontando para a esquerda (dx < 0), espelhar horizontalmente ANTES de rotacionar
+    # e ajustar o ângulo corretamente para manter a direção certa
+    if dx < 0:
+        surf = pygame.transform.flip(surf, True, False)  # Flip horizontal
+        # Após flip horizontal, a imagem aponta para -x
+        # Para apontar na direção correta, subtraímos 180° do ângulo original
+        angulo_graus = math.degrees(angulo) - 180
+    else:
+        angulo_graus = math.degrees(angulo)
+
     # Rotacionar a superfície
-    angulo_graus = math.degrees(angulo)
     surf_rotacionada = pygame.transform.rotate(surf, -angulo_graus)
 
-    # Obter o retângulo e posicionar no centro do jogador
+    # Obter o retângulo e posicionar À FRENTE do jogador (offset na direção de mira)
+    offset_frente = 12  # Pixels à frente do centro do jogador
     rect = surf_rotacionada.get_rect()
-    rect.center = (centro_x, centro_y)
+    rect.center = (centro_x + dx * offset_frente, centro_y + dy * offset_frente)
 
     # Desenhar na tela
     tela.blit(surf_rotacionada, rect)
