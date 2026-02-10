@@ -2,15 +2,16 @@
 # -*- coding: utf-8 -*-
 
 """
-Tela de Lobby MODERNA para aguardar jogadores no modo multiplayer.
-Versão redesenhada com customização de personagem e interface bonita.
+Lobby Interativo SquareStorm - Sala jogável para o modo multiplayer.
+Arena temática com efeitos de tempestade. Jogadores andam livremente
+e selecionam modos de jogo pisando em portais.
 """
 
 import pygame
 import math
 import random
 from src.config import *
-from src.utils.display_manager import present_frame, convert_mouse_position
+from src.utils.display_manager import present_frame
 
 
 def obter_ip_local_simples():
@@ -26,489 +27,616 @@ def obter_ip_local_simples():
         return "127.0.0.1"
 
 
-def desenhar_card(tela, rect, cor_fundo, cor_borda, titulo, fonte_titulo):
-    """Desenha um card moderno com sombra e bordas arredondadas."""
-    # Sombra
-    sombra = pygame.Rect(rect.x + 5, rect.y + 5, rect.width, rect.height)
-    pygame.draw.rect(tela, (10, 10, 20), sombra, 0, 15)
+# --- Constantes ---
+TAM_PLAYER = 30
+VEL_LOBBY = 4.0
+TEMPO_ZONA = 5000  # 5s em ms
 
-    # Card
-    pygame.draw.rect(tela, cor_fundo, rect, 0, 15)
-    pygame.draw.rect(tela, cor_borda, rect, 3, 15)
+# Cores da arena
+COR_CHAO_BASE = (18, 16, 28)
+COR_CHAO_TILE1 = (22, 20, 34)
+COR_CHAO_TILE2 = (18, 16, 28)
+COR_PAREDE = (45, 40, 65)
+COR_PAREDE_TOPO = (60, 55, 85)
 
-    # Título do card
-    if titulo:
-        texto_titulo = fonte_titulo.render(titulo, True, BRANCO)
-        tela.blit(texto_titulo, (rect.x + 20, rect.y + 15))
+# Paleta de cores dos jogadores (cada player recebe uma cor diferente automaticamente)
+PALETA_JOGADORES = [
+    AZUL,              # Jogador 1
+    VERMELHO,          # Jogador 2
+    VERDE,             # Jogador 3
+    AMARELO,           # Jogador 4
+    CIANO,             # Jogador 5
+    ROXO,              # Jogador 6
+    LARANJA,           # Jogador 7
+    (255, 105, 180),   # Jogador 8 - Rosa
+]
+
+# Definição dos portais de modo de jogo
+PORTAIS = [
+    {
+        'nome': 'Bomb',
+        'cor_base': (30, 160, 60),
+        'cor_glow': (80, 255, 120),
+        'disponivel': True,
+        'desc': 'Team vs Team',
+    },
+    {
+        'nome': '',
+        'cor_base': (40, 80, 180),
+        'cor_glow': (100, 150, 255),
+        'disponivel': False,
+        'desc': 'Em breve',
+    },
+    {
+        'nome': '',
+        'cor_base': (160, 40, 40),
+        'cor_glow': (255, 100, 100),
+        'disponivel': False,
+        'desc': 'Em breve',
+    },
+]
 
 
-def desenhar_avatar_jogador(tela, x, y, tamanho, cor_personagem, acessorio=None):
-    """Desenha um avatar do jogador (quadrado estilizado)."""
-    # Sombra
-    pygame.draw.rect(tela, (0, 0, 0, 100), (x + 3, y + 3, tamanho, tamanho), 0, 5)
+# ============================================================
+#  FUNÇÕES DE DESENHO
+# ============================================================
 
-    # Corpo principal
-    pygame.draw.rect(tela, cor_personagem, (x, y, tamanho, tamanho), 0, 5)
-
-    # Borda com a mesma cor do personagem (mas mais clara)
-    cor_borda = tuple(min(255, c + 80) for c in cor_personagem)
-    pygame.draw.rect(tela, cor_borda, (x, y, tamanho, tamanho), 3, 5)
-
-    # Acessórios
-    if acessorio == "chapeu":
-        # Chapéu
-        pygame.draw.rect(tela, (50, 50, 50), (x - 5, y - 10, tamanho + 10, 8), 0, 2)
-        pygame.draw.rect(tela, (80, 80, 80), (x + 5, y - 20, tamanho - 10, 12), 0, 2)
-    elif acessorio == "oculos":
-        # Óculos
-        tamanho_lente = tamanho // 4
-        pygame.draw.circle(tela, (50, 50, 50), (x + tamanho // 3, y + tamanho // 3), tamanho_lente, 2)
-        pygame.draw.circle(tela, (50, 50, 50), (x + 2 * tamanho // 3, y + tamanho // 3), tamanho_lente, 2)
-        pygame.draw.line(tela, (50, 50, 50), (x + tamanho // 3 + tamanho_lente, y + tamanho // 3),
-                        (x + 2 * tamanho // 3 - tamanho_lente, y + tamanho // 3), 2)
+def _gerar_cor_derivadas(cor):
+    """Gera cores escura e brilhante a partir de uma cor base."""
+    escura = tuple(max(0, c - 60) for c in cor)
+    brilhante = tuple(min(255, c + 80) for c in cor)
+    return escura, brilhante
 
 
-def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
+def _desenhar_player(tela, x, y, cor, nome, fonte, is_host=False, pulsacao=0):
     """
-    Tela de lobby MODERNA com customização de personagem.
-
-    Args:
-        tela: Superfície do jogo
-        relogio: Relógio do pygame
-        gradiente: Gradiente de fundo
-        servidor: Instância do GameServer
-        cliente: Instância do GameClient (host como cliente)
-        config: Configuração do servidor (nome, porta, max_players)
-
-    Returns:
-        ("start", game_mode, customizacao) - Iniciar partida com modo e customização
-        ("cancel", None, None) - Cancelar e voltar ao menu
+    Desenha um jogador identico ao estilo de fase_base.py / Quadrado.desenhar().
+    Shadow -> inner (cor_escura) -> outer (cor) -> highlight.
     """
-    print("[LOBBY] Tela de lobby moderna aberta")
+    tam = TAM_PLAYER
+    ix, iy = int(x), int(y)
+    cor_escura, cor_brilhante = _gerar_cor_derivadas(cor)
+
+    # Pulsação (ciclo 0-11, expande até 6, volta)
+    mod = 0
+    if pulsacao < 6:
+        mod = int(pulsacao * 0.5)
+    else:
+        mod = int((12 - pulsacao) * 0.5)
+
+    # 1) Sombra
+    pygame.draw.rect(tela, (15, 12, 20),
+                     (ix + 3, iy + 3, tam, tam), 0, 3)
+
+    # 2) Quadrado interior (cor escura) - camada de fundo
+    pygame.draw.rect(tela, cor_escura,
+                     (ix, iy, tam + mod, tam + mod), 0, 5)
+
+    # 3) Quadrado exterior (cor principal) - um pouco menor
+    pygame.draw.rect(tela, cor,
+                     (ix + 2, iy + 2, tam + mod - 4, tam + mod - 4), 0, 3)
+
+    # 4) Highlight no canto superior esquerdo
+    pygame.draw.rect(tela, cor_brilhante,
+                     (ix + 4, iy + 4, 7, 7), 0, 2)
+
+    # 5) Olhos
+    olho_y = iy + tam // 3
+    pygame.draw.rect(tela, BRANCO, (ix + tam // 4, olho_y, 4, 4))
+    pygame.draw.rect(tela, BRANCO, (ix + 3 * tam // 4 - 3, olho_y, 4, 4))
+
+    # 6) Nome acima
+    if is_host:
+        label = f"{nome} [HOST]"
+        cor_nome = (100, 255, 100)
+    else:
+        label = nome
+        cor_nome = BRANCO
+
+    nome_surf = fonte.render(label, True, cor_nome)
+    nx = ix + tam // 2 - nome_surf.get_width() // 2
+    ny = iy - 18
+
+    # Fundo semi-transparente do nome
+    bg = pygame.Surface((nome_surf.get_width() + 6, nome_surf.get_height() + 2), pygame.SRCALPHA)
+    bg.fill((0, 0, 0, 150))
+    tela.blit(bg, (nx - 3, ny - 1))
+    tela.blit(nome_surf, (nx, ny))
+
+
+def _calcular_portais(sala):
+    """Retorna lista de Rects para os portais, centralizados horizontalmente."""
+    rects = []
+    portal_w = 140
+    portal_h = 100
+    n = len(PORTAIS)
+    espaco = (sala.width - portal_w * n) // (n + 1)
+    py = sala.y + sala.height // 3 - portal_h // 2  # Um terço da sala
+
+    for i in range(n):
+        px = sala.x + espaco + i * (portal_w + espaco)
+        rects.append(pygame.Rect(px, py, portal_w, portal_h))
+    return rects
+
+
+def _desenhar_arena(tela, sala, tempo):
+    """Desenha a arena temática SquareStorm."""
+    # --- Chão com tiles alternados ---
+    tile = 32
+    for ty in range(sala.y, sala.bottom, tile):
+        for tx in range(sala.x, sala.right, tile):
+            idx = ((tx - sala.x) // tile + (ty - sala.y) // tile) % 2
+            cor = COR_CHAO_TILE1 if idx == 0 else COR_CHAO_TILE2
+            pygame.draw.rect(tela, cor, (tx, ty, tile, tile))
+
+    # --- Linhas de energia no chão (pulsam) ---
+    alpha_linha = int(15 + math.sin(tempo / 600) * 8)
+    cor_linha = (40 + alpha_linha, 30 + alpha_linha, 70 + alpha_linha)
+    # Horizontais
+    for ly in range(sala.y + tile * 2, sala.bottom, tile * 4):
+        pygame.draw.line(tela, cor_linha, (sala.x, ly), (sala.right, ly), 1)
+    # Verticais
+    for lx in range(sala.x + tile * 2, sala.right, tile * 4):
+        pygame.draw.line(tela, cor_linha, (lx, sala.y), (lx, sala.bottom), 1)
+
+    # --- Paredes ---
+    espessura = 6
+    # Parede inferior (mais escura, sombra)
+    pygame.draw.rect(tela, (25, 22, 38),
+                     (sala.x, sala.bottom - espessura, sala.width, espessura))
+    # Parede direita
+    pygame.draw.rect(tela, (30, 26, 45),
+                     (sala.right - espessura, sala.y, espessura, sala.height))
+    # Parede superior (mais clara, luz de cima)
+    pygame.draw.rect(tela, COR_PAREDE_TOPO,
+                     (sala.x, sala.y, sala.width, espessura))
+    # Parede esquerda
+    pygame.draw.rect(tela, COR_PAREDE,
+                     (sala.x, sala.y, espessura, sala.height))
+    # Borda fina brilhante
+    pygame.draw.rect(tela, (70, 60, 100), sala, 2)
+
+    # --- Logo "SquareStorm" sutil no chão ---
+    fonte_logo = pygame.font.SysFont("Arial", 60, True)
+    logo_surf = fonte_logo.render("SquareStorm", True, (30, 27, 45))
+    logo_x = sala.centerx - logo_surf.get_width() // 2
+    logo_y = sala.bottom - 100
+    tela.blit(logo_surf, (logo_x, logo_y))
+
+
+def _desenhar_particulas_tempestade(tela, particulas, sala, tempo):
+    """Atualiza e desenha partículas temáticas de tempestade."""
+    for p in particulas:
+        p['x'] += p['vx']
+        p['y'] += p['vy']
+
+        # Reciclar partícula se saiu da sala
+        if p['x'] < sala.x or p['x'] > sala.right or p['y'] > sala.bottom:
+            p['x'] = random.randint(sala.x, sala.right)
+            p['y'] = sala.y
+            p['vy'] = random.uniform(0.5, 2.0)
+
+        brilho = int(60 + math.sin(tempo / 300 + p['x'] * 0.01) * 30)
+        cor = (brilho, brilho, brilho + 30)
+        pygame.draw.circle(tela, cor, (int(p['x']), int(p['y'])), p['tam'])
+
+
+def _desenhar_relampago(tela, sala, tempo, relampago_state):
+    """Desenha um flash de relâmpago ocasional."""
+    # Decidir se dispara um relâmpago
+    if relampago_state['proximo'] <= tempo:
+        relampago_state['ativo'] = True
+        relampago_state['inicio'] = tempo
+        relampago_state['proximo'] = tempo + random.randint(4000, 10000)
+        # Gerar pontos do raio
+        x_start = random.randint(sala.x + 50, sala.right - 50)
+        pontos = [(x_start, sala.y)]
+        y_cur = sala.y
+        while y_cur < sala.y + sala.height // 3:
+            y_cur += random.randint(8, 20)
+            x_off = pontos[-1][0] + random.randint(-15, 15)
+            pontos.append((x_off, y_cur))
+        relampago_state['pontos'] = pontos
+
+    if relampago_state['ativo']:
+        duracao = tempo - relampago_state['inicio']
+        if duracao < 150:
+            # Flash branco no fundo
+            if duracao < 60:
+                flash = pygame.Surface((sala.width, sala.height), pygame.SRCALPHA)
+                alpha = int(40 * (1 - duracao / 60))
+                flash.fill((200, 200, 255, alpha))
+                tela.blit(flash, sala.topleft)
+
+            # Desenhar raio
+            alpha_raio = max(0, 255 - int(duracao * 2.5))
+            pontos = relampago_state['pontos']
+            if len(pontos) > 1:
+                # Glow
+                for i in range(len(pontos) - 1):
+                    pygame.draw.line(tela, (100, 100, 200), pontos[i], pontos[i + 1], 5)
+                # Core
+                for i in range(len(pontos) - 1):
+                    pygame.draw.line(tela, (220, 220, 255), pontos[i], pontos[i + 1], 2)
+        else:
+            relampago_state['ativo'] = False
+
+
+def _desenhar_portal(tela, rect, portal, tempo, idx, fonte_titulo, fonte_peq, jogador_dentro=False):
+    """Desenha um portal de modo de jogo."""
+    cor_base = portal['cor_base']
+    cor_glow = portal['cor_glow']
+    cx, cy = rect.centerx, rect.centery
+
+    # --- Glow externo ---
+    glow_size = rect.width + 16
+    glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+    pulso = math.sin(tempo / 500 + idx * 2) * 0.3 + 0.7
+    alpha_glow = int(35 * pulso)
+    if jogador_dentro:
+        alpha_glow = int(60 * pulso)
+    pygame.draw.ellipse(glow_surf, (*cor_glow, alpha_glow),
+                        (0, 0, glow_size, glow_size))
+    tela.blit(glow_surf, (cx - glow_size // 2, cy - glow_size // 2))
+
+    # --- Plataforma circular ---
+    # Sombra
+    pygame.draw.ellipse(tela, (10, 8, 18),
+                        (rect.x + 4, rect.y + 4, rect.width, rect.height))
+    # Base
+    cor_plat = tuple(max(0, min(255, int(c * pulso))) for c in cor_base)
+    pygame.draw.ellipse(tela, cor_plat, rect)
+
+    # Anéis concêntricos
+    for i in range(3):
+        raio = min(rect.width, rect.height) // 2 - 8 - i * 12
+        if raio > 5:
+            alpha_anel = int(80 + 40 * math.sin(tempo / 400 + i * 1.5))
+            cor_anel = tuple(min(255, c + 30) for c in cor_base)
+            pygame.draw.ellipse(tela, cor_anel,
+                                (cx - raio, cy - raio, raio * 2, raio * 2), 1)
+
+    # Borda
+    cor_borda = cor_glow if jogador_dentro else tuple(min(255, c + 40) for c in cor_base)
+    largura_borda = 3 if jogador_dentro else 2
+    pygame.draw.ellipse(tela, cor_borda, rect, largura_borda)
+
+    # Partículas orbitando (se disponível)
+    if portal['disponivel']:
+        for i in range(4):
+            ang = (tempo / 800 + i * math.pi / 2 + idx)
+            r = min(rect.width, rect.height) // 2 - 5
+            px = cx + int(math.cos(ang) * r)
+            py = cy + int(math.sin(ang) * r * 0.5)  # Elíptico
+            pygame.draw.circle(tela, cor_glow, (px, py), 3)
+
+    # --- Texto ---
+    linhas = portal['nome'].split('\n')
+    y_text = cy - 16 if len(linhas) == 1 else cy - 22
+    for linha in linhas:
+        s = fonte_titulo.render(linha, True, BRANCO)
+        tela.blit(s, (cx - s.get_width() // 2, y_text))
+        y_text += s.get_height() + 2
+
+    # Descrição
+    if portal['disponivel']:
+        desc_cor = (180, 255, 180)
+    else:
+        desc_cor = (255, 200, 100)
+    desc_s = fonte_peq.render(portal['desc'], True, desc_cor)
+    tela.blit(desc_s, (cx - desc_s.get_width() // 2, rect.bottom - 22))
+
+
+def _desenhar_barra_timer(tela, jx, jy, progresso, fonte):
+    """Barra de progresso circular estilizada sobre o jogador."""
+    barra_w = 60
+    barra_h = 8
+    bx = int(jx) + TAM_PLAYER // 2 - barra_w // 2
+    by = int(jy) - 35
+
+    # Fundo
+    pygame.draw.rect(tela, (20, 18, 30), (bx - 1, by - 1, barra_w + 2, barra_h + 2), 0, 5)
+
+    # Preenchimento
+    fill = int(barra_w * progresso)
+    if fill > 0:
+        g = int(120 + 135 * progresso)
+        pygame.draw.rect(tela, (30, min(255, g), 50), (bx, by, fill, barra_h), 0, 5)
+
+    # Borda
+    pygame.draw.rect(tela, (150, 150, 150), (bx, by, barra_w, barra_h), 1, 5)
+
+    # Tempo
+    restante = max(0, (1 - progresso) * 5)
+    ts = fonte.render(f"{restante:.1f}s", True, BRANCO)
+    tela.blit(ts, (bx + barra_w + 5, by - 1))
+
+
+# ============================================================
+#  LOOP PRINCIPAL DO LOBBY
+# ============================================================
+
+def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=None):
+    """Loop do lobby interativo. Compartilhado entre host e cliente."""
+    print(f"[LOBBY] Sala SquareStorm aberta ({'HOST' if is_host else 'CLIENTE'})")
 
     # Fontes
-    fonte_titulo = pygame.font.SysFont("Arial", 28, True)
-    fonte_normal = pygame.font.SysFont("Arial", 22)
-    fonte_pequena = pygame.font.SysFont("Arial", 18)
-    fonte_grande = pygame.font.SysFont("Arial", 42, True)
+    fonte_grande = pygame.font.SysFont("Arial", 34, True)
+    fonte_titulo = pygame.font.SysFont("Arial", 16, True)
+    fonte_peq = pygame.font.SysFont("Arial", 13)
+    fonte_nomes = pygame.font.SysFont("Arial", 12)
+    fonte_msg = pygame.font.SysFont("Arial", 20, True)
+    fonte_ip = pygame.font.SysFont("Arial", 14)
 
-    # Estado da customização
-    cores_disponiveis = [
-        ("Azul", AZUL),
-        ("Verde", VERDE),
-        ("Vermelho", VERMELHO),
-        ("Amarelo", AMARELO),
-        ("Ciano", CIANO),
-        ("Roxo", ROXO),
-        ("Laranja", LARANJA),
-        ("Rosa", (255, 105, 180))
-    ]
-    cor_selecionada_index = 0  # Começa com Azul
+    # Área da sala
+    margem = 25
+    topo = 65
+    base = 40
+    sala = pygame.Rect(margem, topo, LARGURA - margem * 2, ALTURA_JOGO - topo - base)
 
-    # Layout moderno em 2 colunas
-    margem = 60
-    col_width = (LARGURA - 3 * margem) // 2
+    # Portais
+    portais_rects = _calcular_portais(sala)
 
-    # Cards das 2 colunas
-    card_customizacao = pygame.Rect(margem, 120, col_width, 520)
-    card_jogadores = pygame.Rect(margem * 2 + col_width, 120, col_width, 520)
+    # Jogador local - posição
+    jx = float(sala.centerx - TAM_PLAYER // 2)
+    jy = float(sala.bottom - 90)
 
-    # Botões
-    btn_iniciar = pygame.Rect(LARGURA // 2 - 150, ALTURA - 100, 300, 60)
-    btn_cancelar = pygame.Rect(margem, ALTURA - 100, 150, 60)
+    # Cor do jogador local (index 0 = host, clientes recebem pelo player_id)
+    player_id_local = cliente.local_player_id or 1
+    cor_index_local = (player_id_local - 1) % len(PALETA_JOGADORES)
 
-    # Lista de bots - iniciar com 8 bots por padrão
+    # Pulsação
+    pulsacao = 0
+    ultimo_pulso = 0
+
+    # Timer de zona
+    zona_atual = -1
+    zona_timer_start = 0
+
+    # Mensagem temporária
+    msg = ""
+    msg_fim = 0
+
+    # Bots (host)
     bot_cores = [VERMELHO, VERDE, ROXO, LARANJA, CIANO, (255, 105, 180), AMARELO, (100, 200, 255)]
     bots = []
-    for i in range(8):
-        bot = {
-            'nome': f"Bot {i + 1}",
-            'cor': bot_cores[i % len(bot_cores)]
-        }
-        bots.append(bot)
+    if is_host:
+        for i in range(8):
+            bots.append({'nome': f"Bot {i + 1}", 'cor': bot_cores[i % len(bot_cores)]})
 
-    # Partículas de fundo (animação)
-    particulas = []
-    for _ in range(30):
-        particulas.append({
-            'x': random.randint(0, LARGURA),
-            'y': random.randint(0, ALTURA_JOGO),
-            'velocidade': random.uniform(0.2, 0.8),
-            'tamanho': random.randint(1, 3)
-        })
+    # Game start callback
+    game_started = [False]
 
-    while True:
-        tempo_atual = pygame.time.get_ticks()
-        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
-
-        # Eventos
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                return ("cancel", None)
-
-            if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_ESCAPE:
-                    print("[LOBBY] Cancelado")
-                    return ("cancel", None)
-                if evento.key == pygame.K_RETURN:
-                    customizacao = {
-                        'cor': cores_disponiveis[cor_selecionada_index][1],
-                        'cor_nome': cores_disponiveis[cor_selecionada_index][0],
-                        'bots': bots  # Passar lista de bots
-                    }
-                    print(f"[LOBBY] Iniciando - Modo: Versus, Cor: {customizacao['cor_nome']}, Bots: {len(bots)}")
-                    # Enviar sinal para todos os clientes que a partida está iniciando
-                    print("[LOBBY_HOST] Enviando GAME_START para todos os clientes...")
-                    servidor.broadcast_game_start()
-                    return ("start", customizacao)
-
-            if evento.type == pygame.MOUSEBUTTONDOWN:
-                mouse_click_pos = convert_mouse_position(evento.pos)
-
-                # Botão Iniciar
-                if btn_iniciar.collidepoint(mouse_click_pos):
-                    customizacao = {
-                        'cor': cores_disponiveis[cor_selecionada_index][1],
-                        'cor_nome': cores_disponiveis[cor_selecionada_index][0],
-                        'bots': bots  # Passar lista de bots
-                    }
-                    # Enviar sinal para todos os clientes que a partida está iniciando
-                    print("[LOBBY_HOST] Enviando GAME_START para todos os clientes...")
-                    servidor.broadcast_game_start()
-                    return ("start", customizacao)
-
-                # Botão Cancelar
-                if btn_cancelar.collidepoint(mouse_click_pos):
-                    return ("cancel", None)
-
-                # Seletor de cores (dentro do card de customização)
-                y_cores = card_customizacao.y + 180
-                for i, (nome_cor, cor) in enumerate(cores_disponiveis):
-                    cor_rect = pygame.Rect(card_customizacao.x + 20, y_cores + i * 40, 30, 30)
-                    if cor_rect.collidepoint(mouse_click_pos):
-                        cor_selecionada_index = i
-                        print(f"[LOBBY] Cor alterada para: {nome_cor}")
-
-        # ========== DESENHAR ==========
-
-        # Fundo com gradiente
-        tela.blit(gradiente, (0, 0))
-
-        # Partículas animadas
-        for p in particulas:
-            p['y'] += p['velocidade']
-            if p['y'] > ALTURA_JOGO:
-                p['y'] = 0
-                p['x'] = random.randint(0, LARGURA)
-            pygame.draw.circle(tela, (100, 100, 150, 80), (int(p['x']), int(p['y'])), p['tamanho'])
-
-        # Título principal
-        pulso = math.sin(tempo_atual / 500) * 5
-        titulo_surf = fonte_grande.render("LOBBY MULTIPLAYER", True, BRANCO)
-        tela.blit(titulo_surf, (LARGURA // 2 - titulo_surf.get_width() // 2, 40 + pulso))
-
-        # IP para compartilhar
-        ip = obter_ip_local_simples()
-        ip_surf = fonte_pequena.render(f"IP: {ip}:{config['port']}", True, AMARELO)
-        tela.blit(ip_surf, (LARGURA // 2 - ip_surf.get_width() // 2, 85))
-
-        # ========== CARD 1: CUSTOMIZAÇÃO ==========
-        desenhar_card(tela, card_customizacao, (30, 30, 50), (100, 100, 200), "PERSONAGEM", fonte_titulo)
-
-        # Preview do personagem customizado (grande)
-        preview_size = 120
-        preview_x = card_customizacao.centerx - preview_size // 2
-        preview_y = card_customizacao.y + 80
-        desenhar_avatar_jogador(
-            tela, preview_x, preview_y, preview_size,
-            cores_disponiveis[cor_selecionada_index][1],
-            None  # Sem acessórios
-        )
-
-        # Seletor de cores
-        y_cores = card_customizacao.y + 180
-        label_cor = fonte_normal.render("Cor:", True, BRANCO)
-        tela.blit(label_cor, (card_customizacao.x + 20, y_cores - 30))
-
-        for i, (nome_cor, cor) in enumerate(cores_disponiveis):
-            cor_rect = pygame.Rect(card_customizacao.x + 20, y_cores + i * 40, 30, 30)
-
-            # Desenhar quadrado da cor
-            pygame.draw.rect(tela, cor, cor_rect, 0, 5)
-            pygame.draw.rect(tela, BRANCO if i == cor_selecionada_index else (100, 100, 100), cor_rect, 3 if i == cor_selecionada_index else 1, 5)
-
-            # Nome da cor
-            texto_cor = fonte_pequena.render(nome_cor, True, BRANCO if i == cor_selecionada_index else (150, 150, 150))
-            tela.blit(texto_cor, (card_customizacao.x + 60, y_cores + i * 40 + 5))
-
-        # ========== CARD 2: JOGADORES ==========
-        desenhar_card(tela, card_jogadores, (30, 50, 30), (100, 200, 100), "JOGADORES", fonte_titulo)
-
-        # Obter jogadores conectados
-        try:
-            jogadores = servidor.get_connected_players() if hasattr(servidor, 'get_connected_players') else []
-            num_jogadores = len(jogadores) if jogadores else 1
-        except:
-            jogadores = []
-            num_jogadores = 1
-
-        # Contador de jogadores (incluindo bots)
-        total_jogadores = num_jogadores + len(bots)
-        contador_surf = fonte_normal.render(f"{total_jogadores} / {config['max_players']}", True, AMARELO if total_jogadores < config['max_players'] else VERDE)
-        tela.blit(contador_surf, (card_jogadores.x + 20, card_jogadores.y + 60))
-
-        # Lista de jogadores
-        y_jogador = card_jogadores.y + 110
-
-        # Host (você)
-        desenhar_avatar_jogador(tela, card_jogadores.x + 30, y_jogador, 40,
-                               cores_disponiveis[cor_selecionada_index][1],
-                               None)  # Sem acessórios
-        texto_host = fonte_normal.render(f"{config['player_name']} (HOST)", True, VERDE)
-        tela.blit(texto_host, (card_jogadores.x + 85, y_jogador + 8))
-        y_jogador += 60
-
-        # Outros jogadores
-        if jogadores:
-            for i, jogador in enumerate(jogadores):
-                if jogador.get('name') != config['player_name']:
-                    desenhar_avatar_jogador(tela, card_jogadores.x + 30, y_jogador, 40, AZUL, None)
-                    texto_jog = fonte_normal.render(jogador.get('name', f'Jogador {i+1}'), True, BRANCO)
-                    tela.blit(texto_jog, (card_jogadores.x + 85, y_jogador + 8))
-                    y_jogador += 60
-
-        # Bots
-        for bot in bots:
-            desenhar_avatar_jogador(tela, card_jogadores.x + 30, y_jogador, 40, bot['cor'], None)
-            texto_bot = fonte_normal.render(f"{bot['nome']} (BOT)", True, (150, 150, 150))
-            tela.blit(texto_bot, (card_jogadores.x + 85, y_jogador + 8))
-            y_jogador += 60
-
-        # Aviso se sozinho
-        if num_jogadores == 1:
-            pulso_alpha = int(100 + (math.sin(tempo_atual / 500) + 1) / 2 * 155)
-            texto_aguardando = fonte_pequena.render("Aguardando conexoes...", True, (pulso_alpha, pulso_alpha, 255))
-            tela.blit(texto_aguardando, (card_jogadores.x + 20, card_jogadores.y + card_jogadores.height - 40))
-
-        # Modo de jogo fixo (mostrar badge)
-        modo_badge = fonte_titulo.render("MODO: VERSUS", True, AMARELO)
-        tela.blit(modo_badge, (LARGURA // 2 - modo_badge.get_width() // 2, card_jogadores.y + card_jogadores.height + 20))
-
-        # ========== BOTÕES PRINCIPAIS ==========
-
-        # Botão Iniciar
-        hover_iniciar = btn_iniciar.collidepoint(mouse_pos)
-        cor_iniciar = (60, 200, 60) if hover_iniciar else (40, 150, 40)
-
-        # Efeito de pulso no botão
-        if hover_iniciar:
-            tamanho_extra = int(math.sin(tempo_atual / 200) * 3)
-            btn_temp = pygame.Rect(btn_iniciar.x - tamanho_extra, btn_iniciar.y - tamanho_extra,
-                                   btn_iniciar.width + tamanho_extra * 2, btn_iniciar.height + tamanho_extra * 2)
-        else:
-            btn_temp = btn_iniciar
-
-        pygame.draw.rect(tela, cor_iniciar, btn_temp, 0, 15)
-        pygame.draw.rect(tela, BRANCO, btn_temp, 4, 15)
-
-        texto_iniciar = fonte_titulo.render("INICIAR PARTIDA", True, BRANCO)
-        tela.blit(texto_iniciar, (btn_iniciar.centerx - texto_iniciar.get_width() // 2, btn_iniciar.centery - texto_iniciar.get_height() // 2))
-
-        # Botão Cancelar
-        hover_cancelar = btn_cancelar.collidepoint(mouse_pos)
-        cor_cancelar = (200, 60, 60) if hover_cancelar else (150, 40, 40)
-        pygame.draw.rect(tela, cor_cancelar, btn_cancelar, 0, 15)
-        pygame.draw.rect(tela, BRANCO, btn_cancelar, 3, 15)
-
-        texto_cancelar = fonte_normal.render("SAIR", True, BRANCO)
-        tela.blit(texto_cancelar, (btn_cancelar.centerx - texto_cancelar.get_width() // 2, btn_cancelar.centery - texto_cancelar.get_height() // 2))
-
-        # Instruções
-        inst = fonte_pequena.render("ENTER para iniciar | ESC para sair", True, (150, 150, 150))
-        tela.blit(inst, (LARGURA // 2 - inst.get_width() // 2, ALTURA - 30))
-
-        present_frame()
-        relogio.tick(60)
-
-
-def tela_lobby_cliente(tela, relogio, gradiente, cliente, config):
-    """
-    Tela de lobby para CLIENTES (quem se conecta).
-    Aguarda o host iniciar a partida.
-
-    Returns:
-        ("start", customizacao) se o host iniciar
-        ("cancel", None) se cancelar
-    """
-    print("[LOBBY_CLIENT] Aguardando host iniciar...")
-
-    fonte_grande = pygame.font.SysFont("Arial", 48, True)
-    fonte_titulo = pygame.font.SysFont("Arial", 32, True)
-    fonte_normal = pygame.font.SysFont("Arial", 24)
-    fonte_pequena = pygame.font.SysFont("Arial", 18)
-
-    # Partículas de fundo
-    particulas = []
-    for _ in range(50):
-        particulas.append({
-            'x': random.randint(0, LARGURA),
-            'y': random.randint(0, ALTURA_JOGO),
-            'velocidade': random.uniform(0.5, 2),
-            'tamanho': random.randint(1, 3)
-        })
-
-    # Cores disponíveis
-    cores_disponiveis = [
-        ("Azul", AZUL),
-        ("Vermelho", VERMELHO),
-        ("Verde", VERDE),
-        ("Roxo", ROXO),
-        ("Laranja", LARANJA),
-        ("Ciano", CIANO),
-        ("Amarelo", AMARELO),
-        ("Rosa", (255, 105, 180))
-    ]
-    cor_selecionada_index = 0
-
-    # Botões
-    btn_cancelar = pygame.Rect(LARGURA // 2 - 100, ALTURA - 100, 200, 50)
-
-    # Cards
-    card_info = pygame.Rect(LARGURA // 2 - 400, 150, 300, 450)
-    card_customizacao = pygame.Rect(LARGURA // 2 + 100, 150, 300, 450)
-
-    bots = []  # Lista de bots (se o host adicionar)
-
-    # Flag para saber quando o host iniciou
-    game_started = [False]  # Lista para poder modificar dentro do callback
-
-    # Configurar callback para detectar início de partida
     def on_game_start(data):
-        print("[LOBBY_CLIENT] Recebido sinal de início da partida!")
         game_started[0] = True
 
     cliente.set_callback('on_game_start', on_game_start)
 
+    # Partículas de tempestade (caem do topo)
+    particulas = []
+    for _ in range(25):
+        particulas.append({
+            'x': float(random.randint(sala.x, sala.right)),
+            'y': float(random.randint(sala.y, sala.bottom)),
+            'vx': random.uniform(-0.3, 0.3),
+            'vy': random.uniform(0.4, 1.5),
+            'tam': random.randint(1, 2),
+        })
+
+    # Estado do relâmpago
+    relampago = {
+        'ativo': False,
+        'inicio': 0,
+        'proximo': pygame.time.get_ticks() + random.randint(2000, 5000),
+        'pontos': [],
+    }
+
     while True:
-        tempo_atual = pygame.time.get_ticks()
-        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
+        tempo = pygame.time.get_ticks()
+        dt = 1.0 / 60.0
 
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
+        # ========== EVENTOS ==========
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
                 return ("cancel", None)
-
-            if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_ESCAPE:
-                    print("[LOBBY_CLIENT] Cancelado")
+            if ev.type == pygame.KEYDOWN:
+                if ev.key == pygame.K_ESCAPE:
                     return ("cancel", None)
 
-            if evento.type == pygame.MOUSEBUTTONDOWN:
-                mouse_click_pos = convert_mouse_position(evento.pos)
-
-                # Botão Cancelar
-                if btn_cancelar.collidepoint(mouse_click_pos):
-                    return ("cancel", None)
-
-                # Seletor de cores
-                y_cores = card_customizacao.y + 180
-                for i, (nome_cor, cor) in enumerate(cores_disponiveis):
-                    cor_rect = pygame.Rect(card_customizacao.x + 20, y_cores + i * 40, 30, 30)
-                    if cor_rect.collidepoint(mouse_click_pos):
-                        cor_selecionada_index = i
-                        print(f"[LOBBY_CLIENT] Cor alterada para: {nome_cor}")
-
-        # ========== VERIFICAR SE O HOST INICIOU ==========
+        # ========== GAME START ==========
         if game_started[0]:
-            print("[LOBBY_CLIENT] Host iniciou! Entrando na partida...")
-            customizacao = {
-                'cor': cores_disponiveis[cor_selecionada_index][1],
-                'cor_nome': cores_disponiveis[cor_selecionada_index][0],
-                'bots': []  # Clientes não têm bots
-            }
-            return ("start", customizacao)
+            cor_local = PALETA_JOGADORES[cor_index_local]
+            return ("start", {
+                'cor': cor_local,
+                'cor_nome': str(cor_index_local),
+                'bots': bots,
+            })
+
+        # ========== MOVIMENTO ==========
+        teclas = pygame.key.get_pressed()
+        dx, dy = 0.0, 0.0
+        if teclas[pygame.K_w] or teclas[pygame.K_UP]:
+            dy -= VEL_LOBBY
+        if teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
+            dy += VEL_LOBBY
+        if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
+            dx -= VEL_LOBBY
+        if teclas[pygame.K_d] or teclas[pygame.K_RIGHT]:
+            dx += VEL_LOBBY
+
+        if dx != 0 and dy != 0:
+            f = VEL_LOBBY / math.sqrt(dx * dx + dy * dy)
+            dx *= f
+            dy *= f
+
+        jx += dx
+        jy += dy
+        jx = max(float(sala.x + 8), min(float(sala.right - TAM_PLAYER - 8), jx))
+        jy = max(float(sala.y + 8), min(float(sala.bottom - TAM_PLAYER - 8), jy))
+
+        # Enviar input
+        keys_net = {
+            'w': bool(teclas[pygame.K_w] or teclas[pygame.K_UP]),
+            's': bool(teclas[pygame.K_s] or teclas[pygame.K_DOWN]),
+            'a': bool(teclas[pygame.K_a] or teclas[pygame.K_LEFT]),
+            'd': bool(teclas[pygame.K_d] or teclas[pygame.K_RIGHT]),
+        }
+        cliente.send_player_input(keys_net, 0, 0, False)
+        cliente.update_interpolation(dt)
+
+        # Pulsação (ciclo 0-11)
+        if tempo - ultimo_pulso > 100:
+            ultimo_pulso = tempo
+            pulsacao = (pulsacao + 1) % 12
+
+        # ========== DETECÇÃO DE PORTAL ==========
+        jrect = pygame.Rect(int(jx), int(jy), TAM_PLAYER, TAM_PLAYER)
+        pisando = -1
+        for i, pr in enumerate(portais_rects):
+            # Usar colisão por centro do jogador dentro da elipse
+            centro_jx = jx + TAM_PLAYER // 2
+            centro_jy = jy + TAM_PLAYER // 2
+            # Checar se centro está dentro do retângulo do portal
+            if pr.collidepoint(centro_jx, centro_jy):
+                pisando = i
+                break
+
+        if pisando != zona_atual:
+            zona_atual = pisando
+            zona_timer_start = tempo if pisando >= 0 else 0
+
+        progresso = 0.0
+        if zona_atual >= 0 and zona_timer_start > 0:
+            t_zona = tempo - zona_timer_start
+            progresso = min(1.0, t_zona / TEMPO_ZONA)
+
+            if t_zona >= TEMPO_ZONA:
+                portal = PORTAIS[zona_atual]
+                if portal['disponivel']:
+                    if is_host:
+                        cor_local = PALETA_JOGADORES[cor_index_local]
+                        cust = {
+                            'cor': cor_local,
+                            'cor_nome': str(cor_index_local),
+                            'bots': bots,
+                        }
+                        print(f"[LOBBY] Host iniciou VERSUS!")
+                        servidor.broadcast_game_start()
+                        return ("start", cust)
+                    else:
+                        msg = "Somente o HOST pode iniciar!"
+                        msg_fim = tempo + 2000
+                        zona_timer_start = tempo
+                else:
+                    msg = f"{portal['nome'].replace(chr(10), ' ')}: EM DESENVOLVIMENTO!"
+                    msg_fim = tempo + 2000
+                    zona_timer_start = tempo
 
         # ========== DESENHAR ==========
 
-        # Fundo com gradiente
+        # Fundo gradiente
         tela.blit(gradiente, (0, 0))
 
-        # Partículas animadas
-        for p in particulas:
-            p['y'] += p['velocidade']
-            if p['y'] > ALTURA_JOGO:
-                p['y'] = 0
-                p['x'] = random.randint(0, LARGURA)
-            pygame.draw.circle(tela, (100, 100, 150, 80), (int(p['x']), int(p['y'])), p['tamanho'])
+        # Arena
+        _desenhar_arena(tela, sala, tempo)
 
-        # Título principal
-        pulso = math.sin(tempo_atual / 500) * 5
-        titulo_surf = fonte_grande.render("AGUARDANDO HOST", True, BRANCO)
-        tela.blit(titulo_surf, (LARGURA // 2 - titulo_surf.get_width() // 2, 40 + pulso))
+        # Partículas de tempestade
+        _desenhar_particulas_tempestade(tela, particulas, sala, tempo)
 
-        # ========== CARD 1: INFORMAÇÕES ==========
-        desenhar_card(tela, card_info, (30, 30, 50), (100, 100, 200), "SERVIDOR", fonte_titulo)
+        # Relâmpago
+        _desenhar_relampago(tela, sala, tempo, relampago)
 
-        # IP do servidor
-        try:
-            server_info = f"{config['host']}:{config['port']}"
-            ip_surf = fonte_normal.render(f"IP: {server_info}", True, AMARELO)
-            tela.blit(ip_surf, (card_info.x + 20, card_info.y + 70))
-        except:
-            pass
+        # Portais
+        for i, pr in enumerate(portais_rects):
+            dentro = (i == zona_atual)
+            _desenhar_portal(tela, pr, PORTAIS[i], tempo, i, fonte_titulo, fonte_peq, dentro)
 
-        # Status de conexão
-        status_surf = fonte_normal.render("Status: Conectado", True, VERDE)
-        tela.blit(status_surf, (card_info.x + 20, card_info.y + 110))
+        # Jogadores remotos
+        remotos = cliente.get_remote_players()
+        for idx, (pid, rp) in enumerate(remotos.items()):
+            # Cada jogador remoto recebe cor baseada no seu player_id
+            ci = (pid - 1) % len(PALETA_JOGADORES)
+            cor_r = PALETA_JOGADORES[ci]
+            _desenhar_player(tela, rp.x, rp.y, cor_r, rp.name, fonte_nomes,
+                             is_host=False, pulsacao=pulsacao)
 
-        # Mensagem piscante
-        pulso_alpha = int(100 + (math.sin(tempo_atual / 300) + 1) / 2 * 155)
-        texto_aguardando = fonte_titulo.render("Aguardando...", True, (pulso_alpha, pulso_alpha, 255))
-        tela.blit(texto_aguardando, (card_info.x + 20, card_info.y + 200))
+        # Jogador local (por cima)
+        cor_local = PALETA_JOGADORES[cor_index_local]
+        _desenhar_player(tela, jx, jy, cor_local,
+                         config.get('player_name', 'Jogador'), fonte_nomes,
+                         is_host=is_host, pulsacao=pulsacao)
 
-        msg_surf = fonte_pequena.render("O host iniciará a partida", True, (150, 150, 150))
-        tela.blit(msg_surf, (card_info.x + 20, card_info.y + 250))
+        # Barra de timer
+        if zona_atual >= 0 and progresso > 0:
+            _desenhar_barra_timer(tela, jx, jy, progresso, fonte_peq)
 
-        # ========== CARD 2: CUSTOMIZAÇÃO ==========
-        desenhar_card(tela, card_customizacao, (30, 30, 50), (100, 100, 200), "PERSONAGEM", fonte_titulo)
+        # ========== UI OVERLAY ==========
 
-        # Preview do personagem
-        preview_size = 120
-        preview_x = card_customizacao.centerx - preview_size // 2
-        preview_y = card_customizacao.y + 80
-        desenhar_avatar_jogador(
-            tela, preview_x, preview_y, preview_size,
-            cores_disponiveis[cor_selecionada_index][1],
-            None
-        )
+        # Título estilizado
+        titulo = fonte_grande.render("SQUARESTORM", True, (200, 200, 255))
+        tela.blit(titulo, (LARGURA // 2 - titulo.get_width() // 2, 10))
 
-        # Seletor de cores
-        y_cores = card_customizacao.y + 180
-        label_cor = fonte_normal.render("Sua Cor:", True, BRANCO)
-        tela.blit(label_cor, (card_customizacao.x + 20, y_cores - 30))
+        # Subtítulo
+        sub = fonte_ip.render("LOBBY", True, (120, 120, 160))
+        tela.blit(sub, (LARGURA // 2 - sub.get_width() // 2, 44))
 
-        for i, (nome_cor, cor) in enumerate(cores_disponiveis):
-            cor_rect = pygame.Rect(card_customizacao.x + 20, y_cores + i * 40, 30, 30)
+        # IP
+        if is_host:
+            ip = obter_ip_local_simples()
+            ip_txt = f"IP: {ip}:{config['port']}"
+        else:
+            ip_txt = f"Servidor: {config.get('host', '?')}:{config['port']}"
+        ip_s = fonte_ip.render(ip_txt, True, AMARELO)
+        tela.blit(ip_s, (LARGURA // 2 - ip_s.get_width() // 2, 56))
 
-            # Desenhar quadrado da cor
-            pygame.draw.rect(tela, cor, cor_rect, 0, 5)
-            pygame.draw.rect(tela, BRANCO if i == cor_selecionada_index else (100, 100, 100), cor_rect, 3 if i == cor_selecionada_index else 1, 5)
+        # Jogadores conectados
+        n_total = 1 + len(remotos)
+        cnt = fonte_ip.render(f"Jogadores: {n_total}", True, VERDE)
+        tela.blit(cnt, (LARGURA - cnt.get_width() - 15, 12))
 
-            # Nome da cor
-            texto_cor = fonte_pequena.render(nome_cor, True, BRANCO if i == cor_selecionada_index else (150, 150, 150))
-            tela.blit(texto_cor, (card_customizacao.x + 60, y_cores + i * 40 + 5))
+        # Preview da cor do jogador
+        pygame.draw.rect(tela, cor_local, (12, 12, 16, 16), 0, 3)
+        cor_escura, _ = _gerar_cor_derivadas(cor_local)
+        pygame.draw.rect(tela, cor_escura, (12, 12, 16, 16), 2, 3)
+        nome_cor_s = fonte_ip.render(config.get('player_name', ''), True, cor_local)
+        tela.blit(nome_cor_s, (32, 13))
 
-        # ========== BOTÃO CANCELAR ==========
-        hover_cancelar = btn_cancelar.collidepoint(mouse_pos)
-        cor_cancelar = (200, 60, 60) if hover_cancelar else (150, 40, 40)
-        pygame.draw.rect(tela, cor_cancelar, btn_cancelar, 0, 15)
-        pygame.draw.rect(tela, BRANCO, btn_cancelar, 3, 15)
+        # Mensagem temporária
+        if msg and tempo < msg_fim:
+            ms = fonte_msg.render(msg, True, AMARELO)
+            mw = ms.get_width() + 30
+            mh = 40
+            mr = pygame.Rect(LARGURA // 2 - mw // 2, sala.centery + 50, mw, mh)
+            bg = pygame.Surface((mr.width, mr.height), pygame.SRCALPHA)
+            bg.fill((0, 0, 0, 200))
+            tela.blit(bg, mr.topleft)
+            pygame.draw.rect(tela, (255, 200, 50), mr, 2, 8)
+            tela.blit(ms, (mr.centerx - ms.get_width() // 2, mr.centery - ms.get_height() // 2))
 
-        texto_cancelar = fonte_normal.render("SAIR", True, BRANCO)
-        tela.blit(texto_cancelar, (btn_cancelar.centerx - texto_cancelar.get_width() // 2, btn_cancelar.centery - texto_cancelar.get_height() // 2))
+        # Aguardando jogadores
+        if is_host and len(remotos) == 0:
+            p_a = int(100 + math.sin(tempo / 500) * 80)
+            ag = fonte_ip.render("Aguardando jogadores se conectarem...", True, (p_a, p_a, 255))
+            tela.blit(ag, (LARGURA // 2 - ag.get_width() // 2, sala.bottom + 4))
 
         # Instruções
-        inst = fonte_pequena.render("ESC para sair", True, (150, 150, 150))
-        tela.blit(inst, (LARGURA // 2 - inst.get_width() // 2, ALTURA - 30))
+        inst = "WASD: Mover  |  ESC: Sair  |  Fique no portal por 5s para iniciar"
+        is_s = fonte_peq.render(inst, True, (100, 100, 120))
+        tela.blit(is_s, (LARGURA // 2 - is_s.get_width() // 2, ALTURA_JOGO - 18))
 
         present_frame()
         relogio.tick(60)
+
+
+# ============================================================
+#  FUNÇÕES PÚBLICAS (mesma assinatura de antes)
+# ============================================================
+
+def tela_lobby_servidor(tela, relogio, gradiente, servidor, cliente, config):
+    """Lobby interativo para o HOST."""
+    return _lobby_loop(tela, relogio, gradiente, cliente, config, is_host=True, servidor=servidor)
+
+
+def tela_lobby_cliente(tela, relogio, gradiente, cliente, config):
+    """Lobby interativo para CLIENTES."""
+    return _lobby_loop(tela, relogio, gradiente, cliente, config, is_host=False)
