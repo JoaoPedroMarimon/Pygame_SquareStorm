@@ -12,6 +12,7 @@ import os
 from src.config import *
 from src.game.fase_base import FaseBase
 from src.utils.display_manager import present_frame
+from src.game.selecao_times import SelecaoTimes, TelaAguardandoJogadores
 from src.entities.quadrado import Quadrado
 from src.entities.particula import criar_explosao
 from src.utils.tilemap import TileMap
@@ -153,6 +154,12 @@ class FaseMultiplayer(FaseBase):
                             self.jogador.granada_selecionada = False
                             print("[GRANADA] Arma equipada!")
 
+                # Clique do mouse para alternar espectador quando morto
+                if evento.type == pygame.MOUSEBUTTONDOWN and self.jogador.vidas <= 0:
+                    if hasattr(self, 'espectador_ativo') and self.espectador_ativo:
+                        self._alternar_espectador()
+                        continue  # Não processa como tiro
+
                 # Tiro com clique do mouse - usa posição do mundo (não atira se menu aberto)
                 elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                     if not self.menu_compra_aberto:
@@ -263,14 +270,14 @@ class FaseMultiplayer(FaseBase):
     def _obter_cooldown_arma(self):
         """Retorna o cooldown da arma equipada em milissegundos."""
         cooldowns = {
-            'desert_eagle': 400,   # Cadência média-alta
+            'desert_eagle': 700,   # Cadência lenta (arma poderosa)
             'spas12': 600,         # Cadência média
-            'metralhadora': 150,   # Cadência muito alta
+            'metralhadora': 200,   # Cadência muito alta (automática)
             'sniper': 1500         # Cadência baixa
         }
         if self.arma_equipada and self.arma_equipada in cooldowns:
             return cooldowns[self.arma_equipada]
-        return 350  # Pistola padrão
+        return 500  # Tiro normal (sem arma) - cadência lenta
 
     def executar(self):
         """
@@ -350,6 +357,17 @@ class FaseMultiplayer(FaseBase):
                 # Atualizar jogador localmente (predição) com colisões do mapa
                 self._atualizar_jogador_com_colisao(pos_mouse, tempo_atual)
 
+                # === METRALHADORA AUTOMÁTICA - Segurar mouse para atirar ===
+                if self.arma_equipada == 'metralhadora' and not self.menu_compra_aberto:
+                    mouse_buttons = pygame.mouse.get_pressed()
+                    if mouse_buttons[0]:  # Botão esquerdo pressionado
+                        # Converter pos_mouse para coordenadas do mundo
+                        pos_mouse_mundo = (
+                            pos_mouse[0] / self.camera_zoom + self.camera_x,
+                            pos_mouse[1] / self.camera_zoom + self.camera_y
+                        )
+                        self._atirar_multiplayer(pos_mouse_mundo)
+
                 # Atualizar habilidade de classe (ambos os times)
                 if self.classe_jogador:
                     self._atualizar_habilidade_classe(tempo_atual)
@@ -390,6 +408,9 @@ class FaseMultiplayer(FaseBase):
 
                 # Processar sistema de bomba
                 self._processar_bomba(tempo_atual)
+
+                # Verificar se alguém pegou a bomba dropada
+                self._verificar_pickup_bomba()
 
                 # Verificar condições de vitória
                 self._verificar_vitoria()
@@ -477,10 +498,6 @@ class FaseMultiplayer(FaseBase):
 
     def _mostrar_selecao_time(self):
         """Mostra a tela de seleção de time (T ou Q) - ANTES de carregar o jogo."""
-        from src.utils.visual import desenhar_texto
-        from src.utils.display_manager import convert_mouse_position
-        import math
-
         pygame.mouse.set_visible(True)
 
         # Verificar se todos estão prontos
@@ -494,171 +511,49 @@ class FaseMultiplayer(FaseBase):
         if self.aguardando_jogadores:
             return self._mostrar_aguardando_jogadores()
 
-        # Tela de escolha de time
-        btn_time_t = pygame.Rect(LARGURA // 4 - 120, ALTURA // 2 - 80, 240, 160)
-        btn_time_q = pygame.Rect(3 * LARGURA // 4 - 120, ALTURA // 2 - 80, 240, 160)
-        btn_dev_mode = pygame.Rect(LARGURA // 2 - 80, ALTURA - 120, 160, 50)
+        # Usar a nova tela de seleção de times
+        if not hasattr(self, '_selecao_times_tela'):
+            self._selecao_times_tela = SelecaoTimes(
+                self.tela, self.relogio, self.fonte_titulo, self.fonte_normal,
+                self.gradiente_jogo, self.cliente
+            )
 
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                return "menu"
+        resultado = self._selecao_times_tela.executar()
 
-            if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_ESCAPE:
-                    return "menu"
-                # Atalhos de teclado
-                if evento.key == pygame.K_t:
-                    self._selecionar_time('T')
-                    return None
-                if evento.key == pygame.K_q:
-                    self._selecionar_time('Q')
-                    return None
-                if evento.key == pygame.K_d:
-                    self._entrar_dev_mode()
-                    return None
-
-            if evento.type == pygame.MOUSEBUTTONDOWN:
-                mouse_click_pos = convert_mouse_position(evento.pos)
-
-                # Botão Time T
-                if btn_time_t.collidepoint(mouse_click_pos):
-                    self._selecionar_time('T')
-                    return None
-
-                # Botão Time Q
-                if btn_time_q.collidepoint(mouse_click_pos):
-                    self._selecionar_time('Q')
-                    return None
-
-                # Botão DEV MODE
-                if btn_dev_mode.collidepoint(mouse_click_pos):
-                    self._entrar_dev_mode()
-                    return None
-
-        # Desenhar tela de seleção
-        self.tela.fill((15, 15, 25))
-        self.tela.blit(self.gradiente_jogo, (0, 0))
-
-        mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
-        tempo_atual = pygame.time.get_ticks()
-
-        # Efeito de pulso no título
-        pulso = math.sin(tempo_atual / 400) * 3
-        desenhar_texto(self.tela, "ESCOLHA SEU TIME", 70, BRANCO, LARGURA // 2, ALTURA // 5 + pulso)
-
-        # Subtítulo
-        desenhar_texto(self.tela, "A partida vai comecar!", 28, AMARELO, LARGURA // 2, ALTURA // 5 + 60)
-
-        # Botão Time T
-        hover_t = btn_time_t.collidepoint(mouse_pos)
-        cor_t = (255, 120, 120) if hover_t else self.COR_TIME_T
-        # Sombra
-        pygame.draw.rect(self.tela, (20, 10, 10), (btn_time_t.x + 5, btn_time_t.y + 5, btn_time_t.width, btn_time_t.height), 0, 20)
-        pygame.draw.rect(self.tela, cor_t, btn_time_t, 0, 20)
-        pygame.draw.rect(self.tela, BRANCO if hover_t else (200, 150, 150), btn_time_t, 4, 20)
-        desenhar_texto(self.tela, "TIME T", 50, BRANCO, btn_time_t.centerx, btn_time_t.centery - 20)
-        desenhar_texto(self.tela, "(Terroristas)", 22, (220, 220, 220), btn_time_t.centerx, btn_time_t.centery + 25)
-        desenhar_texto(self.tela, "Pressione T", 16, (180, 180, 180), btn_time_t.centerx, btn_time_t.centery + 55)
-
-        # Botão Time Q
-        hover_q = btn_time_q.collidepoint(mouse_pos)
-        cor_q = (120, 170, 255) if hover_q else self.COR_TIME_Q
-        # Sombra
-        pygame.draw.rect(self.tela, (10, 10, 20), (btn_time_q.x + 5, btn_time_q.y + 5, btn_time_q.width, btn_time_q.height), 0, 20)
-        pygame.draw.rect(self.tela, cor_q, btn_time_q, 0, 20)
-        pygame.draw.rect(self.tela, BRANCO if hover_q else (150, 150, 200), btn_time_q, 4, 20)
-        desenhar_texto(self.tela, "TIME Q", 50, BRANCO, btn_time_q.centerx, btn_time_q.centery - 20)
-        desenhar_texto(self.tela, "(Counter)", 22, (220, 220, 220), btn_time_q.centerx, btn_time_q.centery + 25)
-        desenhar_texto(self.tela, "Pressione Q", 16, (180, 180, 180), btn_time_q.centerx, btn_time_q.centery + 55)
-
-        # VS no meio
-        desenhar_texto(self.tela, "VS", 40, (150, 150, 150), LARGURA // 2, ALTURA // 2)
-
-        # Mostrar jogadores que já escolheram
-        self._desenhar_status_jogadores()
-
-        # Botão DEV MODE
-        hover_dev = btn_dev_mode.collidepoint(mouse_pos)
-        cor_dev = (80, 200, 80) if hover_dev else (50, 150, 50)
-        pygame.draw.rect(self.tela, (10, 30, 10), (btn_dev_mode.x + 3, btn_dev_mode.y + 3, btn_dev_mode.width, btn_dev_mode.height), 0, 10)
-        pygame.draw.rect(self.tela, cor_dev, btn_dev_mode, 0, 10)
-        pygame.draw.rect(self.tela, (100, 255, 100) if hover_dev else (80, 180, 80), btn_dev_mode, 2, 10)
-        desenhar_texto(self.tela, "DEV MODE", 22, BRANCO, btn_dev_mode.centerx, btn_dev_mode.centery - 5)
-        desenhar_texto(self.tela, "Pressione D", 12, (180, 255, 180), btn_dev_mode.centerx, btn_dev_mode.centery + 15)
-
-        # Instrução
-        desenhar_texto(self.tela, "ESC para voltar ao menu", 20, (120, 120, 120), LARGURA // 2, ALTURA - 40)
-
-        present_frame()
-        self.relogio.tick(60)
+        if resultado is None:
+            return "menu"
+        elif resultado == 'T':
+            self._selecionar_time('T')
+            del self._selecao_times_tela  # Limpar para próxima vez
+            return None
+        elif resultado == 'Q':
+            self._selecionar_time('Q')
+            del self._selecao_times_tela
+            return None
+        elif resultado == 'dev':
+            self._entrar_dev_mode()
+            del self._selecao_times_tela
+            return None
 
         return None
 
     def _mostrar_aguardando_jogadores(self):
         """Mostra tela de aguardar outros jogadores escolherem time."""
-        from src.utils.visual import desenhar_texto
-        import math
+        # Usar a nova tela de aguardar
+        if not hasattr(self, '_aguardando_tela'):
+            self._aguardando_tela = TelaAguardandoJogadores(
+                self.tela, self.relogio, self.fonte_titulo, self.fonte_normal,
+                self.time_jogador, self.cliente
+            )
 
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                return "menu"
-            if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_ESCAPE:
-                    return "menu"
+        resultado = self._aguardando_tela.executar()
 
-        # Desenhar tela
-        self.tela.fill((15, 15, 25))
-        self.tela.blit(self.gradiente_jogo, (0, 0))
-
-        tempo_atual = pygame.time.get_ticks()
-
-        # Título com animação
-        pulso = math.sin(tempo_atual / 300) * 5
-        desenhar_texto(self.tela, "AGUARDANDO JOGADORES", 55, BRANCO, LARGURA // 2, ALTURA // 5 + pulso)
-
-        # Mostrar time escolhido
-        cor_time = self.COR_TIME_T if self.time_jogador == 'T' else self.COR_TIME_Q
-        nome_time = "Terroristas" if self.time_jogador == 'T' else "Counter"
-        desenhar_texto(self.tela, f"Voce escolheu: TIME {self.time_jogador}", 35, cor_time, LARGURA // 2, ALTURA // 3)
-        desenhar_texto(self.tela, f"({nome_time})", 24, (200, 200, 200), LARGURA // 2, ALTURA // 3 + 40)
-
-        # Animação de carregamento
-        dots = "." * (1 + (tempo_atual // 500) % 3)
-        desenhar_texto(self.tela, f"Esperando outros jogadores{dots}", 28, AMARELO, LARGURA // 2, ALTURA // 2)
-
-        # Mostrar status dos jogadores
-        self._desenhar_status_jogadores()
-
-        # Instrução
-        desenhar_texto(self.tela, "ESC para voltar ao menu", 20, (120, 120, 120), LARGURA // 2, ALTURA - 40)
-
-        present_frame()
-        self.relogio.tick(60)
+        if resultado is False:
+            # Cancelou
+            del self._aguardando_tela
+            return "menu"
 
         return None
-
-    def _desenhar_status_jogadores(self):
-        """Desenha o status de quais jogadores já escolheram time."""
-        from src.utils.visual import desenhar_texto
-
-        # Obter status atual do cliente
-        status = self.cliente.get_team_status() if hasattr(self.cliente, 'get_team_status') else {}
-
-        if not status:
-            return
-
-        y_inicio = ALTURA - 150
-        desenhar_texto(self.tela, "Jogadores:", 20, (180, 180, 180), LARGURA // 2, y_inicio - 25)
-
-        y = y_inicio
-        for pid, info in status.items():
-            nome = info.get('name', f'Jogador {pid}')
-            time = info.get('team', '?')
-            cor = self.COR_TIME_T if time == 'T' else self.COR_TIME_Q
-
-            texto = f"{nome} - Time {time}"
-            desenhar_texto(self.tela, texto, 18, cor, LARGURA // 2, y)
-            y += 25
 
     def _selecionar_time(self, time):
         """Seleciona um time e envia para o servidor."""
@@ -1687,6 +1582,12 @@ class FaseMultiplayer(FaseBase):
         self.partida_terminada = False  # Flag para partida completa (5 rounds)
         self.tempo_proximo_round = 0  # Timer para próximo round
 
+        # Sistema de espectador (câmera segue aliados quando jogador morre)
+        self.espectador_ativo = False
+        self.espectador_tempo_morte = 0  # Tempo quando o jogador morreu
+        self.espectador_alvo_idx = 0  # Índice do aliado sendo observado
+        self.espectador_delay = 2000  # 2 segundos de delay antes de seguir aliado
+
         # Sistema de bomba
         self.bomber_id = None  # ID do jogador/bot que é o bomber
         self.bomber_é_jogador = False  # True se o jogador local é o bomber
@@ -1702,6 +1603,10 @@ class FaseMultiplayer(FaseBase):
         self.tempo_para_defusar = 5000  # 5 segundos para defusar
         self.bomba_defusada = False
         self.bomba_explodiu = False
+
+        # Bomba dropada no chão (quando bomber morre)
+        self.bomba_dropada = False
+        self.bomba_drop_posicao = None  # (x, y) onde a bomba está no chão
 
         # Encontrar posições dos bombsites (tile 322)
         self.bombsites = self._encontrar_bombsites()
@@ -1787,8 +1692,8 @@ class FaseMultiplayer(FaseBase):
         self.bots_locais = []
 
         # Nomes para os bots
-        nomes_time_t = ["Bernado", "Lucas", "Melina", "Felipe"]
-        nomes_time_q = ["Duda", "Marcelo", "João", "Walter"]
+        nomes_time_t = ["Bernado", "Borba", "Melina", "Felipe"]
+        nomes_time_q = ["Duda", "Marcelo", "João", "Emy"]
 
         # Classes disponíveis para cada time
         classes_t = list(CLASSES_TIME_T.keys())  # ["mago", "ghost", "granada", "metralhadora"]
@@ -1917,7 +1822,7 @@ class FaseMultiplayer(FaseBase):
         bot.moedas = 800  # Dinheiro inicial igual ao jogador
         bot.arma = None  # Arma equipada (None = sem arma)
         bot.dano_arma = 1  # Dano da arma
-        bot.cadencia_arma = 800  # Tempo entre tiros (ms)
+        bot.cadencia_arma = 500  # Tempo entre tiros (ms) - tiro normal mais lento
 
         # Classe metralhadora: começa com metralhadora grátis e dano dobrado
         if classe_id == 'metralhadora':
@@ -2113,6 +2018,10 @@ class FaseMultiplayer(FaseBase):
         if self.jogador.vidas <= 0:
             return
 
+        # Bloquear movimento durante tempo de compra
+        if self.em_tempo_compra:
+            return
+
         # Ler teclas diretamente para evitar problemas de estado
         teclas = pygame.key.get_pressed()
         mov_x = 0
@@ -2180,7 +2089,7 @@ class FaseMultiplayer(FaseBase):
         return (mundo_x, mundo_y)
 
     def _atualizar_camera(self):
-        """Atualiza a posição da câmera para seguir o jogador com zoom."""
+        """Atualiza a posição da câmera para seguir o jogador (ou aliado se espectador)."""
         # Dimensões da tela com zoom aplicado
         largura_visivel = LARGURA / self.camera_zoom
         altura_visivel = ALTURA_JOGO / self.camera_zoom
@@ -2189,36 +2098,73 @@ class FaseMultiplayer(FaseBase):
         centro_x = largura_visivel / 2
         centro_y = altura_visivel / 2
 
-        # Câmera segue o jogador
-        self.camera_x = self.jogador.x - centro_x
-        self.camera_y = self.jogador.y - centro_y
+        # Determinar alvo da câmera
+        alvo_x = self.jogador.x
+        alvo_y = self.jogador.y
+
+        # Se jogador morreu, ativar modo espectador
+        if self.jogador.vidas <= 0:
+            tempo_atual = pygame.time.get_ticks()
+
+            # Primeira vez que detecta morte - registrar tempo
+            if not self.espectador_ativo:
+                self.espectador_ativo = True
+                self.espectador_tempo_morte = tempo_atual
+                self.espectador_alvo_idx = 0
+
+            # Após o delay, seguir um aliado vivo
+            if tempo_atual - self.espectador_tempo_morte >= self.espectador_delay:
+                aliado = self._obter_aliado_espectador()
+                if aliado:
+                    alvo_x = aliado.x
+                    alvo_y = aliado.y
+
+        # Câmera segue o alvo
+        self.camera_x = alvo_x - centro_x
+        self.camera_y = alvo_y - centro_y
 
         # Limitar câmera aos limites do mapa
         self.camera_x = max(0, min(self.camera_x, self.tilemap.largura_pixels - largura_visivel))
         self.camera_y = max(0, min(self.camera_y, self.tilemap.altura_pixels - altura_visivel))
 
+    def _obter_aliado_espectador(self):
+        """Retorna o bot que a câmera deve seguir no modo espectador."""
+        # Filtrar todos os bots vivos (de qualquer time)
+        bots_vivos = [
+            bot for bot in self.bots_locais
+            if bot.vidas > 0
+        ]
+
+        if not bots_vivos:
+            return None
+
+        # Ajustar índice se necessário
+        if self.espectador_alvo_idx >= len(bots_vivos):
+            self.espectador_alvo_idx = 0
+
+        return bots_vivos[self.espectador_alvo_idx]
+
+    def _alternar_espectador(self):
+        """Alterna para o próximo bot vivo no modo espectador."""
+        if not self.espectador_ativo or self.jogador.vidas > 0:
+            return
+
+        # Contar todos os bots vivos
+        bots_vivos = [
+            bot for bot in self.bots_locais
+            if bot.vidas > 0
+        ]
+
+        if len(bots_vivos) > 0:
+            self.espectador_alvo_idx = (self.espectador_alvo_idx + 1) % len(bots_vivos)
+            bot = bots_vivos[self.espectador_alvo_idx]
+            time_bot = getattr(bot, 'time', '?')
+            print(f"[ESPECTADOR] Observando: {bot.nome} (Time {time_bot})")
+
     # ==================================================================================
     # ================================ SISTEMA DE IA v2.0 =============================
     # ==================================================================================
-    #
-    # ARQUITETURA:
-    # 1. A* Pathfinding - Gera caminho real entre pontos do nav_grid
-    # 2. Máquina de Estados - Estados explícitos com transições claras
-    # 3. Tile 322 como alvo principal - Bots buscam tiles de bombsite
-    # 4. Stuck Detection - Detecta e recupera bots presos
-    # 5. Movimento por Waypoints - Segue caminho ponto a ponto
-    # 6. Combate com Visão - Raycast para verificar linha de visão
-    #
-    # ESTADOS:
-    # - spawn: Estado inicial, aguardando início do round
-    # - patrulhando: Sem inimigo visível, indo para tile 322
-    # - movendo: Seguindo caminho para destino
-    # - atacando: Inimigo visível, em combate
-    # - recalculando_rota: Recalculando caminho após obstáculo
-    # - stuck: Preso, tentando se recuperar
-    # ==================================================================================
 
-    # ==================== CONSTANTES DA IA ====================
 
     IA_DISTANCIA_VISAO = 200      # Distância máxima para detectar inimigos
     IA_DISTANCIA_TIRO = 180       # Distância máxima para atirar
@@ -2509,48 +2455,50 @@ class FaseMultiplayer(FaseBase):
         """
         Força movimento em uma direção livre quando todas outras opções falham.
 
-        Testa 8 direções e move para a mais livre.
+        Se está em loop (muitas tentativas), usa wandering que move diretamente.
 
         Args:
             bot: Bot a mover
         """
-        import math
+        tempo_atual = pygame.time.get_ticks()
 
-        centro_x = bot.x + TAMANHO_MULTIPLAYER // 2
-        centro_y = bot.y + TAMANHO_MULTIPLAYER // 2
+        # Incrementar contador de tentativas
+        bot.ia_tentativas_escape = getattr(bot, 'ia_tentativas_escape', 0) + 1
 
-        melhor_dir = None
-        maior_dist_livre = 0
+        # Se está em loop (mais de 2 tentativas), usar wandering que move diretamente
+        if bot.ia_tentativas_escape > 2:
+            self._ia_wandering_aleatorio(bot, tempo_atual)
+            return
 
-        # Testar 8 direções
-        for angulo in range(0, 360, 45):
-            rad = math.radians(angulo)
-            dir_x = math.cos(rad)
-            dir_y = math.sin(rad)
+        # Tentar ir para rota do devmode mais próxima
+        ponto_rota, rota_idx, waypoint_idx = self._encontrar_ponto_rota_acessivel(bot, dist_maxima=500, retornar_info_rota=True)
+        if ponto_rota:
+            # Mover diretamente na direção da rota também
+            self._ia_mover_direto(bot, ponto_rota)
 
-            # Verificar quão longe pode ir nessa direção
-            dist_livre = 0
-            for d in range(10, 150, 10):
-                check_x = centro_x + dir_x * d
-                check_y = centro_y + dir_y * d
-                if self.tilemap.is_solid(check_x, check_y):
-                    break
-                dist_livre = d
+            # Pegar rotas do time do bot
+            rotas_time = self.dev_rotas_t if bot.time == 'T' else self.dev_rotas_q
 
-            if dist_livre > maior_dist_livre:
-                maior_dist_livre = dist_livre
-                melhor_dir = (dir_x, dir_y)
+            # === RESETAR TODOS OS CONTADORES DE BLOQUEIO ===
+            bot.ia_bloqueado_contador = 0
+            bot.ia_tempo_parado = tempo_atual
+            bot.ia_pos_parado = (bot.x, bot.y)
+            bot.ia_tentativas_escape = 0  # Resetar tentativas
 
-        # Mover na direção mais livre
-        if melhor_dir and maior_dist_livre > 30:
-            # Criar waypoint temporário
-            bot.ia_caminho = [(
-                bot.x + melhor_dir[0] * maior_dist_livre * 0.7,
-                bot.y + melhor_dir[1] * maior_dist_livre * 0.7
-            )]
+            # Configurar para seguir a rota a partir do waypoint encontrado
+            bot.ia_rota_idx = rota_idx
+            bot.ia_caminho = list(rotas_time[rota_idx][waypoint_idx:])  # Rota a partir do waypoint
             bot.ia_waypoint_atual = 0
             bot.ia_estado = 'movendo'
-            print(f"[IA] {bot.nome} forçando movimento em direção livre")
+            bot.ia_tempo_inicio_rota = tempo_atual
+            # Ativar modo escape por 3 segundos (mais tempo para chegar)
+            bot.ia_modo_escape = True
+            bot.ia_escape_tempo_fim = tempo_atual + 3000
+            print(f"[IA] {bot.nome} preso, entrando na rota {rota_idx+1} waypoint {waypoint_idx+1}")
+            return
+
+        # Fallback: usar wandering aleatório
+        self._ia_wandering_aleatorio(bot, tempo_atual)
 
     # ==================== MÁQUINA DE ESTADOS DA IA ====================
 
@@ -2575,6 +2523,30 @@ class FaseMultiplayer(FaseBase):
         bot.ia_pos_anterior = (bot.x, bot.y)
         bot.ia_tempo_pos_anterior = 0
         bot.ia_stuck_contador = 0
+
+        # Detecção de parado (para escolher novo destino)
+        bot.ia_tempo_parado = pygame.time.get_ticks()
+        bot.ia_pos_parado = (bot.x, bot.y)
+
+        # Timeout de rota (resetar se não chegar em 10 segundos)
+        bot.ia_tempo_inicio_rota = pygame.time.get_ticks()
+
+        # Detecção de bloqueio (forçando movimento sem conseguir)
+        bot.ia_bloqueado_contador = 0
+
+        # Contador de tentativas de escape (para detectar loop)
+        bot.ia_tentativas_escape = 0
+
+        # Modo escape (quando está tentando sair de onde está preso)
+        bot.ia_modo_escape = False
+        bot.ia_escape_tempo_fim = 0
+
+        # Rota do devmode
+        bot.ia_rota_idx = None
+
+        # Flags de ação
+        bot.bot_defusando = False
+        bot.bot_plantando = False
 
         # Movimento suavizado
         bot.ia_vel_x = 0
@@ -2615,17 +2587,81 @@ class FaseMultiplayer(FaseBase):
                     bot.ja_comprou = True
                 continue
 
+            # === TIMEOUT DE SEGURANÇA - TELEPORT SE PRESO POR MUITO TEMPO ===
+            # Se o bot está tentando escapar há mais de 5 segundos, teleportar para ponto seguro
+            # IGNORAR se o bot está defusando a bomba
+            if getattr(bot, 'bot_defusando', False):
+                bot.ia_tempo_preso_total = 0
+                bot.ia_tentativas_escape = 0
+
+            tempo_preso_total = getattr(bot, 'ia_tempo_preso_total', 0)
+            if getattr(bot, 'ia_tentativas_escape', 0) > 0 and not getattr(bot, 'bot_defusando', False):
+                bot.ia_tempo_preso_total = tempo_preso_total + 16  # ~16ms por frame
+                if bot.ia_tempo_preso_total > 5000:  # 5 segundos preso
+                    # Encontrar ponto seguro em uma rota
+                    rotas_time = self.dev_rotas_t if bot.time == 'T' else self.dev_rotas_q
+                    if rotas_time and len(rotas_time) > 0:
+                        import random
+                        rota = random.choice(rotas_time)
+                        if rota and len(rota) > 0:
+                            ponto = random.choice(rota)
+                            bot.x = ponto[0]
+                            bot.y = ponto[1]
+                            print(f"[IA] {bot.nome} TELEPORTADO para rota (preso por 5s+)")
+                    # Resetar tudo
+                    bot.ia_tempo_preso_total = 0
+                    bot.ia_tentativas_escape = 0
+                    bot.ia_bloqueado_contador = 0
+                    bot.ia_modo_escape = False
+                    bot.ia_tempo_parado = tempo_atual
+                    bot.ia_pos_parado = (bot.x, bot.y)
+                    continue
+            else:
+                bot.ia_tempo_preso_total = 0
+
+            # === MODO ESCAPE - PRIORIDADE MÁXIMA ===
+            # Se bot está em modo escape, ignorar TODAS outras lógicas e seguir para a rota
+            # EXCEÇÃO: Time Q quando bomba plantada precisa ir defusar (prioridade ainda maior)
+            if getattr(bot, 'ia_modo_escape', False):
+                # Desativar escape se precisa defusar bomba
+                if bot.time == 'Q' and self.bomba_plantada and not self.bomba_defusada:
+                    bot.ia_modo_escape = False
+                # Verificar se o modo escape expirou
+                elif tempo_atual > getattr(bot, 'ia_escape_tempo_fim', 0):
+                    bot.ia_modo_escape = False
+                elif bot.ia_caminho and bot.ia_waypoint_atual < len(bot.ia_caminho):
+                    # Seguir waypoint de escape - PRIORIDADE ABSOLUTA
+                    self._ia_seguir_waypoints(bot, tempo_atual)
+                    continue  # Pular TODAS outras lógicas
+                else:
+                    # Chegou ao destino, desativar modo escape
+                    bot.ia_modo_escape = False
+                    bot.ia_tentativas_escape = 0  # Resetar contador
+
             # === TRANSIÇÃO DE SPAWN PARA PATRULHANDO ===
             if bot.ia_estado == 'spawn':
-                bot.ja_comprou = False
                 bot.ia_estado = 'patrulhando'
+                # Resetar flags que podem estar travando o bot
+                bot.bot_defusando = False
+                bot.bot_plantando = False
+                bot.ia_modo_escape = False
+                bot.ia_tentativas_escape = 0
+                bot.ia_bloqueado_contador = 0
+                bot.ia_rota_idx = None  # Forçar escolha de nova rota
+                bot.ia_caminho = []
+                bot.ia_waypoint_atual = 0
+                bot.ia_tempo_parado = tempo_atual
+                bot.ia_pos_parado = (bot.x, bot.y)
                 # Encontrar tile 322 mais próximo como alvo inicial
                 bot.ia_tile_alvo = self._encontrar_tile_322_mais_proximo(bot)
+                print(f"[IA] {bot.nome} saiu do spawn, iniciando patrulha")
 
             # === STUCK DETECTION ===
-            if self._ia_verificar_stuck(bot, tempo_atual):
-                bot.ia_estado = 'stuck'
-                self._ia_recuperar_stuck(bot, tempo_atual)
+            # Ignorar stuck detection se o bot está defusando
+            if not getattr(bot, 'bot_defusando', False):
+                if self._ia_verificar_stuck(bot, tempo_atual):
+                    bot.ia_estado = 'stuck'
+                    self._ia_recuperar_stuck(bot, tempo_atual)
 
             # === DETECÇÃO DE INIMIGOS ===
             inimigo_visivel, dist_inimigo = self._ia_detectar_inimigo(bot, bot_time)
@@ -2637,6 +2673,12 @@ class FaseMultiplayer(FaseBase):
             if bot.ia_estado == 'stuck':
                 # Estado temporário, já tratado acima
                 bot.ia_estado = 'recalculando_rota'
+
+            # === BOT ESTÁ DEFUSANDO BOMBA (PRIORIDADE MÁXIMA) ===
+            elif getattr(bot, 'bot_defusando', False):
+                # Bot fica parado defusando - não fazer nada mais
+                # O defuse é processado em _processar_bomba
+                pass
 
             # === BOT ESTÁ PLANTANDO BOMBA ===
             elif getattr(bot, 'bot_plantando', False):
@@ -2651,10 +2693,17 @@ class FaseMultiplayer(FaseBase):
                     self._bot_plantar_bomba(bot)
 
             elif inimigo_visivel and dist_inimigo < self.IA_DISTANCIA_VISAO:
-                # Inimigo visível - entrar em combate
-                bot.ia_estado = 'atacando'
-                bot.estado = 'atacando'  # Compatibilidade
-                self._ia_estado_atacando(bot, tempo_atual)
+                # EXCEÇÃO: Time Q com bomba plantada prioriza defuse sobre ataque
+                # A menos que o inimigo esteja MUITO perto (< 100 pixels)
+                if bot.time == 'Q' and self.bomba_plantada and not self.bomba_defusada and dist_inimigo > 100:
+                    # Ir defusar ao invés de atacar
+                    bot.ia_estado = 'patrulhando'
+                    self._ia_estado_patrulhando(bot, tempo_atual)
+                else:
+                    # Inimigo visível - entrar em combate
+                    bot.ia_estado = 'atacando'
+                    bot.estado = 'atacando'  # Compatibilidade
+                    self._ia_estado_atacando(bot, tempo_atual)
 
             elif bot.ia_estado == 'recalculando_rota':
                 # Recalcular caminho
@@ -2728,6 +2777,11 @@ class FaseMultiplayer(FaseBase):
         3. Ao terminar rota, escolher outra
         """
         import math
+        import random
+
+        # === DESATIVAR ESCAPE SE PRECISA DEFUSAR (prioridade máxima) ===
+        if bot.time == 'Q' and self.bomba_plantada and not self.bomba_defusada:
+            bot.ia_modo_escape = False
 
         # === TIME Q: PRIORIDADE DEFUSE SE BOMBA PLANTADA ===
         if bot.time == 'Q' and self.bomba_plantada and not self.bomba_defusada:
@@ -2743,10 +2797,218 @@ class FaseMultiplayer(FaseBase):
                     # Bot fica parado defusando
                     return
                 else:
-                    # Ir direto para a bomba
+                    # Verificar posições da bomba e do bot em relação aos sites
+                    bomba_no_site_A = False
+                    bomba_no_site_B = False
+                    bot_perto_site_B = False
+
+                    if hasattr(self, 'bombsites') and len(self.bombsites) >= 2:
+                        # Distância da bomba até cada site
+                        dist_bomba_site_A = math.sqrt((self.bomba_posicao[0] - self.bombsites[0][0])**2 +
+                                                      (self.bomba_posicao[1] - self.bombsites[0][1])**2)
+                        dist_bomba_site_B = math.sqrt((self.bomba_posicao[0] - self.bombsites[1][0])**2 +
+                                                      (self.bomba_posicao[1] - self.bombsites[1][1])**2)
+
+                        # Distância do bot até cada site
+                        dist_bot_site_B = math.sqrt((bot.x - self.bombsites[1][0])**2 +
+                                                    (bot.y - self.bombsites[1][1])**2)
+
+                        bomba_no_site_A = dist_bomba_site_A < 150
+                        bomba_no_site_B = dist_bomba_site_B < 150
+                        bot_perto_site_B = dist_bot_site_B < 200  # Bot está perto do site B
+
+                    # CASO 1: Bomba no site A e bot perto do site B -> usar rota q10 (índice 9)
+                    if bomba_no_site_A and bot_perto_site_B and dist_bomba > 200 and len(self.dev_rotas_q) >= 10:
+                        if not hasattr(bot, 'ia_rota_idx') or bot.ia_rota_idx != 9 or not bot.ia_caminho:
+                            bot.ia_rota_idx = 3
+                            bot.ia_caminho = list(self.dev_rotas_q[3])
+                            bot.ia_waypoint_atual = 0
+                            bot.ia_tempo_inicio_rota = tempo_atual
+                            print(f"[IA] {bot.nome} priorizando rota Q10 (bot no B, bomba no A)")
+
+                        if bot.ia_caminho and bot.ia_waypoint_atual < len(bot.ia_caminho):
+                            self._ia_seguir_waypoints(bot, tempo_atual)
+                            return
+
+                    # CASO 2: Bomba no site B e bot longe -> usar rota q6 (índice 5)
+                    elif bomba_no_site_B and dist_bomba > 200 and len(self.dev_rotas_q) >= 6:
+                        if not hasattr(bot, 'ia_rota_idx') or bot.ia_rota_idx != 5 or not bot.ia_caminho:
+                            bot.ia_rota_idx = 5
+                            bot.ia_caminho = list(self.dev_rotas_q[5])
+                            bot.ia_waypoint_atual = 0
+                            bot.ia_tempo_inicio_rota = tempo_atual
+                            print(f"[IA] {bot.nome} priorizando rota Q6 para bomba no site B")
+
+                        if bot.ia_caminho and bot.ia_waypoint_atual < len(bot.ia_caminho):
+                            self._ia_seguir_waypoints(bot, tempo_atual)
+                            return
+
+                    # Ir direto para a bomba (quando perto ou sem rota especial)
                     bot.bot_defusando = False
                     self._ia_mover_direto(bot, self.bomba_posicao)
                     return
+
+        # === TIME T: PEGAR BOMBA DROPADA ===
+        if bot.time == 'T' and self.bomba_dropada and self.bomba_drop_posicao:
+            # Bot do time T vai correndo para pegar a bomba
+            dist_bomba = math.sqrt((bot.x - self.bomba_drop_posicao[0])**2 +
+                                   (bot.y - self.bomba_drop_posicao[1])**2)
+
+            # Ir direto para a bomba
+            if dist_bomba > 25:
+                self._ia_mover_direto(bot, self.bomba_drop_posicao)
+                return
+
+        # === TIME T: GUARDAR BOMBA PLANTADA ===
+        if bot.time == 'T' and self.bomba_plantada and not self.bomba_defusada:
+            if self.bomba_posicao:
+                dist_bomba = math.sqrt((bot.x - self.bomba_posicao[0])**2 +
+                                       (bot.y - self.bomba_posicao[1])**2)
+
+                # Se está perto da bomba (< 150 pixels), ficar guardando
+                if dist_bomba < 150:
+                    # Ficar na região, não se distanciar
+                    # Apenas se movimenta levemente para não ficar totalmente parado
+                    if not hasattr(bot, 'ia_tempo_guard') or tempo_atual - bot.ia_tempo_guard > 2000:
+                        # A cada 2 segundos, escolher uma posição próxima da bomba
+                        angulo = random.uniform(0, 2 * math.pi)
+                        raio = random.uniform(30, 100)
+                        novo_x = self.bomba_posicao[0] + math.cos(angulo) * raio
+                        novo_y = self.bomba_posicao[1] + math.sin(angulo) * raio
+                        bot.ia_pos_guard = (novo_x, novo_y)
+                        bot.ia_tempo_guard = tempo_atual
+
+                    # Mover para posição de guarda
+                    if hasattr(bot, 'ia_pos_guard'):
+                        self._ia_mover_direto(bot, bot.ia_pos_guard)
+                    return
+
+        # === DETECÇÃO DE BOT PARADO POR 2 SEGUNDOS ===
+        # Ignorar se o bot está defusando a bomba (deve ficar parado)
+        if getattr(bot, 'bot_defusando', False):
+            bot.ia_tempo_parado = tempo_atual
+            bot.ia_pos_parado = (bot.x, bot.y)
+        else:
+            dist_desde_parado = math.sqrt((bot.x - bot.ia_pos_parado[0])**2 +
+                                          (bot.y - bot.ia_pos_parado[1])**2)
+
+            # Se moveu mais de 15 pixels, resetar tempo parado e contador de escape
+            if dist_desde_parado > 15:
+                bot.ia_pos_parado = (bot.x, bot.y)
+                bot.ia_tempo_parado = tempo_atual
+                bot.ia_tentativas_escape = 0  # Resetar contador quando consegue se mover
+            elif bot.ia_tempo_parado > 0 and tempo_atual - bot.ia_tempo_parado > 2000:
+                # Se não moveu por 2 segundos, tentar escapar
+                bot.ia_tempo_parado = tempo_atual
+                bot.ia_pos_parado = (bot.x, bot.y)
+                bot.ia_tentativas_escape = getattr(bot, 'ia_tentativas_escape', 0) + 1
+
+                # Se está em loop (mais de 3 tentativas), fazer wandering
+                if bot.ia_tentativas_escape > 3:
+                    self._ia_wandering_aleatorio(bot, tempo_atual)
+                    return
+
+                # Procurar ponto de rota mais próximo (busca até 500 pixels)
+                ponto_proximo, rota_idx, waypoint_idx = self._encontrar_ponto_rota_acessivel(bot, dist_maxima=500, retornar_info_rota=True)
+
+                if ponto_proximo:
+                    # Verificar distância real do ponto
+                    dist_ponto = math.sqrt((bot.x - ponto_proximo[0])**2 + (bot.y - ponto_proximo[1])**2)
+
+                    # Se o ponto está longe (> 150px), fazer wandering ao invés de ir para rota
+                    if dist_ponto > 150:
+                        print(f"[IA] {bot.nome} parado por 2s, ponto de rota longe ({dist_ponto:.0f}px), movimento livre")
+                        self._ia_wandering_aleatorio(bot, tempo_atual)
+                        return
+
+                    # Pegar rotas do time do bot
+                    rotas_time = self.dev_rotas_t if bot.time == 'T' else self.dev_rotas_q
+
+                    # === RESETAR TODOS OS CONTADORES DE BLOQUEIO ===
+                    bot.ia_bloqueado_contador = 0
+                    bot.ia_tentativas_escape = 0
+                    bot.ia_tempo_parado = tempo_atual
+                    bot.ia_pos_parado = (bot.x, bot.y)
+
+                    # Configurar para seguir a rota a partir do waypoint encontrado
+                    bot.ia_rota_idx = rota_idx
+                    bot.ia_caminho = list(rotas_time[rota_idx][waypoint_idx:])  # Rota a partir do waypoint
+                    bot.ia_waypoint_atual = 0
+                    bot.ia_tempo_inicio_rota = tempo_atual
+                    # Ativar modo escape por 2 segundos
+                    bot.ia_modo_escape = True
+                    bot.ia_escape_tempo_fim = tempo_atual + 2000
+                    print(f"[IA] {bot.nome} parado por 2s, entrando na rota {rota_idx+1} no waypoint {waypoint_idx+1} ({dist_ponto:.0f}px)")
+                    return
+                else:
+                    # Nenhum ponto acessível, fazer wandering
+                    self._ia_wandering_aleatorio(bot, tempo_atual)
+                    return
+
+        # === TIMEOUT DE ROTA (10 SEGUNDOS) ===
+        # Ignorar timeout se o bot está defusando a bomba
+        if not getattr(bot, 'bot_defusando', False):
+            if hasattr(bot, 'ia_tempo_inicio_rota') and bot.ia_caminho:
+                if tempo_atual - bot.ia_tempo_inicio_rota > 10000:
+                    # Resetar rota e caminho para forçar escolha de novo destino
+                    bot.ia_rota_idx = None
+                    bot.ia_caminho = []
+                    bot.ia_waypoint_atual = 0
+                    bot.ia_tile_alvo = None
+                    bot.ia_tempo_inicio_rota = tempo_atual
+                    bot.ia_tempo_parado = tempo_atual
+                    bot.ia_pos_parado = (bot.x, bot.y)
+                    print(f"[IA] {bot.nome} não chegou em 10s, escolhendo nova rota")
+
+        # === DETECÇÃO DE BLOQUEIO (forçando movimento sem conseguir) ===
+        # Ignorar se o bot está defusando a bomba
+        if getattr(bot, 'bot_defusando', False):
+            bot.ia_bloqueado_contador = 0
+        elif getattr(bot, 'ia_bloqueado_contador', 0) >= 30:  # ~0.5 segundo bloqueado
+            bot.ia_bloqueado_contador = 0
+            bot.ia_tentativas_escape = getattr(bot, 'ia_tentativas_escape', 0) + 1
+
+            # Se está em loop (mais de 3 tentativas), fazer wandering
+            if bot.ia_tentativas_escape > 3:
+                self._ia_wandering_aleatorio(bot, tempo_atual)
+                return
+
+            # Procurar ponto de rota mais próximo acessível (busca até 500 pixels)
+            ponto_proximo, rota_idx, waypoint_idx = self._encontrar_ponto_rota_acessivel(bot, dist_maxima=500, retornar_info_rota=True)
+
+            if ponto_proximo:
+                # Verificar distância real do ponto
+                dist_ponto = math.sqrt((bot.x - ponto_proximo[0])**2 + (bot.y - ponto_proximo[1])**2)
+
+                # Se o ponto está longe (> 150px), fazer wandering ao invés de ir para rota
+                if dist_ponto > 150:
+                    print(f"[IA] {bot.nome} bloqueado, ponto de rota longe ({dist_ponto:.0f}px), movimento livre")
+                    self._ia_wandering_aleatorio(bot, tempo_atual)
+                    return
+
+                # Pegar rotas do time do bot
+                rotas_time = self.dev_rotas_t if bot.time == 'T' else self.dev_rotas_q
+
+                # === RESETAR TODOS OS CONTADORES DE BLOQUEIO ===
+                bot.ia_bloqueado_contador = 0
+                bot.ia_tentativas_escape = 0
+                bot.ia_tempo_parado = tempo_atual
+                bot.ia_pos_parado = (bot.x, bot.y)
+
+                # Configurar para seguir a rota a partir do waypoint encontrado
+                bot.ia_rota_idx = rota_idx
+                bot.ia_caminho = list(rotas_time[rota_idx][waypoint_idx:])  # Rota a partir do waypoint
+                bot.ia_waypoint_atual = 0
+                bot.ia_tempo_inicio_rota = tempo_atual
+                # Ativar modo escape por 2 segundos
+                bot.ia_modo_escape = True
+                bot.ia_escape_tempo_fim = tempo_atual + 2000
+                print(f"[IA] {bot.nome} bloqueado, entrando na rota {rota_idx+1} no waypoint {waypoint_idx+1} ({dist_ponto:.0f}px)")
+                return
+            else:
+                # Nenhum ponto próximo acessível, fazer wandering
+                self._ia_wandering_aleatorio(bot, tempo_atual)
+                return
 
         # === SELECIONAR ROTAS DO TIME DO BOT ===
         if hasattr(bot, 'time') and bot.time == 'T':
@@ -2767,6 +3029,7 @@ class FaseMultiplayer(FaseBase):
                     print(f"[IA] {bot.nome} (Time {bot.time}) seguindo rota {bot.ia_rota_idx + 1}")
                 bot.ia_caminho = list(rotas_time[bot.ia_rota_idx])
                 bot.ia_waypoint_atual = 0
+                bot.ia_tempo_inicio_rota = tempo_atual  # Resetar timer de rota
 
             # Se caminho acabou, escolher nova rota
             if not bot.ia_caminho or bot.ia_waypoint_atual >= len(bot.ia_caminho):
@@ -2780,6 +3043,7 @@ class FaseMultiplayer(FaseBase):
                 bot.ia_rota_idx = random.choice(rotas_disponiveis)
                 bot.ia_caminho = list(rotas_time[bot.ia_rota_idx])
                 bot.ia_waypoint_atual = 0
+                bot.ia_tempo_inicio_rota = tempo_atual  # Resetar timer de rota
 
             # === BOMBER: Verificar se está perto do tile 322 para plantar ===
             if getattr(bot, 'é_bomber', False) and not self.bomba_plantada:
@@ -3050,6 +3314,34 @@ class FaseMultiplayer(FaseBase):
                 continue
 
             classe = getattr(bot, 'classe', None)
+
+            # ====== NORMAL - ATUALIZAR DASH A CADA FRAME ======
+            # O dash usa frames, não tempo, então precisa ser atualizado independentemente
+            if classe == 'normal' and hasattr(bot, 'dash_ativo') and bot.dash_ativo:
+                if bot.dash_frames_restantes > 0:
+                    # Mover na direção do dash com colisão
+                    dx, dy = bot.dash_direcao
+                    vel_x = dx * bot.dash_velocidade
+                    vel_y = dy * bot.dash_velocidade
+
+                    # Usar rect com tamanho multiplayer para colisões
+                    rect_colisao = pygame.Rect(bot.x, bot.y, TAMANHO_MULTIPLAYER, TAMANHO_MULTIPLAYER)
+
+                    # Resolver colisão com o mapa
+                    novo_x, novo_y, _, _ = self.tilemap.resolver_colisao(rect_colisao, vel_x, vel_y)
+
+                    bot.x = novo_x
+                    bot.y = novo_y
+                    bot.rect.x = novo_x
+                    bot.rect.y = novo_y
+                    bot.dash_frames_restantes -= 1
+                else:
+                    # Dash terminou
+                    bot.dash_ativo = False
+                    bot.invulneravel = False
+                    bot.habilidade_ativa = False
+                continue  # Dash já foi processado, próximo bot
+
             if not classe or not getattr(bot, 'habilidade_ativa', False):
                 continue
 
@@ -3076,14 +3368,6 @@ class FaseMultiplayer(FaseBase):
                     bot.habilidade_ativa = False
                     if hasattr(bot, 'posicoes_turbo'):
                         bot.posicoes_turbo.clear()
-                elif classe == 'normal':
-                    if hasattr(bot, 'dash_ativo') and bot.dash_ativo:
-                        if bot.dash_frames_restantes > 0:
-                            bot.dash_frames_restantes -= 1
-                        else:
-                            bot.dash_ativo = False
-                            bot.invulneravel = False
-                            bot.habilidade_ativa = False
 
     def _ia_estado_recalculando(self, bot, tempo_atual):
         """
@@ -3225,12 +3509,23 @@ class FaseMultiplayer(FaseBase):
 
         # Aplicar movimento com colisão
         if abs(bot.ia_vel_x) > 0.1 or abs(bot.ia_vel_y) > 0.1:
+            pos_antes_x, pos_antes_y = bot.x, bot.y
             bot_rect = pygame.Rect(bot.x, bot.y, TAMANHO_MULTIPLAYER, TAMANHO_MULTIPLAYER)
             novo_x, novo_y, _, _ = self.tilemap.resolver_colisao(
                 bot_rect, bot.ia_vel_x, bot.ia_vel_y
             )
             bot.x = novo_x
             bot.y = novo_y
+
+            # Detectar bloqueio: tentou mover mas não conseguiu
+            movimento_real = math.sqrt((novo_x - pos_antes_x)**2 + (novo_y - pos_antes_y)**2)
+            movimento_esperado = math.sqrt(bot.ia_vel_x**2 + bot.ia_vel_y**2)
+
+            if movimento_esperado > 0.5 and movimento_real < movimento_esperado * 0.2:
+                # Bot está bloqueado - tentando mover mas não consegue
+                bot.ia_bloqueado_contador = getattr(bot, 'ia_bloqueado_contador', 0) + 1
+            else:
+                bot.ia_bloqueado_contador = 0
 
     def _ia_mover_direto(self, bot, destino):
         """
@@ -3253,10 +3548,179 @@ class FaseMultiplayer(FaseBase):
         vel_x = dir_x * bot.velocidade
         vel_y = dir_y * bot.velocidade
 
+        pos_antes_x, pos_antes_y = bot.x, bot.y
         bot_rect = pygame.Rect(bot.x, bot.y, TAMANHO_MULTIPLAYER, TAMANHO_MULTIPLAYER)
         novo_x, novo_y, _, _ = self.tilemap.resolver_colisao(bot_rect, vel_x, vel_y)
         bot.x = novo_x
         bot.y = novo_y
+
+        # Detectar bloqueio: tentou mover mas não conseguiu
+        movimento_real = math.sqrt((novo_x - pos_antes_x)**2 + (novo_y - pos_antes_y)**2)
+        movimento_esperado = math.sqrt(vel_x**2 + vel_y**2)
+
+        if movimento_esperado > 0.5 and movimento_real < movimento_esperado * 0.2:
+            # Bot está bloqueado - tentando mover mas não consegue
+            bot.ia_bloqueado_contador = getattr(bot, 'ia_bloqueado_contador', 0) + 1
+        else:
+            bot.ia_bloqueado_contador = 0
+
+    def _encontrar_ponto_rota_acessivel(self, bot, dist_maxima=300, retornar_info_rota=False):
+        """
+        Encontra o ponto de rota do devmode mais próximo que seja acessível
+        (sem paredes no caminho).
+
+        Args:
+            bot: Bot que precisa encontrar um ponto
+            dist_maxima: Distância máxima para procurar
+            retornar_info_rota: Se True, retorna também índice da rota e waypoint
+
+        Returns:
+            Se retornar_info_rota=False: Tupla (x, y) do ponto mais próximo ou None
+            Se retornar_info_rota=True: Tupla (ponto, rota_idx, waypoint_idx) ou (None, None, None)
+        """
+        import math
+
+        # Pegar rotas do time do bot
+        if hasattr(bot, 'time') and bot.time == 'T':
+            rotas = self.dev_rotas_t
+        else:
+            rotas = self.dev_rotas_q
+
+        if not rotas:
+            return (None, None, None) if retornar_info_rota else None
+
+        ponto_mais_proximo = None
+        menor_dist = float('inf')
+        melhor_rota_idx = None
+        melhor_waypoint_idx = None
+
+        centro_x = bot.x + TAMANHO_MULTIPLAYER // 2
+        centro_y = bot.y + TAMANHO_MULTIPLAYER // 2
+
+        for rota_idx, rota in enumerate(rotas):
+            for waypoint_idx, ponto in enumerate(rota):
+                dist_ponto = math.sqrt((bot.x - ponto[0])**2 + (bot.y - ponto[1])**2)
+
+                # Verificar se o ponto está a uma distância razoável
+                if dist_ponto < menor_dist and dist_ponto > 20 and dist_ponto < dist_maxima:
+                    # Verificar se consegue ir direto (sem parede no caminho inteiro)
+                    dir_x = (ponto[0] - bot.x)
+                    dir_y = (ponto[1] - bot.y)
+
+                    # Checar múltiplos pontos ao longo do caminho
+                    caminho_livre = True
+                    num_checks = max(5, int(dist_ponto / 20))  # Check a cada ~20 pixels
+                    for i in range(1, num_checks + 1):
+                        t = i / num_checks
+                        check_x = centro_x + dir_x * t
+                        check_y = centro_y + dir_y * t
+                        if self.tilemap.is_solid(check_x, check_y):
+                            caminho_livre = False
+                            break
+
+                    if caminho_livre:
+                        menor_dist = dist_ponto
+                        ponto_mais_proximo = ponto
+                        melhor_rota_idx = rota_idx
+                        melhor_waypoint_idx = waypoint_idx
+
+        if retornar_info_rota:
+            return (ponto_mais_proximo, melhor_rota_idx, melhor_waypoint_idx)
+        return ponto_mais_proximo
+
+    def _ia_wandering_aleatorio(self, bot, tempo_atual):
+        """
+        Move o bot em uma direção aleatória não sólida para tentar sair de onde está preso.
+        Move DIRETAMENTE o bot, não apenas cria waypoint.
+
+        Args:
+            bot: Bot a mover
+            tempo_atual: Tempo atual em ms
+        """
+        import math
+        import random
+
+        centro_x = bot.x + TAMANHO_MULTIPLAYER // 2
+        centro_y = bot.y + TAMANHO_MULTIPLAYER // 2
+
+        # Coletar todas as direções livres
+        direcoes_livres = []
+
+        for angulo in range(0, 360, 30):  # Testar mais direções (12 em vez de 8)
+            rad = math.radians(angulo)
+            dir_x = math.cos(rad)
+            dir_y = math.sin(rad)
+
+            # Verificar quão longe pode ir nessa direção
+            dist_livre = 0
+            for d in range(10, 250, 10):
+                check_x = centro_x + dir_x * d
+                check_y = centro_y + dir_y * d
+                if self.tilemap.is_solid(check_x, check_y):
+                    break
+                dist_livre = d
+
+            if dist_livre >= 40:
+                direcoes_livres.append((dir_x, dir_y, dist_livre))
+
+        if direcoes_livres:
+            # Escolher direção aleatória entre as livres
+            escolha = random.choice(direcoes_livres)
+            dir_x, dir_y, dist_livre = escolha
+
+            # MOVER DIRETAMENTE o bot na direção escolhida (forçar movimento)
+            destino_x = bot.x + dir_x * dist_livre * 0.8
+            destino_y = bot.y + dir_y * dist_livre * 0.8
+
+            # Mover o bot diretamente por vários frames
+            vel_x = dir_x * bot.velocidade * 2  # Velocidade dobrada para escapar
+            vel_y = dir_y * bot.velocidade * 2
+
+            bot_rect = pygame.Rect(bot.x, bot.y, TAMANHO_MULTIPLAYER, TAMANHO_MULTIPLAYER)
+            novo_x, novo_y, _, _ = self.tilemap.resolver_colisao(bot_rect, vel_x, vel_y)
+            bot.x = novo_x
+            bot.y = novo_y
+
+            # Também criar waypoint para continuar movimento
+            bot.ia_caminho = [(destino_x, destino_y)]
+            bot.ia_waypoint_atual = 0
+            bot.ia_estado = 'movendo'
+            bot.ia_tempo_inicio_rota = tempo_atual
+            bot.ia_rota_idx = None
+            bot.ia_tentativas_escape = 0  # Resetar após mover
+            bot.ia_bloqueado_contador = 0  # Resetar contador de bloqueio
+
+            # Ativar modo escape por 2 segundos (não sobrescrever waypoints)
+            bot.ia_modo_escape = True
+            bot.ia_escape_tempo_fim = tempo_atual + 2000
+
+            print(f"[IA] {bot.nome} wandering aleatório para escapar")
+        else:
+            # Sem direções livres, tentar micro-movimento em qualquer direção
+            for angulo in range(0, 360, 15):
+                rad = math.radians(angulo)
+                dir_x = math.cos(rad)
+                dir_y = math.sin(rad)
+
+                # Tentar mover só um pouco
+                vel_x = dir_x * bot.velocidade
+                vel_y = dir_y * bot.velocidade
+
+                bot_rect = pygame.Rect(bot.x, bot.y, TAMANHO_MULTIPLAYER, TAMANHO_MULTIPLAYER)
+                novo_x, novo_y, _, _ = self.tilemap.resolver_colisao(bot_rect, vel_x, vel_y)
+
+                # Se conseguiu mover
+                if abs(novo_x - bot.x) > 0.5 or abs(novo_y - bot.y) > 0.5:
+                    bot.x = novo_x
+                    bot.y = novo_y
+                    print(f"[IA] {bot.nome} micro-movimento para escapar")
+                    break
+
+            bot.ia_rota_idx = None
+            bot.ia_caminho = []
+            bot.ia_waypoint_atual = 0
+            bot.ia_tile_alvo = None
+            bot.ia_tempo_inicio_rota = tempo_atual
 
     def _ia_mover_combate(self, bot, tempo_atual):
         """
@@ -3330,9 +3794,9 @@ class FaseMultiplayer(FaseBase):
         # Lista de armas disponíveis
         armas_disponiveis = [
             ('sniper', 4750, 6, 1200),      # nome, preço, dano, cadência
-            ('metralhadora', 2700, 1, 150),
+            ('metralhadora', 2700, 1, 100),  # Cadência muito alta
             ('spas12', 1200, 2, 600),
-            ('desert_eagle', 500, 3, 400),
+            ('desert_eagle', 500, 3, 700),  # Cadência lenta
         ]
 
         # Filtrar armas que o bot pode comprar
@@ -3348,10 +3812,10 @@ class FaseMultiplayer(FaseBase):
             print(f"[BOT COMPRA] {bot.nome} comprou {arma_nome} por ${preco} (Saldo: ${bot.moedas})")
             return
 
-        # Se não tem dinheiro, fica sem arma
+        # Se não tem dinheiro, fica sem arma (tiro normal)
         bot.arma = None
         bot.dano_arma = 1
-        bot.cadencia_arma = 800
+        bot.cadencia_arma = 500  # Tiro normal mais lento
 
     def _bot_atirar(self, bot, alvo, tempo_atual):
         """Bot atira no alvo."""
@@ -3430,6 +3894,10 @@ class FaseMultiplayer(FaseBase):
                 if tiro_removido:
                     break
 
+                # Ignorar bots mortos - tiro passa através
+                if bot.vidas <= 0:
+                    continue
+
                 bot_time = getattr(bot, 'time', None)
 
                 # Só causar dano se for do time oposto ao tiro
@@ -3459,6 +3927,10 @@ class FaseMultiplayer(FaseBase):
                         self.moedas += 300  # Recompensa por kill
                         print(f"[RECOMPENSA] +$300 por eliminar {bot.nome}! Saldo: ${self.moedas}")
 
+                        # Se era o bomber, dropar a bomba
+                        if getattr(bot, 'é_bomber', False) and not self.bomba_plantada:
+                            self._dropar_bomba(bot.x, bot.y)
+
         # Tiros de bots atingindo jogador e outros bots (só de times opostos)
         for tiro in self.tiros_inimigo[:]:
             tiro_time = getattr(tiro, 'time_origem', None)
@@ -3480,12 +3952,22 @@ class FaseMultiplayer(FaseBase):
                         self.tiros_inimigo.remove(tiro)
                         tiro_removido = True
                     dano = getattr(tiro, 'dano', 1)
+                    vida_antes = self.jogador.vidas
                     self.jogador.vidas = max(0, self.jogador.vidas - dano)
                     print(f"[PVP] Bot do Time {tiro_time} acertou você! Vida restante: {self.jogador.vidas}")
+
+                    # Se jogador morreu e era o bomber, dropar a bomba
+                    if vida_antes > 0 and self.jogador.vidas <= 0:
+                        if self.bomber_é_jogador and not self.bomba_plantada:
+                            self._dropar_bomba(self.jogador.x, self.jogador.y)
 
             # Verificar colisão com bots do time oposto ao tiro
             if not tiro_removido:
                 for bot in self.bots_locais:
+                    # Ignorar bots mortos - tiro passa através
+                    if bot.vidas <= 0:
+                        continue
+
                     bot_time = getattr(bot, 'time', None)
 
                     # Só causar dano se for do time oposto ao tiro
@@ -3505,8 +3987,14 @@ class FaseMultiplayer(FaseBase):
                             print(f"[PVP] {bot.nome} bloqueou o dano (ESCUDO ATIVO)!")
                             break
                         dano = getattr(tiro, 'dano', 1)
+                        vida_antes = bot.vidas
                         bot.vidas = max(0, bot.vidas - dano)
                         print(f"[PVP] Tiro do Time {tiro_time} acertou {bot.nome} (Time {bot_time})!")
+
+                        # Se era o bomber e morreu, dropar a bomba
+                        if vida_antes > 0 and bot.vidas <= 0:
+                            if getattr(bot, 'é_bomber', False) and not self.bomba_plantada:
+                                self._dropar_bomba(bot.x, bot.y)
                         break
 
     def _verificar_vitoria(self):
@@ -3696,6 +4184,14 @@ class FaseMultiplayer(FaseBase):
         self.defusando_bomba = False
         self.bomba_defusada = False
         self.bomba_explodiu = False
+        self.bomba_dropada = False
+        self.bomba_drop_posicao = None
+
+        # Resetar sistema de espectador (câmera segue aliados quando jogador morre)
+        self.espectador_ativo = False
+        self.espectador_tempo_morte = 0  # Tempo quando o jogador morreu
+        self.espectador_alvo_idx = 0  # Índice do aliado sendo observado
+        self.espectador_delay = 2000  # 2 segundos de delay antes de seguir aliado
 
         # Selecionar novo bomber
         self._selecionar_bomber()
@@ -3875,6 +4371,60 @@ class FaseMultiplayer(FaseBase):
                              (255, 100, 0), self.particulas)
         self._time_venceu_round('T')
 
+    def _dropar_bomba(self, x, y):
+        """Dropa a bomba no chão quando o bomber morre."""
+        if self.bomba_plantada:
+            return  # Bomba já foi plantada, não dropar
+
+        self.bomba_dropada = True
+        self.bomba_drop_posicao = (x, y)
+        self.bomber_é_jogador = False
+
+        # Remover status de bomber de todos
+        for bot in self.bots_locais:
+            bot.é_bomber = False
+
+        print(f"[BOMBA] Bomber morreu! Bomba dropada em ({int(x)}, {int(y)})")
+
+    def _pegar_bomba_dropada(self, entidade, é_jogador=False):
+        """Entidade do time T pega a bomba dropada."""
+        if not self.bomba_dropada:
+            return
+
+        self.bomba_dropada = False
+        self.bomba_drop_posicao = None
+
+        if é_jogador:
+            self.bomber_é_jogador = True
+            print(f"[BOMBA] Você pegou a bomba! Agora é o bomber!")
+        else:
+            entidade.é_bomber = True
+            print(f"[BOMBA] {entidade.nome} pegou a bomba! Agora é o bomber!")
+
+    def _verificar_pickup_bomba(self):
+        """Verifica se alguém do time T pegou a bomba dropada."""
+        if not self.bomba_dropada or not self.bomba_drop_posicao:
+            return
+
+        bomba_x, bomba_y = self.bomba_drop_posicao
+        raio_pickup = 30  # Distância para pegar a bomba
+
+        # Verificar jogador (se for do time T)
+        if self.time_jogador == 'T' and self.jogador.vidas > 0:
+            dist = ((self.jogador.x - bomba_x)**2 + (self.jogador.y - bomba_y)**2)**0.5
+            if dist < raio_pickup:
+                self._pegar_bomba_dropada(self.jogador, é_jogador=True)
+                return
+
+        # Verificar bots do time T
+        for bot in self.bots_locais:
+            if getattr(bot, 'time', '') != 'T' or bot.vidas <= 0:
+                continue
+            dist = ((bot.x - bomba_x)**2 + (bot.y - bomba_y)**2)**0.5
+            if dist < raio_pickup:
+                self._pegar_bomba_dropada(bot, é_jogador=False)
+                return
+
     def _desenhar_tudo(self, tempo_atual, pos_mouse):
         """Desenha todos os elementos do jogo com mapa, câmera e zoom."""
         # Fundo preto
@@ -3946,6 +4496,32 @@ class FaseMultiplayer(FaseBase):
             if tempo_atual % 1000 < 500:
                 pygame.draw.circle(mundo_surface, (255, 0, 0),
                                  (int(bomba_x), int(bomba_y - tamanho_bomba//2 - 3)), 3)
+
+        # Desenhar bomba dropada no chão
+        if self.bomba_dropada and self.bomba_drop_posicao:
+            bomba_x = self.bomba_drop_posicao[0] - self.camera_x
+            bomba_y = self.bomba_drop_posicao[1] - self.camera_y
+            # Bomba pulsando (mais devagar que plantada)
+            pulso = (tempo_atual % 800) / 800
+            tamanho_bomba = 10 + int(pulso * 4)
+
+            # Círculo de destaque ao redor
+            pygame.draw.circle(mundo_surface, (255, 200, 0),
+                             (int(bomba_x), int(bomba_y)), tamanho_bomba + 8, 2)
+
+            # Desenhar bomba (cor diferente - amarela/laranja)
+            pygame.draw.rect(mundo_surface, (80, 60, 20),
+                           (bomba_x - tamanho_bomba//2, bomba_y - tamanho_bomba//2,
+                            tamanho_bomba, tamanho_bomba), 0, 3)
+            pygame.draw.rect(mundo_surface, (255, 180, 0),
+                           (bomba_x - tamanho_bomba//2, bomba_y - tamanho_bomba//2,
+                            tamanho_bomba, tamanho_bomba), 2, 3)
+
+            # Texto "BOMBA" acima
+            fonte_bomba = pygame.font.Font(None, 16)
+            texto = fonte_bomba.render("BOMBA", True, (255, 200, 0))
+            texto_rect = texto.get_rect(center=(int(bomba_x), int(bomba_y) - 18))
+            mundo_surface.blit(texto, texto_rect)
 
         # Desenhar partículas (por cima de tudo)
         for particula in self.particulas:
@@ -4898,13 +5474,45 @@ class FaseMultiplayer(FaseBase):
 
                 # === METRALHADORA - VISUAL TÁTICO ===
                 elif classe_bot == 'metralhadora':
+                    centro_x = tela_x + tamanho // 2
+
+                    # Padrão de camuflagem (manchas pequenas)
                     import random
-                    random.seed(id(bot))
+                    random.seed(id(bot))  # Seed fixa baseada no bot para não piscar
                     for _ in range(4):
                         mancha_x = tela_x + random.randint(2, tamanho - 2)
                         mancha_y = tela_y + random.randint(2, tamanho - 2)
                         cor_mancha = random.choice([(70, 80, 55), (50, 60, 40)])
                         pygame.draw.circle(surface, cor_mancha, (mancha_x, mancha_y), 2)
+
+                    # Colete tático (contorno)
+                    colete_x = tela_x + 2
+                    colete_y = tela_y + 3
+                    colete_w = tamanho - 4
+                    colete_h = tamanho - 5
+                    pygame.draw.rect(surface, (30, 35, 25), (colete_x, colete_y, colete_w, colete_h), 1, 2)
+
+                    # Faixas MOLLE no colete
+                    for i in range(2):
+                        faixa_y = colete_y + 4 + i * 5
+                        pygame.draw.line(surface, (100, 100, 110),
+                                       (colete_x + 2, faixa_y),
+                                       (colete_x + colete_w - 2, faixa_y), 1)
+
+                    # NVG (óculos de visão noturna) - acima da cabeça
+                    nvg_y = tela_y - 1
+                    nvg_esq_x = centro_x - 4
+                    nvg_dir_x = centro_x + 3
+
+                    # Suporte
+                    pygame.draw.line(surface, (100, 100, 110),
+                                   (centro_x - 5, nvg_y), (centro_x + 5, nvg_y), 1)
+
+                    # Lentes NVG
+                    pygame.draw.circle(surface, (20, 20, 40), (nvg_esq_x, nvg_y + 2), 2)
+                    pygame.draw.circle(surface, (0, 255, 100), (nvg_esq_x, nvg_y + 2), 1)
+                    pygame.draw.circle(surface, (20, 20, 40), (nvg_dir_x, nvg_y + 2), 2)
+                    pygame.draw.circle(surface, (0, 255, 100), (nvg_dir_x, nvg_y + 2), 1)
 
                 # === EXPLOSIVE - CHAMAS ===
                 elif classe_bot == 'explosive':
@@ -5247,6 +5855,42 @@ class FaseMultiplayer(FaseBase):
                     pygame.draw.rect(self.tela, (0, 40, 80), (LARGURA // 2 - 120, ALTURA_JOGO - 60, 240, 30), 0, 8)
                     pygame.draw.rect(self.tela, (50, 150, 255), (LARGURA // 2 - 120, ALTURA_JOGO - 60, 240, 30), 2, 8)
                     desenhar_texto(self.tela, "Segure F para defusar", 18, (50, 150, 255), LARGURA // 2, ALTURA_JOGO - 45)
+
+        # === INDICADOR DE MODO ESPECTADOR ===
+        if hasattr(self, 'espectador_ativo') and self.espectador_ativo and self.jogador.vidas <= 0:
+            tempo_atual = pygame.time.get_ticks()
+            tempo_desde_morte = tempo_atual - self.espectador_tempo_morte
+
+            if tempo_desde_morte < self.espectador_delay:
+                # Ainda no delay - mostrar "VOCÊ MORREU"
+                pygame.draw.rect(self.tela, (80, 20, 20), (LARGURA // 2 - 100, ALTURA_JOGO // 2 - 30, 200, 60), 0, 10)
+                pygame.draw.rect(self.tela, VERMELHO, (LARGURA // 2 - 100, ALTURA_JOGO // 2 - 30, 200, 60), 3, 10)
+                desenhar_texto(self.tela, "VOCÊ MORREU", 24, VERMELHO, LARGURA // 2, ALTURA_JOGO // 2 - 5)
+                segundos_restantes = (self.espectador_delay - tempo_desde_morte) / 1000
+                desenhar_texto(self.tela, f"Espectador em {segundos_restantes:.1f}s", 14, BRANCO, LARGURA // 2, ALTURA_JOGO // 2 + 18)
+            else:
+                # Modo espectador ativo - mostrar quem está observando
+                bot_obs = self._obter_aliado_espectador()
+                if bot_obs:
+                    nome_bot = getattr(bot_obs, 'nome', 'Bot')
+                    time_bot = getattr(bot_obs, 'time', '?')
+                    # Cor baseada no time
+                    if time_bot == 'T':
+                        cor_time = (255, 150, 50)  # Laranja para T
+                        cor_borda = (255, 100, 0)
+                    else:
+                        cor_time = (50, 200, 255)  # Azul para Q
+                        cor_borda = (0, 150, 255)
+
+                    pygame.draw.rect(self.tela, (20, 40, 60), (LARGURA // 2 - 120, 10, 240, 55), 0, 10)
+                    pygame.draw.rect(self.tela, cor_borda, (LARGURA // 2 - 120, 10, 240, 55), 2, 10)
+                    desenhar_texto(self.tela, "ESPECTADOR", 14, (150, 150, 150), LARGURA // 2, 20)
+                    desenhar_texto(self.tela, f"{nome_bot} (Time {time_bot})", 18, cor_time, LARGURA // 2, 40)
+                    desenhar_texto(self.tela, "Clique para alternar", 12, (100, 100, 100), LARGURA // 2, 58)
+                else:
+                    # Sem bots vivos
+                    pygame.draw.rect(self.tela, (40, 40, 40), (LARGURA // 2 - 100, ALTURA_JOGO // 2 - 20, 200, 40), 0, 10)
+                    desenhar_texto(self.tela, "Sem jogadores vivos", 18, (150, 150, 150), LARGURA // 2, ALTURA_JOGO // 2)
 
     def _mostrar_menu_compra(self):
         """Mostra o menu de compra de armas e itens estilo Counter-Strike."""
