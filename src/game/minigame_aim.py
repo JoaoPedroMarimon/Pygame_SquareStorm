@@ -53,7 +53,6 @@ ALVO_X_MAX = LARGURA - 200
 # Bot AI
 BOT_DELAY_MIN = 500   # ms
 BOT_DELAY_MAX = 1500
-BOT_PRECISAO_BASE = 0.85  # 85% para alvo 1, diminui
 
 # Tempos de estado
 TEMPO_INTRO = 2000
@@ -140,10 +139,11 @@ class JogadorAim:
         self.nome = nome
         self.cor = cor
         self.is_bot = is_bot
-        self.pontos = 0
         self.acertos = 0
         self.tiros_restantes = 5
         self.alvo_atual = 0
+        self.tempo_turno = 0  # tempo em ms que levou a rodada
+        self.tempo_inicio_turno = 0
 
         # Posicao na fila
         self.x = 0.0
@@ -160,7 +160,11 @@ class JogadorAim:
         self.bot_next_shot = 0
         self.bot_mouse_x = POS_TIRO_X
         self.bot_mouse_y = POS_TIRO_Y - 100
-        self.bot_skill = random.uniform(0.55, 0.95)  # habilidade aleatoria por bot
+        # Quantos alvos o bot vai acertar nesta rodada (1 a 5)
+        self.bot_alvos_acertar = random.randint(1, 5)
+        # Cada bot tem seu proprio ritmo de tiro (alguns rapidos, outros lentos)
+        self.bot_delay_min = random.randint(200, 800)
+        self.bot_delay_max = self.bot_delay_min + random.randint(200, 800)
 
     def reset_turno(self):
         self.tiros_restantes = 5
@@ -168,9 +172,9 @@ class JogadorAim:
         self.acertos = 0
         self.bot_timer = 0
         self.bot_next_shot = 0
-        # Variar habilidade a cada rodada
+        self.tempo_inicio_turno = 0
         if self.is_bot:
-            self.bot_skill = random.uniform(0.55, 0.95)
+            self.bot_alvos_acertar = random.randint(1, 5)
 
     def desenhar(self, tela, fonte, is_vez=False, pulsacao=0):
         tam = TAM_JOGADOR
@@ -391,6 +395,10 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
     # Jogador simulado para desenhar desert eagle
     jogador_sim = None
 
+    # Misterioso jogada (5% de chance)
+    misterioso_joga = random.random() < 0.06
+    misterioso_turno = False  # True quando eh a vez do misterioso
+
     # Scoreboard timer
     scoreboard_start = 0
 
@@ -442,9 +450,24 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
             jogador_vez.target_y = float(POS_TIRO_Y)
 
             if tempo_no_estado >= TEMPO_TURN_START:
-                estado = "DELIVERY"
-                tempo_estado = tempo
-                entrega_progresso = 0.0
+                if misterioso_turno and jogador_vez.nome == "???":
+                    # Misterioso pula delivery - ja tem a arma
+                    estado = "AIMING"
+                    tempo_estado = tempo
+                    for a in alvos:
+                        a.reset()
+                    alvos[0].ativo = True
+                    jogador_vez.alvo_atual = 0
+                    jogador_vez.tiros_restantes = 5
+                    jogador_vez.tempo_inicio_turno = tempo
+                    jogador_sim = _JogadorSimulado(
+                        jogador_vez.target_x, jogador_vez.target_y, jogador_vez.cor
+                    )
+                    jogador_vez.bot_next_shot = tempo + random.randint(jogador_vez.bot_delay_min, jogador_vez.bot_delay_max)
+                else:
+                    estado = "DELIVERY"
+                    tempo_estado = tempo
+                    entrega_progresso = 0.0
 
         elif estado == "DELIVERY":
             # Animacao de entrega da Desert Eagle via telecinese
@@ -476,6 +499,7 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
                 alvos[0].ativo = True
                 jogador_vez.alvo_atual = 0
                 jogador_vez.tiros_restantes = 5
+                jogador_vez.tempo_inicio_turno = tempo
 
                 # Criar jogador simulado para desenhar a arma
                 jogador_sim = _JogadorSimulado(
@@ -483,7 +507,7 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
                 )
 
                 if jogador_vez.is_bot:
-                    jogador_vez.bot_next_shot = tempo + random.randint(BOT_DELAY_MIN, BOT_DELAY_MAX)
+                    jogador_vez.bot_next_shot = tempo + random.randint(jogador_vez.bot_delay_min, jogador_vez.bot_delay_max)
 
         elif estado == "AIMING":
             # Atualizar alvo atual
@@ -500,9 +524,11 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
 
             # Bot AI
             if jogador_vez.is_bot and jogador_vez.tiros_restantes > 0:
-                if tempo >= jogador_vez.bot_next_shot:
+                # Misterioso so atira quando nao tem bala voando (espera acertar pra atirar de novo)
+                misterioso_pode = jogador_vez.nome != "???" or len(tiros) == 0
+                if misterioso_pode and tempo >= jogador_vez.bot_next_shot:
                     _bot_atirar(jogador_vez, alvos, tiros, particulas, flashes, tempo)
-                    jogador_vez.bot_next_shot = tempo + random.randint(BOT_DELAY_MIN, BOT_DELAY_MAX)
+                    jogador_vez.bot_next_shot = tempo + random.randint(jogador_vez.bot_delay_min, jogador_vez.bot_delay_max)
                 else:
                     # Bot jitter de mira
                     if alvo_idx < len(alvos) and alvos[alvo_idx].ativo:
@@ -523,7 +549,6 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
                     a = alvos[alvo_idx]
                     a.acertado = True
                     jogador_vez.acertos += 1
-                    jogador_vez.pontos += (alvo_idx + 1) * 10  # Alvos mais dificeis valem mais
 
                     # Efeito de explosao
                     flash = criar_explosao(a.x + a.tamanho // 2, a.y + a.tamanho // 2,
@@ -542,27 +567,52 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
             turno_acabou = False
             if jogador_vez.alvo_atual >= len(alvos):
                 turno_acabou = True
-                # Bonus por acertar todos
-                jogador_vez.pontos += 50
             elif jogador_vez.tiros_restantes <= 0 and len(tiros) == 0:
                 turno_acabou = True
 
             if turno_acabou:
+                jogador_vez.tempo_turno = tempo - jogador_vez.tempo_inicio_turno
                 estado = "TURN_END"
                 tempo_estado = tempo
                 tiros.clear()
 
         elif estado == "TURN_END":
-            # Mover jogador de volta pra fila
-            fila_idx = ordem[turno_idx]
-            jogador_vez.target_x = float(FILA_X_INICIO + fila_idx * FILA_ESPACO)
-            jogador_vez.target_y = float(FILA_Y)
+            # Mover jogador de volta pra fila (ou misterioso de volta pro canto)
+            if misterioso_turno and jogador_vez.nome == "???":
+                jogador_vez.target_x = float(MISTERIOSO_X)
+                jogador_vez.target_y = float(MISTERIOSO_Y)
+            else:
+                fila_idx = ordem[turno_idx]
+                jogador_vez.target_x = float(FILA_X_INICIO + fila_idx * FILA_ESPACO)
+                jogador_vez.target_y = float(FILA_Y)
             jogador_sim = None
 
             if tempo_no_estado >= TEMPO_TURN_END:
                 turno_idx += 1
-                if turno_idx >= 8:
-                    # Todos jogaram - ir para scoreboard
+                if turno_idx >= 8 and not misterioso_turno:
+                    if misterioso_joga:
+                        # Misterioso entra na jogada!
+                        misterioso_turno = True
+                        misterioso_aim = JogadorAim("???", (20, 20, 20), is_bot=True)
+                        misterioso_aim.bot_alvos_acertar = 5
+                        misterioso_aim.bot_delay_min = 300
+                        misterioso_aim.bot_delay_max = 400
+                        misterioso_aim.x = float(MISTERIOSO_X)
+                        misterioso_aim.y = float(MISTERIOSO_Y)
+                        misterioso_aim.target_x = float(MISTERIOSO_X)
+                        misterioso_aim.target_y = float(MISTERIOSO_Y)
+                        jogadores.append(misterioso_aim)
+                        jogador_vez = misterioso_aim
+                        jogador_vez.reset_turno()
+                        jogador_vez.bot_alvos_acertar = 5
+                        estado = "TURN_START"
+                        tempo_estado = tempo
+                    else:
+                        estado = "SCOREBOARD"
+                        tempo_estado = tempo
+                        scoreboard_start = tempo
+                elif misterioso_turno:
+                    # Misterioso terminou - agora scoreboard
                     estado = "SCOREBOARD"
                     tempo_estado = tempo
                     scoreboard_start = tempo
@@ -620,15 +670,24 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
                               (POS_TIRO_X, POS_TIRO_Y + TAM_JOGADOR + 10),
                               20 + pulso_marca, 2)
 
-        # Misterioso com aura
-        misterioso.x = MISTERIOSO_X
-        misterioso.y = MISTERIOSO_Y
-        misterioso.rect.x = MISTERIOSO_X
-        misterioso.rect.y = MISTERIOSO_Y
-        misterioso.desenhar_com_aura(tela, tempo)
+        # Misterioso com aura (nao desenhar no canto se ele esta jogando)
+        if not (misterioso_turno and estado in ("TURN_START", "DELIVERY", "AIMING", "TURN_END")):
+            misterioso.x = MISTERIOSO_X
+            misterioso.y = MISTERIOSO_Y
+            misterioso.rect.x = MISTERIOSO_X
+            misterioso.rect.y = MISTERIOSO_Y
+            misterioso.desenhar_com_aura(tela, tempo)
 
         # Jogadores na fila
         for i, j in enumerate(jogadores):
+            if j.nome == "???":
+                # Desenhar misterioso com aura em vez do quadrado generico
+                misterioso.x = int(j.x)
+                misterioso.y = int(j.y)
+                misterioso.rect.x = int(j.x)
+                misterioso.rect.y = int(j.y)
+                misterioso.desenhar_com_aura(tela, tempo)
+                continue
             is_vez = (jogador_vez is j)
             j.desenhar(tela, fonte_nomes, is_vez=is_vez, pulsacao=pulsacao)
 
@@ -686,11 +745,14 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
 
         # Turno
         if estado not in ("INTRO", "SCOREBOARD", "FIM"):
-            turno_s = fonte_peq.render(f"Turno {turno_idx + 1}/8", True, (180, 180, 200))
+            total_turnos = 9 if misterioso_turno else 8
+            turno_atual = min(turno_idx + 1, total_turnos)
+            turno_s = fonte_peq.render(f"Turno {turno_atual}/{total_turnos}", True, (180, 180, 200))
             tela.blit(turno_s, (15, 8))
 
             if jogador_vez:
-                vez_s = fonte_peq.render(f"Vez: {jogador_vez.nome}", True, jogador_vez.cor)
+                cor_vez = (180, 0, 50) if jogador_vez.nome == "???" else jogador_vez.cor
+                vez_s = fonte_peq.render(f"Vez: {jogador_vez.nome}", True, cor_vez)
                 tela.blit(vez_s, (15, 26))
 
         # Balas restantes e acertos (durante AIMING)
@@ -708,10 +770,6 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
             # Acertos
             acerto_s = fonte_peq.render(f"Acertos: {jogador_vez.acertos}/5", True, VERDE)
             tela.blit(acerto_s, (LARGURA - 140, 28))
-
-            # Pontos
-            pts_s = fonte_peq.render(f"Pontos: {jogador_vez.pontos}", True, AMARELO)
-            tela.blit(pts_s, (LARGURA - 50, 28))
 
         # Instrucoes
         if estado == "AIMING" and jogador_vez and not jogador_vez.is_bot:
@@ -734,8 +792,9 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
 
         # ========== TURN_END texto ==========
         if estado == "TURN_END" and jogador_vez:
+            tempo_seg = jogador_vez.tempo_turno / 1000.0
             res_s = fonte_media.render(
-                f"{jogador_vez.nome}: {jogador_vez.acertos}/5 acertos - {jogador_vez.pontos} pts",
+                f"{jogador_vez.nome}: {jogador_vez.acertos}/5 acertos - {tempo_seg:.1f}s",
                 True, jogador_vez.cor
             )
             tela.blit(res_s, (LARGURA // 2 - res_s.get_width() // 2, ALTURA_JOGO // 2 - 20))
@@ -804,8 +863,25 @@ def _disparar_tiro(jogador_aim, mouse_x, mouse_y, tiros, particulas, flashes):
         pass
 
 
+def _prever_posicao_alvo_x(alvo, frames):
+    """Simula a posicao X central do alvo apos N frames, considerando bounces nas paredes."""
+    x = alvo.x
+    direcao = alvo.direcao
+    vel = alvo.velocidade
+    tam = alvo.tamanho
+    for _ in range(int(round(frames))):
+        x += vel * direcao
+        if x <= ALVO_X_MIN:
+            x = ALVO_X_MIN
+            direcao = 1
+        elif x + tam >= ALVO_X_MAX:
+            x = ALVO_X_MAX - tam
+            direcao = -1
+    return x + tam // 2
+
+
 def _bot_atirar(jogador_aim, alvos, tiros, particulas, flashes, tempo):
-    """Bot AI - dispara na direcao do alvo com alguma imprecisao."""
+    """Bot AI - acerta exatamente bot_alvos_acertar alvos, erra o resto."""
     alvo_idx = jogador_aim.alvo_atual
     if alvo_idx >= len(alvos):
         return
@@ -813,21 +889,36 @@ def _bot_atirar(jogador_aim, alvos, tiros, particulas, flashes, tempo):
     if not alvo.ativo:
         return
 
-    # Precisao baseada na habilidade individual do bot, diminui para alvos mais dificeis
-    precisao = jogador_aim.bot_skill - alvo_idx * 0.08
-    acerta = random.random() < precisao
+    # Centro atual do alvo
+    alvo_cx = alvo.x + alvo.tamanho // 2
+    alvo_cy = alvo.y + alvo.tamanho // 2
 
-    # Jitter de mira proporcional a habilidade (melhor bot = menos jitter)
-    jitter = (1.0 - jogador_aim.bot_skill) * 15
-    if acerta:
-        # Mira perto do centro do alvo
-        mx = alvo.x + alvo.tamanho // 2 + random.uniform(-3 - jitter, 3 + jitter)
-        my = alvo.y + alvo.tamanho // 2 + random.uniform(-3 - jitter, 3 + jitter)
+    # Calcular lead para acertar (desconta 35px do offset da ponta do cano)
+    dx_dist = alvo_cx - (jogador_aim.target_x + TAM_JOGADOR // 2)
+    dy_dist = alvo_cy - (jogador_aim.target_y + TAM_JOGADOR // 2)
+    dist = math.sqrt(dx_dist * dx_dist + dy_dist * dy_dist)
+    tempo_viagem = max(0, dist - 35) / 15.0
+    lead_x = alvo.velocidade * alvo.direcao * tempo_viagem
+
+    # Misterioso sempre acerta com precisao perfeita
+    is_misterioso = jogador_aim.nome == "???"
+
+    # Vai acertar este alvo? So se ainda nao atingiu a meta
+    vai_acertar = jogador_aim.acertos < jogador_aim.bot_alvos_acertar
+
+    if vai_acertar:
+        if is_misterioso:
+            # Mira perfeita - simula posicao exata do alvo com bounces nas paredes
+            mx = _prever_posicao_alvo_x(alvo, tempo_viagem)
+            my = alvo_cy
+        else:
+            # Mira com lead preciso mas com pequeno erro
+            mx = alvo_cx + lead_x + random.uniform(-2, 2)
+            my = alvo_cy + random.uniform(-2, 2)
     else:
-        # Mira errada (bots piores erram mais longe)
-        erro = 40 + (1.0 - jogador_aim.bot_skill) * 60
-        mx = alvo.x + alvo.tamanho // 2 + random.uniform(-erro, erro)
-        my = alvo.y + alvo.tamanho // 2 + random.uniform(-erro * 0.7, erro * 0.7)
+        # Erra de proposito - mira longe do alvo
+        mx = alvo_cx + random.choice([-1, 1]) * random.uniform(60, 120)
+        my = alvo_cy + random.uniform(-40, 40)
 
     jogador_aim.bot_mouse_x = mx
     jogador_aim.bot_mouse_y = my
@@ -848,8 +939,8 @@ def _desenhar_scoreboard(tela, jogadores, fonte_grande, fonte_media, fonte_score
     titulo = fonte_grande.render("RESULTADO", True, (255, 220, 100))
     tela.blit(titulo, (LARGURA // 2 - titulo.get_width() // 2, 40))
 
-    # Ordenar por pontos
-    ranking = sorted(enumerate(jogadores), key=lambda x: x[1].pontos, reverse=True)
+    # Ordenar por acertos (maior primeiro), desempate por tempo (menor primeiro)
+    ranking = sorted(enumerate(jogadores), key=lambda x: (-x[1].acertos, x[1].tempo_turno))
 
     # Desenhar cada jogador
     tempo_decorrido = tempo - start_time
@@ -900,11 +991,12 @@ def _desenhar_scoreboard(tela, jogadores, fonte_grande, fonte_media, fonte_score
 
         # Acertos
         ac_s = fonte_peq.render(f"{j.acertos}/5 acertos", True, (180, 255, 180))
-        tela.blit(ac_s, (linha_x + 320, y + 14))
+        tela.blit(ac_s, (linha_x + 280, y + 8))
 
-        # Pontos
-        pts_s = fonte_score.render(f"{j.pontos} pts", True, AMARELO)
-        tela.blit(pts_s, (linha_x + linha_w - pts_s.get_width() - 15, y + 10))
+        # Tempo
+        tempo_s_val = j.tempo_turno / 1000.0
+        tempo_s_txt = fonte_peq.render(f"{tempo_s_val:.1f}s", True, (180, 200, 255))
+        tela.blit(tempo_s_txt, (linha_x + 280, y + 26))
 
         # Borda
         if rank < 3:
