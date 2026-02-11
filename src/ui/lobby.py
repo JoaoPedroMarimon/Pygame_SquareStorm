@@ -61,11 +61,11 @@ PORTAIS = [
         'desc': 'Team vs Team',
     },
     {
-        'nome': '',
+        'nome': 'Aim',
         'cor_base': (40, 80, 180),
         'cor_glow': (100, 150, 255),
-        'disponivel': False,
-        'desc': 'Em breve',
+        'disponivel': True,
+        'desc': 'Tiro ao Alvo',
     },
     {
         'nome': '',
@@ -120,10 +120,7 @@ def _desenhar_player(tela, x, y, cor, nome, fonte, is_host=False, pulsacao=0):
     pygame.draw.rect(tela, cor_brilhante,
                      (ix + 4, iy + 4, 7, 7), 0, 2)
 
-    # 5) Olhos
-    olho_y = iy + tam // 3
-    pygame.draw.rect(tela, BRANCO, (ix + tam // 4, olho_y, 4, 4))
-    pygame.draw.rect(tela, BRANCO, (ix + 3 * tam // 4 - 3, olho_y, 4, 4))
+
 
     # 6) Nome acima
     if is_host:
@@ -196,12 +193,7 @@ def _desenhar_arena(tela, sala, tempo):
     # Borda fina brilhante
     pygame.draw.rect(tela, (70, 60, 100), sala, 2)
 
-    # --- Logo "SquareStorm" sutil no chão ---
-    fonte_logo = pygame.font.SysFont("Arial", 60, True)
-    logo_surf = fonte_logo.render("SquareStorm", True, (30, 27, 45))
-    logo_x = sala.centerx - logo_surf.get_width() // 2
-    logo_y = sala.bottom - 100
-    tela.blit(logo_surf, (logo_x, logo_y))
+
 
 
 def _desenhar_particulas_tempestade(tela, particulas, sala, tempo):
@@ -450,6 +442,7 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
                 'cor': cor_local,
                 'cor_nome': str(cor_index_local),
                 'bots': bots,
+                'modo': 'Bomb',
             })
 
         # ========== MOVIMENTO ==========
@@ -519,8 +512,9 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
                             'cor': cor_local,
                             'cor_nome': str(cor_index_local),
                             'bots': bots,
+                            'modo': portal['nome'],
                         }
-                        print(f"[LOBBY] Host iniciou VERSUS!")
+                        print(f"[LOBBY] Host iniciou {portal['nome']}!")
                         servidor.broadcast_game_start()
                         return ("start", cust)
                     else:
@@ -581,13 +575,7 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
         tela.blit(sub, (LARGURA // 2 - sub.get_width() // 2, 44))
 
         # IP
-        if is_host:
-            ip = obter_ip_local_simples()
-            ip_txt = f"IP: {ip}:{config['port']}"
-        else:
-            ip_txt = f"Servidor: {config.get('host', '?')}:{config['port']}"
-        ip_s = fonte_ip.render(ip_txt, True, AMARELO)
-        tela.blit(ip_s, (LARGURA // 2 - ip_s.get_width() // 2, 56))
+ 
 
         # Jogadores conectados
         n_total = 1 + len(remotos)

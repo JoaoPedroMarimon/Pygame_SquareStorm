@@ -1085,10 +1085,7 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
         titulo = fonte.render("CONFIGURAR SERVIDOR", True, BRANCO)
         tela.blit(titulo, (LARGURA // 2 - titulo.get_width() // 2, 80))
 
-        # Seu IP
-        ip = obter_ip_local_simples()
-        texto_ip = fonte_pequena.render(f"Seu IP Local: {ip}", True, AMARELO)
-        tela.blit(texto_ip, (LARGURA // 2 - texto_ip.get_width() // 2, 150))
+
 
         # Campo Nome
         label_nome = fonte_normal.render("Nome do Host:", True, BRANCO)

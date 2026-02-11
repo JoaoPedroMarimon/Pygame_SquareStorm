@@ -26,6 +26,7 @@ from src.ui.menu import (
     tela_conectar_servidor_simples
 )
 from src.game.fase_multiplayer_nova import jogar_fase_multiplayer
+from src.game.minigame_aim import executar_minigame_aim
 from src.ui.lobby import tela_lobby_servidor
 
 # NOVO: Importações para o sistema de tela cheia
@@ -226,15 +227,20 @@ def main_game(game_surface=None):
                                 resultado_lobby, customizacao = tela_lobby_servidor(tela, relogio, gradiente_menu, servidor, cliente, config)
 
                                 if resultado_lobby == "start":
-                                    # Ir para o jogo multiplayer (sempre modo Versus)
-
                                     # Aplicar customização ao jogador
                                     config['cor_personagem'] = customizacao['cor']
 
-                                    resultado = jogar_fase_multiplayer(
-                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
-                                        cliente, config['player_name'], customizacao
-                                    )
+                                    modo = customizacao.get('modo', 'Bomb')
+                                    if modo == 'Aim':
+                                        resultado = executar_minigame_aim(
+                                            tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                            cliente, config['player_name'], customizacao
+                                        )
+                                    else:
+                                        resultado = jogar_fase_multiplayer(
+                                            tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                            cliente, config['player_name'], customizacao
+                                        )
 
                                     # Limpar
                                     cliente.disconnect()
@@ -270,11 +276,17 @@ def main_game(game_surface=None):
                             resultado_lobby, customizacao = tela_lobby_cliente(tela, relogio, gradiente_menu, cliente, config)
 
                             if resultado_lobby == "start":
-                                # Ir para o jogo multiplayer
-                                resultado = jogar_fase_multiplayer(
-                                    tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
-                                    cliente, config['player_name'], customizacao
-                                )
+                                modo = customizacao.get('modo', 'Bomb')
+                                if modo == 'Aim':
+                                    resultado = executar_minigame_aim(
+                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                        cliente, config['player_name'], customizacao
+                                    )
+                                else:
+                                    resultado = jogar_fase_multiplayer(
+                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                        cliente, config['player_name'], customizacao
+                                    )
 
                                 # Limpar
                                 cliente.disconnect()
