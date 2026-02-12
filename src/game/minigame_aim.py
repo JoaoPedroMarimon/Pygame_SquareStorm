@@ -15,7 +15,7 @@ from src.entities.tiro import Tiro
 from src.entities.particula import Particula, criar_explosao
 from src.entities.misterioso_cutscene import InimigoMisterioso
 from src.weapons.desert_eagle import desenhar_desert_eagle, criar_efeito_disparo_desert_eagle
-from src.utils.visual import criar_gradiente, criar_estrelas, desenhar_estrelas
+from src.utils.visual import criar_gradiente, criar_estrelas, desenhar_estrelas, criar_mira, desenhar_mira
 from src.utils.display_manager import present_frame, convert_mouse_position
 
 # ============================================================
@@ -307,6 +307,10 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
     # --- Fundo (fase 1 style) ---
     estrelas = criar_estrelas(120)
 
+    # --- Mira customizada ---
+    pygame.mouse.set_visible(False)
+    mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
+
     # --- Criar jogadores (sempre 8) ---
     jogadores = []
     cor_local = customizacao.get('cor', AZUL)
@@ -410,9 +414,11 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
         # ========== EVENTOS ==========
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
+                pygame.mouse.set_visible(True)
                 return None
             if ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_ESCAPE:
+                    pygame.mouse.set_visible(True)
                     return None
 
             # Tiro do jogador humano
@@ -625,6 +631,7 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
         elif estado == "SCOREBOARD":
             if tempo_no_estado >= TEMPO_SCOREBOARD:
                 estado = "FIM"
+                pygame.mouse.set_visible(True)
                 return None
 
         # ========== INTERPOLACAO DE POSICAO ==========
@@ -809,6 +816,10 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
         # ESC hint
         esc_s = fonte_peq.render("ESC: Sair", True, (80, 80, 100))
         tela.blit(esc_s, (LARGURA - 70, ALTURA_JOGO - 20))
+
+        # Mira customizada
+        mouse_mira = convert_mouse_position(pygame.mouse.get_pos())
+        desenhar_mira(tela, mouse_mira, (mira_surface, mira_rect))
 
         present_frame()
         relogio.tick(FPS)

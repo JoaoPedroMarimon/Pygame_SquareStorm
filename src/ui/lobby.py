@@ -68,11 +68,11 @@ PORTAIS = [
         'desc': 'Tiro ao Alvo',
     },
     {
-        'nome': '',
-        'cor_base': (160, 40, 40),
-        'cor_glow': (255, 100, 100),
-        'disponivel': False,
-        'desc': 'Em breve',
+        'nome': 'Duel',
+        'cor_base': (160, 40, 120),
+        'cor_glow': (255, 100, 200),
+        'disponivel': True,
+        'desc': 'Duelo 1v1',
     },
 ]
 
