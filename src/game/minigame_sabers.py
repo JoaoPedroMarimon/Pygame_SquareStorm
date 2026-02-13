@@ -485,6 +485,50 @@ def _desenhar_minimap(tela, jogadores, jogador_local, cam_x, cam_y):
     tela.blit(minimap_surf, (MINIMAP_X, MINIMAP_Y))
 
 
+def _atualizar_posicao_sabre(jogador):
+    """Calcula pos_cabo, pos_ponta, angulo do sabre baseado na posicao e mira do jogador.
+    Deve ser chamado ANTES do processamento de dano para que as posicoes estejam atualizadas."""
+    if not jogador.vivo:
+        return
+    sabre = jogador.sabre_info
+    if sabre.get('arremessado', False):
+        return  # Posicoes do arremesso sao controladas por _atualizar_sabre_arremessado
+
+    centro_x = jogador.x + TAM_JOGADOR // 2
+    centro_y = jogador.y + TAM_JOGADOR // 2
+
+    dx = jogador.mira_x - centro_x
+    dy = jogador.mira_y - centro_y
+
+    if sabre['modo_defesa']:
+        angulo_mouse = math.atan2(dy, dx)
+        angulo = angulo_mouse - math.pi / 2
+    else:
+        angulo = math.atan2(dy, dx)
+
+    cos_a = math.cos(angulo)
+    sin_a = math.sin(angulo)
+
+    if sabre['modo_defesa']:
+        angulo_mouse = math.atan2(dy, dx)
+        distancia_cabo = 35
+        cabo_x = centro_x + math.cos(angulo_mouse) * distancia_cabo
+        cabo_y = centro_y + math.sin(angulo_mouse) * distancia_cabo
+    else:
+        distancia_cabo = 20
+        cabo_x = centro_x + cos_a * distancia_cabo
+        cabo_y = centro_y + sin_a * distancia_cabo
+
+    comprimento_lamina = 90
+    ponta_x = cabo_x + cos_a * comprimento_lamina
+    ponta_y = cabo_y + sin_a * comprimento_lamina
+
+    sabre['pos_cabo'] = (cabo_x, cabo_y)
+    sabre['pos_ponta'] = (ponta_x, ponta_y)
+    sabre['angulo'] = angulo
+    sabre['comprimento_atual'] = comprimento_lamina
+
+
 def _desenhar_sabre_jogador(tela, jogador, tempo, cam_x, cam_y):
     """Desenha o sabre de um jogador com offset de camera."""
     if not jogador.vivo:
@@ -699,6 +743,21 @@ def _processar_dano_sabre_minigame(atacante, alvo, tempo):
     raio_hit = 8 + TAM_JOGADOR // 4
 
     if distancia <= raio_hit:
+        # Verificar se o alvo esta em modo defesa e bloqueando
+        sabre_def = alvo.sabre_info
+        if (sabre_def['ativo'] and sabre_def['modo_defesa']
+                and not sabre_def.get('arremessado', False)
+                and sabre_def['comprimento_atual'] > 10):
+            # Checar se a lamina do atacante cruza com a lamina do defensor
+            def_cabo = sabre_def['pos_cabo']
+            def_ponta = sabre_def['pos_ponta']
+            # Distancia minima entre as duas laminas
+            dist_laminas = _distancia_segmento_segmento(
+                linha_inicio, linha_fim, def_cabo, def_ponta)
+            if dist_laminas < 25:
+                # Bloqueado! Nao causa dano
+                return "blocked"
+
         atacante.ultimo_dano_por_alvo[alvo_id] = tempo
         alvo.hp -= 1
         alvo.invulneravel_ate = tempo + 300
@@ -708,6 +767,16 @@ def _processar_dano_sabre_minigame(atacante, alvo, tempo):
         return True
 
     return False
+
+
+def _distancia_segmento_segmento(p1, p2, p3, p4):
+    """Calcula a distancia minima entre dois segmentos de reta."""
+    # Checar distancia de cada ponta ao outro segmento e pegar a menor
+    d1 = distancia_ponto_linha(p1, p3, p4)
+    d2 = distancia_ponto_linha(p2, p3, p4)
+    d3 = distancia_ponto_linha(p3, p1, p2)
+    d4 = distancia_ponto_linha(p4, p1, p2)
+    return min(d1, d2, d3, d4)
 
 
 def _processar_dano_sabre_arremessado_minigame(atacante, alvo, tempo):
@@ -1332,11 +1401,13 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
             if tempo_no_estado >= TEMPO_INTRO:
                 estado = "COLOR_SELECT"
                 tempo_estado = tempo
+                pygame.mouse.set_visible(True)
 
         elif estado == "COLOR_SELECT":
             if tempo_no_estado >= TEMPO_COLOR_SELECT:
                 estado = "COUNTDOWN"
                 tempo_estado = tempo
+                pygame.mouse.set_visible(False)
                 # Ativar sabres de todos
                 for j in jogadores:
                     j.sabre_info['ativo'] = True
@@ -1426,6 +1497,11 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
                 if j.vivo:
                     _atualizar_sabre_arremessado_minigame(j)
 
+            # Atualizar posicoes dos sabres ANTES de processar dano
+            for j in jogadores:
+                if j.vivo:
+                    _atualizar_posicao_sabre(j)
+
             # Processar dano sabre (melee) - todos vs todos
             for atk in jogadores:
                 if not atk.vivo:
@@ -1433,8 +1509,36 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
                 for alvo in jogadores:
                     if atk is alvo or not alvo.vivo:
                         continue
-                    if _processar_dano_sabre_minigame(atk, alvo, tempo):
-                        # Efeito visual
+                    resultado_dano = _processar_dano_sabre_minigame(atk, alvo, tempo)
+                    if resultado_dano == "blocked":
+                        # Bloqueado pela defesa - efeito de clash
+                        sabre_def = alvo.sabre_info
+                        # Ponto medio entre as duas laminas
+                        bx = (atk.sabre_info['pos_ponta'][0] + sabre_def['pos_ponta'][0]) / 2
+                        by = (atk.sabre_info['pos_ponta'][1] + sabre_def['pos_ponta'][1]) / 2
+                        for _ in range(15):
+                            p = Particula(bx + random.uniform(-8, 8),
+                                          by + random.uniform(-8, 8),
+                                          (255, 255, 200))
+                            p.velocidade_x = random.uniform(-5, 5)
+                            p.velocidade_y = random.uniform(-5, 5)
+                            p.vida = random.randint(6, 12)
+                            p.tamanho = random.uniform(1, 3)
+                            particulas.append(p)
+                        flashes.append({
+                            'x': bx, 'y': by,
+                            'raio': 22, 'vida': 8,
+                            'cor': (255, 255, 200)
+                        })
+                        try:
+                            from src.utils.sound import gerar_som_tiro
+                            som = pygame.mixer.Sound(gerar_som_tiro())
+                            som.set_volume(0.15)
+                            pygame.mixer.Channel(6).play(som)
+                        except:
+                            pass
+                    elif resultado_dano is True:
+                        # Acertou - efeito de dano
                         cx, cy = alvo.get_centro()
                         for _ in range(12):
                             cor_s = CORES_SABRE[atk.cor_sabre_idx]
