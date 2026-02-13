@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 
+# Caminho da fonte pixel/retro
+FONTE_PIXEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "fonts", "PressStart2P-Regular.ttf")
 
 # Configurações da janela
 LARGURA, ALTURA = 1480, 820 # Aumentamos a altura em 80 pixels para a barra de HUD

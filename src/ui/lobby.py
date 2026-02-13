@@ -29,7 +29,7 @@ def obter_ip_local_simples():
 
 # --- Constantes ---
 TAM_PLAYER = 30
-VEL_LOBBY = 4.0
+VEL_LOBBY = 10.0
 TEMPO_ZONA = 5000  # 5s em ms
 
 # Cores da arena
@@ -75,11 +75,11 @@ PORTAIS = [
         'desc': 'Duelo 1v1',
     },
     {
-        'nome': 'Saber Duel',
-        'cor_base': (80, 80, 80),
-        'cor_glow': (140, 140, 140),
-        'disponivel': False,
-        'desc': 'Em desenvolvimento',
+        'nome': 'Sabers',
+        'cor_base': (40, 80, 180),
+        'cor_glow': (100, 180, 255),
+        'disponivel': True,
+        'desc': 'Free-for-all Sabers',
     },
     {
         'nome': '',
@@ -390,7 +390,12 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
     print(f"[LOBBY] Sala SquareStorm aberta ({'HOST' if is_host else 'CLIENTE'})")
 
     # Fontes
-    fonte_grande = pygame.font.SysFont("Arial", 34, True)
+    try:
+        fonte_grande = pygame.font.Font(FONTE_PIXEL_PATH, 24)
+        fonte_lobby_sub = pygame.font.Font(FONTE_PIXEL_PATH, 12)
+    except:
+        fonte_grande = pygame.font.SysFont("Arial", 34, True)
+        fonte_lobby_sub = pygame.font.SysFont("Arial", 14)
     fonte_titulo = pygame.font.SysFont("Arial", 16, True)
     fonte_peq = pygame.font.SysFont("Arial", 13)
     fonte_nomes = pygame.font.SysFont("Arial", 12)
@@ -406,9 +411,13 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
     # Portais
     portais_rects = _calcular_portais(sala)
 
-    # Jogador local - posição
-    jx = float(sala.centerx - TAM_PLAYER // 2)
-    jy = float(sala.bottom - 90)
+    # Jogador local - posição (usar posição do servidor se disponível)
+    if cliente.local_player_pos:
+        jx = float(cliente.local_player_pos[0])
+        jy = float(cliente.local_player_pos[1])
+    else:
+        jx = float(sala.centerx - TAM_PLAYER // 2)
+        jy = float(sala.bottom - 90)
 
     # Cor do jogador local (index 0 = host, clientes recebem pelo player_id)
     player_id_local = cliente.local_player_id or 1
@@ -434,10 +443,10 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
             bots.append({'nome': f"Bot {i + 1}", 'cor': bot_cores[i % len(bot_cores)]})
 
     # Game start callback
-    game_started = [False]
+    game_start_data = [None]
 
     def on_game_start(data):
-        game_started[0] = True
+        game_start_data[0] = data
 
     cliente.set_callback('on_game_start', on_game_start)
 
@@ -473,13 +482,15 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
                     return ("cancel", None)
 
         # ========== GAME START ==========
-        if game_started[0]:
+        if game_start_data[0] is not None:
             cor_local = PALETA_JOGADORES[cor_index_local]
+            gsd = game_start_data[0]
             return ("start", {
                 'cor': cor_local,
                 'cor_nome': str(cor_index_local),
                 'bots': bots,
-                'modo': 'Bomb',
+                'modo': gsd.get('modo', 'Bomb'),
+                'seed': gsd.get('seed'),
             })
 
         # ========== MOVIMENTO ==========
@@ -545,14 +556,16 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
                 if portal['disponivel']:
                     if is_host:
                         cor_local = PALETA_JOGADORES[cor_index_local]
+                        seed = random.randint(0, 2**31)
                         cust = {
                             'cor': cor_local,
                             'cor_nome': str(cor_index_local),
                             'bots': bots,
                             'modo': portal['nome'],
+                            'seed': seed,
                         }
                         print(f"[LOBBY] Host iniciou {portal['nome']}!")
-                        servidor.broadcast_game_start()
+                        servidor.broadcast_game_start(modo=portal['nome'], seed=seed)
                         return ("start", cust)
                     else:
                         msg = "Somente o HOST pode iniciar!"
@@ -603,13 +616,13 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
 
         # ========== UI OVERLAY ==========
 
-        # Título estilizado
+        # Título estilizado (pixel)
         titulo = fonte_grande.render("SQUARESTORM", True, (200, 200, 255))
-        tela.blit(titulo, (LARGURA // 2 - titulo.get_width() // 2, 10))
+        tela.blit(titulo, (LARGURA // 2 - titulo.get_width() // 2, 8))
 
-        # Subtítulo
-        sub = fonte_ip.render("LOBBY", True, (120, 120, 160))
-        tela.blit(sub, (LARGURA // 2 - sub.get_width() // 2, 44))
+        # Subtítulo (pixel)
+        sub = fonte_lobby_sub.render("LOBBY", True, (120, 120, 160))
+        tela.blit(sub, (LARGURA // 2 - sub.get_width() // 2, 38))
 
         # IP
  

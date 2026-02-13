@@ -200,10 +200,9 @@ class GameServer:
                 player = PlayerConnection(player_id, client_socket, address)
                 player.player_name = packet_data.get('player_name', f'Player{player_id}')
 
-                # Posição inicial aleatória
-                import random
-                player.x = random.randint(200, 1080)
-                player.y = random.randint(200, 500)
+                # Posição inicial fixa (igual ao lobby: sala.centerx - TAM_PLAYER//2, sala.bottom - 90)
+                player.x = 725
+                player.y = 630
                 player.health = 5
                 player.alive = True
 
@@ -334,6 +333,10 @@ class GameServer:
         elif packet_type == PacketType.TEAM_SELECT:
             # Jogador escolheu um time
             self._process_team_selection(player_id, data)
+
+        elif packet_type == PacketType.MINIGAME_ACTION:
+            # Relay puro: reenviar para todos os outros clientes
+            self._broadcast_packet(packet_data, exclude_player=player_id)
 
     def _update_player_input(self, player_id: int, data: Dict):
         """
@@ -469,8 +472,8 @@ class GameServer:
                 if not player.alive:
                     continue
 
-                # Velocidade de movimento
-                velocidade = 5.0
+                # Velocidade de movimento (igual a VEL_LOBBY do lobby)
+                velocidade = 4.0
 
                 # Processar teclas de movimento (WASD)
                 dx = 0
@@ -496,9 +499,9 @@ class GameServer:
                 player.x += dx
                 player.y += dy
 
-                # Limitar às bordas da arena (assumindo 1280x720)
-                player.x = max(25, min(1255, player.x))
-                player.y = max(25, min(595, player.y))
+                # Limitar às bordas do lobby (sala.x+8 até sala.right-TAM_PLAYER-8)
+                player.x = max(33, min(1417, player.x))
+                player.y = max(73, min(682, player.y))
 
     def _sync_game_state(self):
         """Sincroniza o estado do jogo com todos os clientes."""
@@ -562,14 +565,23 @@ class GameServer:
                 for pid, player in self.players.items()
             ]
 
-    def broadcast_game_start(self):
+    def broadcast_game_start(self, modo='Bomb', seed=None):
         """
         Envia sinal para todos os clientes que a partida está iniciando.
         Deve ser chamado pelo host quando clicar em INICIAR.
+
+        Args:
+            modo: Nome do modo de jogo ('Bomb', 'Aim', 'Duel')
+            seed: Seed para sincronizar random entre clientes
         """
-        print("[SERVER] Broadcasting GAME_START para todos os clientes...")
+        import random as _rnd
+        if seed is None:
+            seed = _rnd.randint(0, 2**31)
+        print(f"[SERVER] Broadcasting GAME_START modo={modo} seed={seed}")
         packet = NetworkProtocol.create_packet(PacketType.GAME_START, {
-            'message': 'Host iniciou a partida'
+            'message': 'Host iniciou a partida',
+            'modo': modo,
+            'seed': seed,
         })
         self._broadcast_packet(packet)
 

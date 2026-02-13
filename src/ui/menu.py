@@ -43,6 +43,14 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
     flashes = []
     tempo_ultimo_efeito = 0
     
+    # Fonte pixel para título
+    try:
+        fonte_pixel_grande = pygame.font.Font(FONTE_PIXEL_PATH, 48)
+        fonte_pixel_sub = pygame.font.Font(FONTE_PIXEL_PATH, 16)
+    except:
+        fonte_pixel_grande = pygame.font.SysFont("Arial", 48, True)
+        fonte_pixel_sub = pygame.font.SysFont("Arial", 16, True)
+
     # Animação de título
     titulo_escala = 0
     titulo_alvo = 1.0
@@ -163,27 +171,29 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         for i in range(0, ALTURA, 60):
             pygame.draw.line(tela, (30, 30, 60, 100), (0, i), (LARGURA, i), 1)
         
-        # Desenhar título SquareStorm com efeito metálico
-        tamanho_titulo = int(90 * titulo_escala)
-        if tamanho_titulo > 10:
+        # Desenhar título SquareStorm com fonte pixel retro
+        if titulo_escala > 0.1:
             # Sombra profunda
-            desenhar_texto(tela, "SQUARESTORM", tamanho_titulo, (0, 0, 50), 
-                         LARGURA // 2 + 4, titulo_y + 4, fonte_titulo)
-            
+            sombra_surf = fonte_pixel_grande.render("SQUARESTORM", True, (0, 0, 50))
+            sombra_rect = sombra_surf.get_rect(center=(LARGURA // 2 + 4, titulo_y + 4))
+            tela.blit(sombra_surf, sombra_rect)
+
             # Contorno
-            desenhar_texto(tela, "SQUARESTORM", tamanho_titulo, (100, 150, 255), 
-                         LARGURA // 2 + 2, titulo_y + 2, fonte_titulo)
-            
+            cont_surf = fonte_pixel_grande.render("SQUARESTORM", True, (100, 150, 255))
+            cont_rect = cont_surf.get_rect(center=(LARGURA // 2 + 2, titulo_y + 2))
+            tela.blit(cont_surf, cont_rect)
+
             # Texto principal com brilho pulsante
             pulse = (math.sin(tempo_atual / 500) + 1) * 0.5
             cor_principal = tuple(int(c * (0.8 + 0.2 * pulse)) for c in BRANCO)
-            desenhar_texto(tela, "SQUARESTORM", tamanho_titulo, cor_principal, 
-                         LARGURA // 2, titulo_y, fonte_titulo)
-            
-            # Subtítulo estilizado
-            subtitulo_surf = fonte_titulo.render("THE GEOMETRY BATTLE ARENA", True, CIANO)
+            titulo_surf = fonte_pixel_grande.render("SQUARESTORM", True, cor_principal)
+            titulo_rect = titulo_surf.get_rect(center=(LARGURA // 2, titulo_y))
+            tela.blit(titulo_surf, titulo_rect)
+
+            # Subtítulo estilizado com fonte pixel
+            subtitulo_surf = fonte_pixel_sub.render("THE GEOMETRY BATTLE ARENA", True, CIANO)
             subtitulo_surf.set_alpha(subtitulo_alpha)
-            subtitulo_rect = subtitulo_surf.get_rect(center=(LARGURA // 2, titulo_y + 90))
+            subtitulo_rect = subtitulo_surf.get_rect(center=(LARGURA // 2, titulo_y + 55))
             tela.blit(subtitulo_surf, subtitulo_rect)
         
         # Exibir quantidade de moedas com estilo
@@ -196,7 +206,7 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
             desenhar_texto(tela, "0", 24, AMARELO, 60, 30)
         
         # Controles com design mais clean
-        controles_y = ALTURA // 2 + 20
+        controles_y = ALTURA // 2 - 30
         fonte_controles = pygame.font.SysFont("Arial", 22, False)
         
         # Icones de teclas
@@ -253,8 +263,8 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         # Definir botões estilizados
         largura_botao = 320
         altura_botao = 65
-        espacamento = 85
-        y_inicial = ALTURA * 3 // 4 - 40
+        espacamento = 75
+        y_inicial = ALTURA * 3 // 4 - 100
         
         # Botão Jogar
         x_jogar = LARGURA // 2
@@ -330,18 +340,28 @@ def tela_inicio(tela, relogio, gradiente_menu, fonte_titulo):
         botao_sair = criar_botao(tela, "EXIT", x_sair, y_sair, largura_botao * 0.7, altura_botao * 0.8,
                                (150, 50, 50), (200, 80, 80), BRANCO)
 
-        # Botão Multiplayer (Lado Esquerdo) - SEM ÍCONE
+        # Botão MINI GAMES (Lado Esquerdo) - cor rainbow animada
         mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
         hover_multi = rect_multiplayer.collidepoint(mouse_pos)
-        cor_multi = (80, 200, 150) if hover_multi else (50, 150, 100)
+
+        # Cor que muda com o tempo (ciclo rainbow)
+        t = tempo_atual / 1000.0
+        r_cor = int(127 + 127 * math.sin(t * 2.0))
+        g_cor = int(127 + 127 * math.sin(t * 2.0 + 2.094))
+        b_cor = int(127 + 127 * math.sin(t * 2.0 + 4.189))
+        cor_multi = (min(255, r_cor + 40), min(255, g_cor + 40), min(255, b_cor + 40)) if hover_multi else (r_cor, g_cor, b_cor)
 
         # Fundo do botão
         pygame.draw.rect(tela, cor_multi, rect_multiplayer, 0, 12)
-        pygame.draw.rect(tela, BRANCO, rect_multiplayer, 3, 12)
+        # Borda brilhante que também muda de cor
+        r_b = int(127 + 127 * math.sin(t * 3.0 + 1.0))
+        g_b = int(127 + 127 * math.sin(t * 3.0 + 3.094))
+        b_b = int(127 + 127 * math.sin(t * 3.0 + 5.189))
+        pygame.draw.rect(tela, (r_b, g_b, b_b), rect_multiplayer, 3, 12)
 
-        # Texto "MULTIPLAYER" centralizado (SEM ÍCONE)
-        fonte_multi = pygame.font.SysFont("Arial", 16, True)
-        texto_multi = fonte_multi.render("MULTIPLAYER", True, BRANCO)
+        # Texto "MINI GAMES" centralizado
+        fonte_multi = pygame.font.SysFont("Arial", 18, True)
+        texto_multi = fonte_multi.render("MINI GAMES", True, BRANCO)
         texto_rect = texto_multi.get_rect(center=rect_multiplayer.center)
         tela.blit(texto_multi, texto_rect)
 

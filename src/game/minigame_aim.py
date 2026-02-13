@@ -135,10 +135,11 @@ class AlvoMovel:
 class JogadorAim:
     """Jogador ou bot no minigame Aim."""
 
-    def __init__(self, nome, cor, is_bot=True):
+    def __init__(self, nome, cor, is_bot=True, is_remote=False):
         self.nome = nome
         self.cor = cor
         self.is_bot = is_bot
+        self.is_remote = is_remote  # Jogador humano remoto (controlado via rede)
         self.acertos = 0
         self.tiros_restantes = 5
         self.alvo_atual = 0
@@ -296,6 +297,16 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
     """
     print("[AIM] Minigame Aim iniciado!")
 
+    # --- Seed compartilhado para sincronizar random entre host e clientes ---
+    seed = customizacao.get('seed')
+    if seed is not None:
+        random.seed(seed)
+        print(f"[AIM] Usando seed compartilhado: {seed}")
+
+    # Limpar fila de ações pendentes de sessões anteriores
+    if cliente:
+        cliente.get_minigame_actions()
+
     # --- Fontes ---
     fonte_grande = pygame.font.SysFont("Arial", 48, True)
     fonte_media = pygame.font.SysFont("Arial", 28, True)
@@ -325,11 +336,11 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
         remotos = cliente.get_remote_players()
     n_humanos = 1 + len(remotos)
 
-    # Adicionar jogadores remotos
+    # Adicionar jogadores remotos (humanos controlados via rede)
     pid_idx = 1
     for pid, rp in remotos.items():
         ci = (pid - 1) % len(PALETA_CORES)
-        jogadores.append(JogadorAim(rp.name, PALETA_CORES[ci], is_bot=True))  # remotos atuam como bots por ora
+        jogadores.append(JogadorAim(rp.name, PALETA_CORES[ci], is_bot=False, is_remote=True))
         pid_idx += 1
 
     # Preencher com bots ate 8
@@ -421,13 +432,19 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
                     pygame.mouse.set_visible(True)
                     return None
 
-            # Tiro do jogador humano
+            # Tiro do jogador humano local
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-                if estado == "AIMING" and jogador_vez and not jogador_vez.is_bot:
+                if estado == "AIMING" and jogador_vez and not jogador_vez.is_bot and not jogador_vez.is_remote:
                     if jogador_vez.tiros_restantes > 0 and tempo - ultimo_tiro_humano > COOLDOWN_TIRO:
                         ultimo_tiro_humano = tempo
                         mx, my = convert_mouse_position(pygame.mouse.get_pos())
                         _disparar_tiro(jogador_vez, mx, my, tiros, particulas, flashes)
+                        # Enviar tiro para os outros jogadores via rede
+                        if cliente:
+                            cliente.send_minigame_action({
+                                'action': 'aim_shot',
+                                'mx': mx, 'my': my,
+                            })
 
         # ========== PULSACAO ==========
         if tempo - ultimo_pulso > 100:
@@ -527,6 +544,14 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
                 jogador_sim.y = jogador_vez.target_y
                 jogador_sim.cor = jogador_vez.cor
                 jogador_sim.tiros_desert_eagle = jogador_vez.tiros_restantes
+
+            # Processar tiros de jogadores remotos via rede
+            if jogador_vez.is_remote and jogador_vez.tiros_restantes > 0 and cliente:
+                for action in cliente.get_minigame_actions():
+                    if action.get('action') == 'aim_shot':
+                        rmx = action.get('mx', 0)
+                        rmy = action.get('my', 0)
+                        _disparar_tiro(jogador_vez, rmx, rmy, tiros, particulas, flashes)
 
             # Bot AI
             if jogador_vez.is_bot and jogador_vez.tiros_restantes > 0:

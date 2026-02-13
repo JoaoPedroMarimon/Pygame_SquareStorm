@@ -53,6 +53,7 @@ class GameClient:
         # ID do jogador local
         self.local_player_id = None
         self.local_player_name = "Player"
+        self.local_player_pos = None  # (x, y) posição inicial recebida do servidor
 
         # Jogadores remotos
         self.remote_players: Dict[int, RemotePlayer] = {}
@@ -80,8 +81,13 @@ class GameClient:
             'on_game_state_update': None,
             'on_game_start': None,  # Callback quando o host inicia a partida
             'on_team_status': None,  # Callback quando recebe status de times
-            'on_all_ready': None  # Callback quando todos escolheram time
+            'on_all_ready': None,  # Callback quando todos escolheram time
+            'on_minigame_action': None,  # Callback para ações de minigame
         }
+
+        # Fila thread-safe de ações de minigame recebidas
+        self.minigame_actions = []
+        self.minigame_actions_lock = threading.Lock()
 
         # Status de seleção de times
         self.team_status = {}  # {player_id: {'team': 'T'/'Q', 'name': 'nome'}}
@@ -278,6 +284,10 @@ class GameClient:
             # Todos escolheram time
             self._handle_all_ready(data)
 
+        elif packet_type == PacketType.MINIGAME_ACTION:
+            # Ação de minigame recebida de outro jogador
+            self._handle_minigame_action(data)
+
     def _handle_full_sync(self, data: Dict):
         """
         Processa sincronização completa.
@@ -296,8 +306,9 @@ class GameClient:
             for player_data in data.get('players', []):
                 player_id = player_data['id']
 
-                # Não adicionar o jogador local
+                # Armazenar posição do jogador local
                 if player_id == self.local_player_id:
+                    self.local_player_pos = (player_data['x'], player_data['y'])
                     continue
 
                 player = RemotePlayer(player_id, player_data['name'])
@@ -459,6 +470,45 @@ class GameClient:
         # Chamar callback
         if self.callbacks['on_all_ready']:
             self.callbacks['on_all_ready'](data)
+
+    def _handle_minigame_action(self, data: Dict):
+        """
+        Processa ação de minigame recebida de outro jogador.
+
+        Args:
+            data: Dados da ação
+        """
+        with self.minigame_actions_lock:
+            self.minigame_actions.append(data)
+
+        if self.callbacks.get('on_minigame_action'):
+            self.callbacks['on_minigame_action'](data)
+
+    def send_minigame_action(self, action_data: dict):
+        """
+        Envia uma ação de minigame para o servidor (que faz relay para os outros).
+
+        Args:
+            action_data: Dados da ação (ex: {'action': 'aim_shot', 'mx': 100, 'my': 200})
+        """
+        if not self.connected or not self.local_player_id:
+            return
+
+        try:
+            packet = NetworkProtocol.create_minigame_action_packet(
+                self.local_player_id, action_data
+            )
+            self.socket.sendall(packet)
+        except Exception as e:
+            print(f"Erro ao enviar minigame action: {e}")
+            self.connected = False
+
+    def get_minigame_actions(self):
+        """Retorna e limpa a fila de ações de minigame recebidas."""
+        with self.minigame_actions_lock:
+            actions = list(self.minigame_actions)
+            self.minigame_actions.clear()
+            return actions
 
     def send_team_selection(self, team: str, player_name: str):
         """

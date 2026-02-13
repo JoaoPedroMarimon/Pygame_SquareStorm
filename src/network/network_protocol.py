@@ -44,6 +44,9 @@ class PacketType(IntEnum):
     FULL_SYNC = 40
     PARTIAL_SYNC = 41
 
+    # Minigame
+    MINIGAME_ACTION = 50
+
 
 class NetworkProtocol:
     """Gerencia a serialização e deserialização de pacotes de rede."""
@@ -222,6 +225,14 @@ class NetworkProtocol:
         """Cria um pacote com status de todos os jogadores (quem já escolheu time)."""
         return NetworkProtocol.create_packet(PacketType.TEAM_STATUS, {
             'players': players_status
+        })
+
+    @staticmethod
+    def create_minigame_action_packet(player_id: int, action_data: dict) -> bytes:
+        """Cria um pacote de ação de minigame."""
+        return NetworkProtocol.create_packet(PacketType.MINIGAME_ACTION, {
+            'player_id': player_id,
+            **action_data
         })
 
     @staticmethod

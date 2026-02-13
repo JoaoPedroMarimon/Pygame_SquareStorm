@@ -217,10 +217,11 @@ class ArmaChao:
 class JogadorDuals:
     """Jogador no minigame Duals."""
 
-    def __init__(self, nome, cor, is_bot=True):
+    def __init__(self, nome, cor, is_bot=True, is_remote=False):
         self.nome = nome
         self.cor = cor
         self.is_bot = is_bot
+        self.is_remote = is_remote  # Jogador humano remoto (controlado via rede)
         self.hp = HP_MAX
         self.vivo = True
         self.eliminado = False  # eliminado do torneio
@@ -913,6 +914,16 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
     """Executa o minigame Duals."""
     print("[DUALS] Minigame Duals iniciado!")
 
+    # --- Seed compartilhado para sincronizar random entre host e clientes ---
+    seed = customizacao.get('seed')
+    if seed is not None:
+        random.seed(seed)
+        print(f"[DUALS] Usando seed compartilhado: {seed}")
+
+    # Limpar fila de ações pendentes de sessões anteriores
+    if cliente:
+        cliente.get_minigame_actions()
+
     # --- Fontes ---
     fonte_grande = pygame.font.SysFont("Arial", 48, True)
     fonte_media = pygame.font.SysFont("Arial", 28, True)
@@ -943,7 +954,7 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
     pid_idx = 1
     for pid, rp in remotos.items():
         ci = (pid - 1) % len(PALETA_CORES)
-        jogadores.append(JogadorDuals(rp.name, PALETA_CORES[ci], is_bot=True))
+        jogadores.append(JogadorDuals(rp.name, PALETA_CORES[ci], is_bot=False, is_remote=True))
         pid_idx += 1
 
     nomes_bots = ["Bot Alpha", "Bot Bravo", "Bot Charlie", "Bot Delta",
@@ -1009,10 +1020,10 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                 if ev.key == pygame.K_ESCAPE:
                     pygame.mouse.set_visible(True)
                     return None
-                # Dash do jogador humano
+                # Dash do jogador humano local
                 if ev.key == pygame.K_SPACE and estado == "FIGHT":
                     for d in (duelista1, duelista2):
-                        if d and not d.is_bot and d.vivo and not d.dash_ativo:
+                        if d and not d.is_bot and not d.is_remote and d.vivo and not d.dash_ativo:
                             teclas_dash = pygame.key.get_pressed()
                             ddx, ddy = 0.0, 0.0
                             if teclas_dash[pygame.K_w] or teclas_dash[pygame.K_UP]:
@@ -1023,15 +1034,24 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                                 ddx -= 1
                             if teclas_dash[pygame.K_d] or teclas_dash[pygame.K_RIGHT]:
                                 ddx += 1
-                            d.executar_dash(ddx, ddy)
+                            if d.executar_dash(ddx, ddy) and cliente:
+                                cliente.send_minigame_action({
+                                    'action': 'duel_dash',
+                                    'dx': ddx, 'dy': ddy,
+                                })
 
-            # Tiro do jogador humano
+            # Tiro do jogador humano local
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 if estado == "FIGHT":
                     for d in (duelista1, duelista2):
-                        if d and not d.is_bot and d.vivo:
+                        if d and not d.is_bot and not d.is_remote and d.vivo:
                             mx, my = convert_mouse_position(pygame.mouse.get_pos())
                             _disparar(d, mx, my, tiros, particulas, flashes)
+                            if cliente:
+                                cliente.send_minigame_action({
+                                    'action': 'duel_shot',
+                                    'mx': mx, 'my': my,
+                                })
 
         # ========== PULSACAO ==========
         if tempo - ultimo_pulso > 100:
@@ -1039,10 +1059,10 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
             pulsacao = (pulsacao + 1) % 12
 
         # ========== ATUALIZAR MIRA ==========
-        # Mira do jogador humano (sempre atualizada)
+        # Mira do jogador humano local (remotos recebem via rede)
         mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
         for d in (duelista1, duelista2):
-            if d and not d.is_bot:
+            if d and not d.is_bot and not d.is_remote:
                 d.mira_x = float(mouse_pos[0])
                 d.mira_y = float(mouse_pos[1])
 
@@ -1109,10 +1129,31 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                         d.bot_strafe_timer = tempo + random.randint(200, 600)
 
         elif estado == "FIGHT":
-            # --- Movimento do jogador humano ---
+            # --- Processar ações remotas via rede ---
+            if cliente:
+                for action in cliente.get_minigame_actions():
+                    act = action.get('action')
+                    for d in (duelista1, duelista2):
+                        if d and d.is_remote and d.vivo:
+                            if act == 'duel_input':
+                                # Posição e mira do jogador remoto
+                                d.x = action.get('x', d.x)
+                                d.y = action.get('y', d.y)
+                                d.mira_x = action.get('mx', d.mira_x)
+                                d.mira_y = action.get('my', d.mira_y)
+                            elif act == 'duel_shot':
+                                rmx = action.get('mx', 0)
+                                rmy = action.get('my', 0)
+                                _disparar(d, rmx, rmy, tiros, particulas, flashes)
+                            elif act == 'duel_dash':
+                                ddx = action.get('dx', 0)
+                                ddy = action.get('dy', 0)
+                                d.executar_dash(ddx, ddy)
+
+            # --- Movimento do jogador humano local ---
             teclas = pygame.key.get_pressed()
             for d in (duelista1, duelista2):
-                if d and not d.is_bot and d.vivo:
+                if d and not d.is_bot and not d.is_remote and d.vivo:
                     dx_mov, dy_mov = 0.0, 0.0
                     if teclas[pygame.K_w] or teclas[pygame.K_UP]:
                         dy_mov -= VEL_DUELO
@@ -1133,13 +1174,27 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
             # --- Atualizar dash e posicoes dos duelistas ---
             for d in (duelista1, duelista2):
                 if d and d.vivo:
-                    d.atualizar_dash()
-                    if not d.dash_ativo:
-                        # Movimento normal so quando nao esta em dash
-                        d.x += d.vx
-                        d.y += d.vy
+                    if d.is_remote:
+                        # Jogador remoto: posição vem da rede, só atualiza dash local
+                        d.atualizar_dash()
+                    else:
+                        d.atualizar_dash()
+                        if not d.dash_ativo:
+                            # Movimento normal so quando nao esta em dash
+                            d.x += d.vx
+                            d.y += d.vy
                     d.x = max(ARENA_X + 4, min(d.x, ARENA_X + ARENA_W - TAM_JOGADOR - 4))
                     d.y = max(ARENA_Y + 4, min(d.y, ARENA_Y + ARENA_H - TAM_JOGADOR - 4))
+
+            # --- Enviar posição final do jogador humano local via rede ---
+            if cliente:
+                for d in (duelista1, duelista2):
+                    if d and not d.is_bot and not d.is_remote and d.vivo:
+                        cliente.send_minigame_action({
+                            'action': 'duel_input',
+                            'x': d.x, 'y': d.y,
+                            'mx': d.mira_x, 'my': d.mira_y,
+                        })
 
             # --- Drop de armas (misterioso joga via telecinese) ---
             if tempo - ultimo_drop >= ARMA_DROP_INTERVALO:
