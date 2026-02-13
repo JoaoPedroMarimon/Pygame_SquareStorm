@@ -74,6 +74,27 @@ PORTAIS = [
         'disponivel': True,
         'desc': 'Duelo 1v1',
     },
+    {
+        'nome': 'Saber Duel',
+        'cor_base': (80, 80, 80),
+        'cor_glow': (140, 140, 140),
+        'disponivel': False,
+        'desc': 'Em desenvolvimento',
+    },
+    {
+        'nome': '',
+        'cor_base': (80, 80, 80),
+        'cor_glow': (140, 140, 140),
+        'disponivel': False,
+        'desc': 'Em desenvolvimento',
+    },
+    {
+        'nome': '',
+        'cor_base': (80, 80, 80),
+        'cor_glow': (140, 140, 140),
+        'disponivel': False,
+        'desc': 'Em desenvolvimento',
+    },
 ]
 
 
@@ -142,17 +163,23 @@ def _desenhar_player(tela, x, y, cor, nome, fonte, is_host=False, pulsacao=0):
 
 
 def _calcular_portais(sala):
-    """Retorna lista de Rects para os portais, centralizados horizontalmente."""
+    """Retorna lista de Rects para os portais em grid 3x2 (3 colunas, 2 linhas)."""
     rects = []
-    portal_w = 140
-    portal_h = 100
-    n = len(PORTAIS)
-    espaco = (sala.width - portal_w * n) // (n + 1)
-    py = sala.y + sala.height // 3 - portal_h // 2  # Um terço da sala
+    portal_w = 95
+    portal_h = 70
+    colunas = 3
+    linhas = 2
+    espaco_x = (sala.width - portal_w * colunas) // (colunas + 1)
+    espaco_y = 30
+    # Centralizar verticalmente as 2 linhas
+    altura_total = linhas * portal_h + (linhas - 1) * espaco_y
+    y_inicio = sala.y + (sala.height - altura_total) // 2 - 20
 
-    for i in range(n):
-        px = sala.x + espaco + i * (portal_w + espaco)
-        rects.append(pygame.Rect(px, py, portal_w, portal_h))
+    for linha in range(linhas):
+        for col in range(colunas):
+            px = sala.x + espaco_x + col * (portal_w + espaco_x)
+            py = y_inicio + linha * (portal_h + espaco_y)
+            rects.append(pygame.Rect(px, py, portal_w, portal_h))
     return rects
 
 
@@ -258,65 +285,75 @@ def _desenhar_portal(tela, rect, portal, tempo, idx, fonte_titulo, fonte_peq, jo
     """Desenha um portal de modo de jogo."""
     cor_base = portal['cor_base']
     cor_glow = portal['cor_glow']
+    disponivel = portal['disponivel']
     cx, cy = rect.centerx, rect.centery
 
-    # --- Glow externo ---
-    glow_size = rect.width + 16
-    glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
     pulso = math.sin(tempo / 500 + idx * 2) * 0.3 + 0.7
-    alpha_glow = int(35 * pulso)
-    if jogador_dentro:
-        alpha_glow = int(60 * pulso)
-    pygame.draw.ellipse(glow_surf, (*cor_glow, alpha_glow),
-                        (0, 0, glow_size, glow_size))
-    tela.blit(glow_surf, (cx - glow_size // 2, cy - glow_size // 2))
+
+    if disponivel:
+        # --- Glow externo ---
+        glow_size = rect.width + 16
+        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        alpha_glow = int(35 * pulso)
+        if jogador_dentro:
+            alpha_glow = int(60 * pulso)
+        pygame.draw.ellipse(glow_surf, (*cor_glow, alpha_glow),
+                            (0, 0, glow_size, glow_size))
+        tela.blit(glow_surf, (cx - glow_size // 2, cy - glow_size // 2))
 
     # --- Plataforma circular ---
     # Sombra
     pygame.draw.ellipse(tela, (10, 8, 18),
                         (rect.x + 4, rect.y + 4, rect.width, rect.height))
     # Base
-    cor_plat = tuple(max(0, min(255, int(c * pulso))) for c in cor_base)
+    if disponivel:
+        cor_plat = tuple(max(0, min(255, int(c * pulso))) for c in cor_base)
+    else:
+        cor_plat = (35, 32, 45)
     pygame.draw.ellipse(tela, cor_plat, rect)
 
     # Anéis concêntricos
-    for i in range(3):
-        raio = min(rect.width, rect.height) // 2 - 8 - i * 12
-        if raio > 5:
-            alpha_anel = int(80 + 40 * math.sin(tempo / 400 + i * 1.5))
-            cor_anel = tuple(min(255, c + 30) for c in cor_base)
-            pygame.draw.ellipse(tela, cor_anel,
-                                (cx - raio, cy - raio, raio * 2, raio * 2), 1)
+    if disponivel:
+        for i in range(3):
+            raio = min(rect.width, rect.height) // 2 - 8 - i * 10
+            if raio > 5:
+                cor_anel = tuple(min(255, c + 30) for c in cor_base)
+                pygame.draw.ellipse(tela, cor_anel,
+                                    (cx - raio, cy - raio, raio * 2, raio * 2), 1)
 
     # Borda
-    cor_borda = cor_glow if jogador_dentro else tuple(min(255, c + 40) for c in cor_base)
-    largura_borda = 3 if jogador_dentro else 2
+    if disponivel:
+        cor_borda = cor_glow if jogador_dentro else tuple(min(255, c + 40) for c in cor_base)
+        largura_borda = 3 if jogador_dentro else 2
+    else:
+        cor_borda = (60, 55, 75)
+        largura_borda = 1
     pygame.draw.ellipse(tela, cor_borda, rect, largura_borda)
 
     # Partículas orbitando (se disponível)
-    if portal['disponivel']:
+    if disponivel:
         for i in range(4):
             ang = (tempo / 800 + i * math.pi / 2 + idx)
             r = min(rect.width, rect.height) // 2 - 5
             px = cx + int(math.cos(ang) * r)
-            py = cy + int(math.sin(ang) * r * 0.5)  # Elíptico
+            py = cy + int(math.sin(ang) * r * 0.5)
             pygame.draw.circle(tela, cor_glow, (px, py), 3)
 
     # --- Texto ---
-    linhas = portal['nome'].split('\n')
-    y_text = cy - 16 if len(linhas) == 1 else cy - 22
-    for linha in linhas:
-        s = fonte_titulo.render(linha, True, BRANCO)
-        tela.blit(s, (cx - s.get_width() // 2, y_text))
-        y_text += s.get_height() + 2
+    if disponivel:
+        nome_cor = BRANCO
+    else:
+        nome_cor = (100, 95, 120)
+    s = fonte_titulo.render(portal['nome'], True, nome_cor)
+    tela.blit(s, (cx - s.get_width() // 2, cy - 14))
 
     # Descrição
-    if portal['disponivel']:
+    if disponivel:
         desc_cor = (180, 255, 180)
     else:
-        desc_cor = (255, 200, 100)
+        desc_cor = (120, 110, 80)
     desc_s = fonte_peq.render(portal['desc'], True, desc_cor)
-    tela.blit(desc_s, (cx - desc_s.get_width() // 2, rect.bottom - 22))
+    tela.blit(desc_s, (cx - desc_s.get_width() // 2, rect.bottom - 18))
 
 
 def _desenhar_barra_timer(tela, jx, jy, progresso, fonte):

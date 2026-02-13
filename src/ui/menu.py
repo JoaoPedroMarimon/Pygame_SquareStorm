@@ -985,10 +985,7 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
     # Valores padrão
     nome = "Host"
     porta = "5555"
-    max_jogadores = "4"
-    modo_jogo_index = 0
-    modos_jogo = ["Cooperativo", "Versus", "Survival"]
-    campo_ativo = None  # nome, porta, max_jogadores
+    campo_ativo = None  # nome, porta
 
     # Botões e campos
     btn_criar = pygame.Rect(LARGURA // 2 - 120, ALTURA - 120, 240, 60)
@@ -997,11 +994,6 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
     # Campos de input
     input_nome = pygame.Rect(LARGURA // 2 - 200, 220, 400, 50)
     input_porta = pygame.Rect(LARGURA // 2 - 200, 300, 400, 50)
-    input_max = pygame.Rect(LARGURA // 2 - 200, 380, 400, 50)
-
-    # Botões de modo de jogo
-    btn_modo_esq = pygame.Rect(LARGURA // 2 - 150, 460, 40, 40)
-    btn_modo_dir = pygame.Rect(LARGURA // 2 + 110, 460, 40, 40)
 
     while True:
         for evento in pygame.event.get():
@@ -1016,12 +1008,12 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
                 if evento.key == pygame.K_RETURN and campo_ativo is None:
                     # Criar servidor
                     try:
-                        print(f"[CRIAR SERVIDOR] Criando: porta={porta}, max={max_jogadores}, modo={modos_jogo[modo_jogo_index]}")
+                        print(f"[CRIAR SERVIDOR] Criando: porta={porta}")
                         return {
                             'player_name': nome,
                             'port': int(porta),
-                            'max_players': int(max_jogadores),
-                            'game_mode': modos_jogo[modo_jogo_index]
+                            'max_players': 4,
+                            'game_mode': "Cooperativo"
                         }
                     except ValueError:
                         print("[CRIAR SERVIDOR] Erro: valores invalidos")
@@ -1031,16 +1023,12 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
                         nome = nome[:-1]
                     elif campo_ativo == "porta":
                         porta = porta[:-1]
-                    elif campo_ativo == "max_jogadores":
-                        max_jogadores = max_jogadores[:-1]
 
                 elif campo_ativo and evento.unicode:
                     if campo_ativo == "nome" and len(nome) < 20:
                         nome += evento.unicode
                     elif campo_ativo == "porta" and len(porta) < 5 and evento.unicode.isdigit():
                         porta += evento.unicode
-                    elif campo_ativo == "max_jogadores" and len(max_jogadores) < 2 and evento.unicode.isdigit():
-                        max_jogadores += evento.unicode
 
             if evento.type == pygame.MOUSEBUTTONDOWN:
                 mouse_click_pos = convert_mouse_position(evento.pos)
@@ -1050,26 +1038,18 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
                     campo_ativo = "nome"
                 elif input_porta.collidepoint(mouse_click_pos):
                     campo_ativo = "porta"
-                elif input_max.collidepoint(mouse_click_pos):
-                    campo_ativo = "max_jogadores"
                 else:
                     campo_ativo = None
-
-                # Verificar botões de modo
-                if btn_modo_esq.collidepoint(mouse_click_pos):
-                    modo_jogo_index = (modo_jogo_index - 1) % len(modos_jogo)
-                elif btn_modo_dir.collidepoint(mouse_click_pos):
-                    modo_jogo_index = (modo_jogo_index + 1) % len(modos_jogo)
 
                 # Verificar botões principais
                 if btn_criar.collidepoint(mouse_click_pos):
                     try:
-                        print(f"[CRIAR SERVIDOR] Criando: porta={porta}, max={max_jogadores}, modo={modos_jogo[modo_jogo_index]}")
+                        print(f"[CRIAR SERVIDOR] Criando: porta={porta}")
                         return {
                             'player_name': nome,
                             'port': int(porta),
-                            'max_players': int(max_jogadores),
-                            'game_mode': modos_jogo[modo_jogo_index]
+                            'max_players': 4,
+                            'game_mode': "Cooperativo"
                         }
                     except ValueError:
                         print("[CRIAR SERVIDOR] Erro: valores invalidos")
@@ -1104,44 +1084,6 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
         pygame.draw.rect(tela, BRANCO, input_porta, 3, 8)
         texto_porta = fonte_normal.render(porta if porta else "5555", True, BRANCO if porta else (100, 100, 100))
         tela.blit(texto_porta, (input_porta.x + 10, input_porta.y + 12))
-
-        # Campo Max Jogadores
-        label_max = fonte_normal.render("Max Jogadores (2-8):", True, BRANCO)
-        tela.blit(label_max, (LARGURA // 2 - 200, 350))
-        cor_max = AZUL if campo_ativo == "max_jogadores" else AZUL_ESCURO
-        pygame.draw.rect(tela, cor_max, input_max, 0, 8)
-        pygame.draw.rect(tela, BRANCO, input_max, 3, 8)
-        texto_max = fonte_normal.render(max_jogadores if max_jogadores else "4", True, BRANCO if max_jogadores else (100, 100, 100))
-        tela.blit(texto_max, (input_max.x + 10, input_max.y + 12))
-
-        # Modo de Jogo
-        label_modo = fonte_normal.render("Modo de Jogo:", True, BRANCO)
-        tela.blit(label_modo, (LARGURA // 2 - label_modo.get_width() // 2, 430))
-
-        # Botão esquerda
-        hover_esq = btn_modo_esq.collidepoint(mouse_pos)
-        pygame.draw.rect(tela, VERDE if hover_esq else AZUL, btn_modo_esq, 0, 8)
-        pygame.draw.polygon(tela, BRANCO, [
-            (btn_modo_esq.centerx + 5, btn_modo_esq.centery),
-            (btn_modo_esq.centerx - 5, btn_modo_esq.centery - 8),
-            (btn_modo_esq.centerx - 5, btn_modo_esq.centery + 8)
-        ])
-
-        # Nome do modo
-        modo_rect = pygame.Rect(LARGURA // 2 - 100, 460, 200, 40)
-        pygame.draw.rect(tela, (40, 40, 80), modo_rect, 0, 8)
-        pygame.draw.rect(tela, CIANO, modo_rect, 2, 8)
-        texto_modo = fonte_normal.render(modos_jogo[modo_jogo_index], True, BRANCO)
-        tela.blit(texto_modo, (modo_rect.centerx - texto_modo.get_width() // 2, modo_rect.centery - texto_modo.get_height() // 2))
-
-        # Botão direita
-        hover_dir = btn_modo_dir.collidepoint(mouse_pos)
-        pygame.draw.rect(tela, VERDE if hover_dir else AZUL, btn_modo_dir, 0, 8)
-        pygame.draw.polygon(tela, BRANCO, [
-            (btn_modo_dir.centerx - 5, btn_modo_dir.centery),
-            (btn_modo_dir.centerx + 5, btn_modo_dir.centery - 8),
-            (btn_modo_dir.centerx + 5, btn_modo_dir.centery + 8)
-        ])
 
         # Botão Criar
         hover_criar = btn_criar.collidepoint(mouse_pos)
