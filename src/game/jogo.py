@@ -29,6 +29,7 @@ from src.game.fase_multiplayer_nova import jogar_fase_multiplayer
 from src.game.minigame_aim import executar_minigame_aim
 from src.game.minigame_duals import executar_minigame_duals
 from src.game.minigame_sabers import executar_minigame_sabers
+from src.game.minigame_deadeye import executar_minigame_deadeye
 from src.ui.lobby import tela_lobby_servidor
 
 # NOVO: Importações para o sistema de tela cheia
@@ -248,6 +249,11 @@ def main_game(game_surface=None):
                                             tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
                                             cliente, config['player_name'], customizacao
                                         )
+                                    elif modo == 'Deadeye':
+                                        resultado = executar_minigame_deadeye(
+                                            tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                            cliente, config['player_name'], customizacao
+                                        )
                                     else:
                                         resultado = jogar_fase_multiplayer(
                                             tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
@@ -301,6 +307,11 @@ def main_game(game_surface=None):
                                     )
                                 elif modo == 'Sabers':
                                     resultado = executar_minigame_sabers(
+                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                        cliente, config['player_name'], customizacao
+                                    )
+                                elif modo == 'Deadeye':
+                                    resultado = executar_minigame_deadeye(
                                         tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
                                         cliente, config['player_name'], customizacao
                                     )

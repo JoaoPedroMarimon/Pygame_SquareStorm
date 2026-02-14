@@ -82,11 +82,11 @@ PORTAIS = [
         'desc': 'Free-for-all Sabers',
     },
     {
-        'nome': '',
-        'cor_base': (80, 80, 80),
-        'cor_glow': (140, 140, 140),
-        'disponivel': False,
-        'desc': 'Em desenvolvimento',
+        'nome': 'Deadeye',
+        'cor_base': (180, 150, 30),
+        'cor_glow': (255, 220, 100),
+        'disponivel': True,
+        'desc': '4v4 Desert Eagle',
     },
     {
         'nome': '',
