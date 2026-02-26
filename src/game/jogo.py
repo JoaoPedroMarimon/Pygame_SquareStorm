@@ -30,6 +30,7 @@ from src.game.minigame_aim import executar_minigame_aim
 from src.game.minigame_duals import executar_minigame_duals
 from src.game.minigame_sabers import executar_minigame_sabers
 from src.game.minigame_deadeye import executar_minigame_deadeye
+from src.game.minigame_boxfight import executar_minigame_boxfight
 from src.ui.lobby import tela_lobby_servidor
 
 # NOVO: Importações para o sistema de tela cheia
@@ -254,6 +255,11 @@ def main_game(game_surface=None):
                                             tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
                                             cliente, config['player_name'], customizacao
                                         )
+                                    elif modo == 'BoxFight':
+                                        resultado = executar_minigame_boxfight(
+                                            tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                            cliente, config['player_name'], customizacao
+                                        )
                                     else:
                                         resultado = jogar_fase_multiplayer(
                                             tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
@@ -312,6 +318,11 @@ def main_game(game_surface=None):
                                     )
                                 elif modo == 'Deadeye':
                                     resultado = executar_minigame_deadeye(
+                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                        cliente, config['player_name'], customizacao
+                                    )
+                                elif modo == 'BoxFight':
+                                    resultado = executar_minigame_boxfight(
                                         tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
                                         cliente, config['player_name'], customizacao
                                     )

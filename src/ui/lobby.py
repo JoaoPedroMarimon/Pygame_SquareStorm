@@ -89,11 +89,11 @@ PORTAIS = [
         'desc': '4v4 Desert Eagle',
     },
     {
-        'nome': '',
-        'cor_base': (80, 80, 80),
-        'cor_glow': (140, 140, 140),
-        'disponivel': False,
-        'desc': 'Em desenvolvimento',
+        'nome': 'BoxFight',
+        'cor_base': (180, 80, 20),
+        'cor_glow': (255, 150, 60),
+        'disponivel': True,
+        'desc': 'Constroi & Atira',
     },
 ]
 
