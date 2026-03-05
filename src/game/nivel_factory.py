@@ -737,6 +737,32 @@ class NivelFactory:
 
 
     @staticmethod
+    def criar_fase_26():
+        """
+        Fase 26: Introdução ao ambiente aquático - Inimigos Peixe.
+        Três peixes triangulares que atiram bolhas.
+        """
+        inimigos = []
+
+        pos_x1 = LARGURA - 150
+        pos_y1 = ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_peixe(pos_x1, pos_y1))
+
+        pos_x2 = LARGURA - 250
+        pos_y2 = ALTURA_JOGO // 2
+        inimigos.append(InimigoFactory.criar_inimigo_peixe(pos_x2, pos_y2))
+
+
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
+
+
+
+    @staticmethod
     def obter_info_boss(resultado_fase):
         """
         Obtém informações sobre o boss fight.

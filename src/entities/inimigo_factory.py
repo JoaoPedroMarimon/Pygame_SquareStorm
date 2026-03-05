@@ -12,6 +12,7 @@ from src.entities.inimigo_metralhadora import InimigoMetralhadora
 from src.entities.inimigo_mago import InimigoMago
 from src.entities.inimigo_granada import InimigoGranada
 from src.entities.inimigo_fantasma import InimigoFantasma
+from src.entities.inimigo_peixe import InimigoPeixe
 
 class InimigoFactory:
     """
@@ -178,3 +179,17 @@ class InimigoFactory:
             Objeto InimigoFantasma configurado
         """
         return InimigoFantasma(x, y)
+
+    @staticmethod
+    def criar_inimigo_peixe(x, y):
+        """
+        Cria um inimigo peixe triangular para fases aquáticas (26+).
+        Possui forma triangular, se parece com um peixe e atira bolhas.
+
+        Args:
+            x, y: Posição inicial do inimigo
+
+        Returns:
+            Objeto InimigoPeixe configurado
+        """
+        return InimigoPeixe(x, y)

@@ -107,8 +107,25 @@ class FaseBase:
 
     def _inicializar_ambiente(self):
         """Inicializa elementos visuais do ambiente."""
-        # Criar estrelas com cores temáticas para fases 11+
-        if self.numero_fase >= 11:
+        if self.numero_fase >= 26:
+            # === TEMA AQUÁTICO (fases 26+) ===
+            self.tema_aquatico = True
+            # Sinalizar ao jogador que está em zona aquática (para máscara de mergulho)
+            self.jogador.tema_aquatico = True
+
+            # Peixes decorativos de fundo (usam mesma estrutura das estrelas)
+            self.estrelas = self._criar_peixes_fundo()
+
+            # Sistema de bolhas ambiente
+            self.bolhas_ambiente = self._criar_bolhas_ambiente()
+
+            # Sem relâmpagos nem espinhos
+            self.relampago_ativo = False
+            self.proximo_relampago = None
+            self.espinhos = []
+
+        elif self.numero_fase >= 11:
+            self.tema_aquatico = False
             # Cores tóxicas: roxo, vermelho, verde
             cores_toxicas = [
                 (150, 100, 255),  # Roxo
@@ -130,11 +147,50 @@ class FaseBase:
             from src.entities.espinho import criar_espinhos_bordas
             self.espinhos = criar_espinhos_bordas(espessura=30)
         else:
+            self.tema_aquatico = False
             # Estrelas brancas padrão
             self.estrelas = criar_estrelas(NUM_ESTRELAS_JOGO)
             self.relampago_ativo = False
             self.proximo_relampago = None
             self.espinhos = []  # Sem espinhos nas fases 1-10
+
+    def _criar_peixes_fundo(self):
+        """Cria peixes triangulares decorativos de fundo para o tema aquático."""
+        cores_peixe = [
+            (0, 130, 180),    # Azul oceano
+            (40, 170, 215),   # Azul claro
+            (0, 180, 120),    # Verde-água
+            (20, 200, 160),   # Turquesa
+            (255, 160, 40),   # Laranja
+            (255, 210, 60),   # Amarelo
+            (200, 80, 200),   # Roxo
+            (220, 50, 50),    # Vermelho
+            (60, 200, 80),    # Verde
+            (255, 120, 180),  # Rosa
+            (160, 100, 255),  # Lilás
+            (255, 140, 0),    # Âmbar
+        ]
+        peixes = []
+        for _ in range(NUM_ESTRELAS_JOGO):
+            x = random.randint(0, LARGURA)
+            y = random.randint(0, ALTURA_JOGO)
+            tamanho = random.uniform(4, 9)
+            brilho = random.randint(120, 210)
+            vel = random.uniform(0.25, 1.1)
+            cor = random.choice(cores_peixe)
+            peixes.append([x, y, tamanho, brilho, vel, cor])
+        return peixes
+
+    def _criar_bolhas_ambiente(self):
+        """Cria bolhas decorativas que sobem pelo cenário aquático."""
+        bolhas = []
+        for _ in range(45):
+            x = random.randint(0, LARGURA)
+            y = random.randint(0, ALTURA_JOGO)
+            raio = random.uniform(2, 9)
+            vel_y = random.uniform(0.25, 0.9)
+            bolhas.append([x, y, raio, vel_y])
+        return bolhas
 
     def _inicializar_controles(self):
         """Inicializa sistema de controles."""
@@ -532,6 +588,28 @@ class FaseBase:
                 self.tiros_inimigo.remove(tiro)
                 continue
 
+            # Ricochete nas paredes (bolhas do peixe)
+            if getattr(tiro, 'ricochete', False):
+                tiro.vida_ricochete = getattr(tiro, 'vida_ricochete', 420) - 1
+                if tiro.vida_ricochete <= 0:
+                    self.tiros_inimigo.remove(tiro)
+                    continue
+                if tiro.x < tiro.raio:
+                    tiro.x = tiro.raio
+                    tiro.dx = abs(tiro.dx)
+                elif tiro.x > LARGURA - tiro.raio:
+                    tiro.x = LARGURA - tiro.raio
+                    tiro.dx = -abs(tiro.dx)
+                if tiro.y < tiro.raio:
+                    tiro.y = tiro.raio
+                    tiro.dy = abs(tiro.dy)
+                elif tiro.y > ALTURA_JOGO - tiro.raio:
+                    tiro.y = ALTURA_JOGO - tiro.raio
+                    tiro.dy = -abs(tiro.dy)
+                tiro.rect.x = tiro.x - tiro.raio
+                tiro.rect.y = tiro.y - tiro.raio
+                continue
+
             # Remover tiros que saíram da tela
             if tiro.fora_da_tela():
                 self.tiros_inimigo.remove(tiro)
@@ -600,12 +678,20 @@ class FaseBase:
             if flash['vida'] <= 0:
                 self.flashes.remove(flash)
 
-        # Estrelas
+        # Estrelas / peixes de fundo
         for estrela in self.estrelas:
             estrela[0] -= estrela[4]  # Mover com base na velocidade
             if estrela[0] < 0:
                 estrela[0] = LARGURA
                 estrela[1] = random.randint(0, ALTURA_JOGO)
+
+        # Bolhas ambiente (tema aquático)
+        if hasattr(self, 'bolhas_ambiente'):
+            for bolha in self.bolhas_ambiente:
+                bolha[1] -= bolha[3]  # Subir
+                if bolha[1] < -bolha[2]:
+                    bolha[1] = float(ALTURA_JOGO) + bolha[2]
+                    bolha[0] = float(random.randint(0, LARGURA))
 
     def _calcular_moedas_alvo(self, alvo):
         """Calcula quantas moedas um alvo deve dar."""
@@ -635,10 +721,88 @@ class FaseBase:
 
     # ==================== RENDERIZAÇÃO ====================
 
+    def _desenhar_peixes_fundo(self):
+        """Desenha peixes decorativos de fundo no estilo do inimigo peixe."""
+        # Ângulo fixo = π (todos nadam para a esquerda)
+        # Com cos_a=-1, sin_a=0: pt(fx,fy) = (cx - fx, cy - fy)
+        for peixe in self.estrelas:
+            x, y, tamanho, cor = peixe[0], peixe[1], peixe[2], peixe[5]
+            cx, cy = int(x), int(y)
+            if cx < -tamanho * 3 or cx > LARGURA + tamanho * 3:
+                continue
+            if cy < -tamanho * 2 or cy > ALTURA_JOGO + tamanho * 2:
+                continue
+
+            s = float(tamanho)
+            esc = tuple(max(0, c - 50) for c in cor)
+
+            # === CAUDA BIFURCADA ===
+            cauda_raiz = (cx + s * 0.35, cy)
+            cauda_top  = (cx + s * 1.05, cy + s * 0.65)
+            cauda_mid  = (cx + s * 0.65, cy)
+            cauda_bot  = (cx + s * 1.05, cy - s * 0.65)
+            pygame.draw.polygon(self.tela, esc, [cauda_raiz, cauda_top, cauda_mid])
+            pygame.draw.polygon(self.tela, esc, [cauda_raiz, cauda_bot, cauda_mid])
+            pygame.draw.polygon(self.tela, cor, [
+                cauda_raiz, (cx + s * 0.95, cy + s * 0.48), (cx + s * 0.60, cy)])
+            pygame.draw.polygon(self.tela, cor, [
+                cauda_raiz, (cx + s * 0.95, cy - s * 0.48), (cx + s * 0.60, cy)])
+
+            # === CORPO TRIANGULAR ===
+            pygame.draw.polygon(self.tela, esc, [
+                (cx - s,       cy),
+                (cx + s * 0.4, cy - s * 0.8),
+                (cx + s * 0.4, cy + s * 0.8),
+            ])
+            pygame.draw.polygon(self.tela, cor, [
+                (cx - s * 0.82, cy),
+                (cx + s * 0.32, cy - s * 0.62),
+                (cx + s * 0.32, cy + s * 0.62),
+            ])
+
+            # === NADADEIRA DORSAL (só para peixes maiores) ===
+            if s >= 9:
+                pygame.draw.polygon(self.tela, esc, [
+                    (cx - s * 0.1,  cy + s * 0.78),
+                    (cx - s * 0.35, cy + s * 1.25),
+                    (cx + s * 0.2,  cy + s * 0.78),
+                ])
+                pygame.draw.polygon(self.tela, cor, [
+                    (cx - s * 0.1,  cy + s * 0.78),
+                    (cx - s * 0.30, cy + s * 1.1),
+                    (cx + s * 0.12, cy + s * 0.78),
+                ])
+
+            # === LINHA LATERAL ===
+            if s >= 6:
+                pygame.draw.line(self.tela, esc,
+                                 (int(cx - s * 0.75), cy),
+                                 (int(cx + s * 0.3),  cy), 1)
+
+    def _desenhar_bolhas_ambiente(self):
+        """Desenha as bolhas decorativas do fundo aquático."""
+        for bolha in self.bolhas_ambiente:
+            x, y, raio = bolha[0], bolha[1], bolha[2]
+            ix, iy, ir = int(x), int(y), max(1, int(raio))
+            if 0 <= ix <= LARGURA and 0 <= iy <= ALTURA_JOGO:
+                # Anel da bolha
+                pygame.draw.circle(self.tela, (160, 215, 250), (ix, iy), ir, 1)
+                # Reflexo
+                shine_x = ix - max(1, ir // 3)
+                shine_y = iy - max(1, ir // 3)
+                pygame.draw.circle(self.tela, (220, 245, 255), (shine_x, shine_y), max(1, ir // 4))
+
     def renderizar_fundo(self):
         """Renderiza o fundo do jogo."""
         self.tela.fill((0, 0, 0))
         self.tela.blit(self.gradiente_jogo, (0, 0))
+
+        # Tema aquático (fases 26+)
+        if hasattr(self, 'tema_aquatico') and self.tema_aquatico:
+            self._desenhar_peixes_fundo()
+            self._desenhar_bolhas_ambiente()
+            return
+
         desenhar_estrelas(self.tela, self.estrelas)
 
         # Sistema de relâmpagos para fases 11+

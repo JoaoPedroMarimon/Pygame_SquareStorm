@@ -381,6 +381,55 @@ class Quadrado:
         """Gera uma versão mais brilhante da cor."""
         return tuple(min(255, c + 70) for c in cor)
 
+    def _desenhar_mascara_mergulho(self, tela):
+        """Desenha máscara de mergulho sobre o jogador (fases aquáticas)."""
+        x, y, t = int(self.x), int(self.y), self.tamanho
+
+        # === FRAME EXTERNO DA MÁSCARA (silicone/borracha) ===
+        # Cor amarelo-laranja de mergulhador
+        cor_borracha = (0, 0, 139)
+        cor_borracha_escura = (41, 51, 130)
+        pygame.draw.rect(tela, cor_borracha_escura, (x + 2, y + 5, t - 4, t - 8), 0, 7)
+        pygame.draw.rect(tela, cor_borracha,        (x + 3, y + 6, t - 6, t - 10), 0, 6)
+
+        # === DIVISOR CENTRAL (nariz) ===
+        mid_x = x + t // 2
+        pygame.draw.rect(tela, cor_borracha_escura, (mid_x - 2, y + 8, 4, t - 18), 0, 2)
+
+        # === LENTE ESQUERDA ===
+        lx1, ly = x + 5, y + 9
+        lw, lh = t // 2 - 8, t - 20
+        pygame.draw.rect(tela, (0, 30, 60), (lx1, ly, lw, lh), 0, 4)           # vidro escuro
+        pygame.draw.rect(tela, (60, 150, 210), (lx1, ly, lw, lh), 0, 4)        # tinta azul
+        pygame.draw.rect(tela, (160, 215, 255), (lx1 + 2, ly + 2, lw - 4, 3))  # reflexo topo
+        pygame.draw.rect(tela, (200, 235, 255), (lx1 + 2, ly + 2, 4, lh - 4), 0, 2)  # reflexo lateral
+        pygame.draw.rect(tela, cor_borracha_escura, (lx1, ly, lw, lh), 2, 4)   # borda
+
+        # === LENTE DIREITA ===
+        lx2 = mid_x + 2
+        lw2 = t - lx2 + x - 5
+        pygame.draw.rect(tela, (0, 30, 60),   (lx2, ly, lw2, lh), 0, 4)
+        pygame.draw.rect(tela, (60, 150, 210),(lx2, ly, lw2, lh), 0, 4)
+        pygame.draw.rect(tela, (160, 215, 255),(lx2 + 2, ly + 2, lw2 - 4, 3))
+        pygame.draw.rect(tela, (200, 235, 255),(lx2 + 2, ly + 2, 4, lh - 4), 0, 2)
+        pygame.draw.rect(tela, cor_borracha_escura, (lx2, ly, lw2, lh), 2, 4)
+
+        # === CINTA DA MÁSCARA (tiras laterais) ===
+        pygame.draw.rect(tela, cor_borracha_escura, (x, y + 10, 4, t - 22), 0, 2)
+        pygame.draw.rect(tela, cor_borracha_escura, (x + t - 4, y + 10, 4, t - 22), 0, 2)
+
+        # === TUBO RESPIRADOR (snorkel) – à direita, saindo do topo ===
+        tube_x = x + t + 2
+        tube_top = y + 4
+        tube_bot = y + t + 6
+        pygame.draw.line(tela, (50, 55, 65), (tube_x, tube_top), (tube_x, tube_bot), 4)
+        pygame.draw.line(tela, (80, 85, 100), (tube_x - 1, tube_top), (tube_x - 1, tube_bot), 1)
+        # Bocal no fundo
+        pygame.draw.ellipse(tela, (60, 65, 80), (tube_x - 5, tube_bot - 2, 10, 6))
+        pygame.draw.ellipse(tela, (90, 95, 110), (tube_x - 4, tube_bot - 1, 8, 4))
+        # Tampa do topo (evita entrada de água)
+        pygame.draw.ellipse(tela, (50, 55, 65), (tube_x - 4, tube_top - 2, 8, 5))
+
     def atualizar_cor(self, nova_cor):
         """Atualiza a cor e recalcula cores derivadas."""
         self.cor = nova_cor
@@ -519,6 +568,10 @@ class Quadrado:
             pygame.draw.rect(tela, self.cor, 
                             (self.x, self.y - 15, vida_atual, altura_barra), 0, 2)
         
+        # Máscara de mergulho (fases aquáticas 26+)
+        if self.cor == AZUL and hasattr(self, 'tema_aquatico') and self.tema_aquatico:
+            self._desenhar_mascara_mergulho(tela)
+
         # DELEGAÇÃO: Desenhar item/arma atualmente ativa
         if self.cor == AZUL:  # Se for o jogador
             # Se estiver em cutscene, não desenhar armas/itens

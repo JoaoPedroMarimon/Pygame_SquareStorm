@@ -76,6 +76,11 @@ class Tiro:
             self._desenhar_bola_fogo(tela)
             return
 
+        # Verificar se é uma bolha (inimigo peixe - fases aquáticas)
+        if hasattr(self, 'tipo_bolha') and self.tipo_bolha:
+            self._desenhar_bolha(tela)
+            return
+
         # Desenhar partículas de rastro
         for particula in self.particulas:
             alpha = int(255 * (particula['vida'] / 15))
@@ -116,6 +121,27 @@ class Tiro:
 
         # Núcleo branco super quente
         pygame.draw.circle(tela, (255, 255, 200), (int(self.x), int(self.y)), max(2, self.raio - 6))
+
+    def _desenhar_bolha(self, tela):
+        """Desenha uma bolha (projétil do inimigo peixe)."""
+        x, y, r = int(self.x), int(self.y), self.raio
+
+        # Rastro de bolhinhas menores
+        for particula in self.particulas:
+            raio_p = max(1, int(particula['raio']))
+            pygame.draw.circle(tela, (160, 215, 245),
+                               (int(particula['x']), int(particula['y'])), raio_p, 1)
+
+        # Anel externo (brilho)
+        pygame.draw.circle(tela, (200, 235, 255), (x, y), r + 2, 1)
+        # Anel principal
+        pygame.draw.circle(tela, (180, 225, 255), (x, y), r, 2)
+        # Interior claro semitransparente
+        pygame.draw.circle(tela, (230, 248, 255), (x, y), max(1, r - 3))
+        # Reflexo de luz (brilho superior esquerdo)
+        shine_x = x - max(1, r // 3)
+        shine_y = y - max(1, r // 3)
+        pygame.draw.circle(tela, (255, 255, 255), (shine_x, shine_y), max(1, r // 4))
 
     def fora_da_tela(self):
         """Verifica se o tiro saiu dos limites da tela de jogo."""

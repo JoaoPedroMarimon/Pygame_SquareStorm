@@ -148,12 +148,8 @@ class FaseNormal(FaseBase):
             self.mostrando_inicio = False
             self.em_congelamento = True
 
-        self.tela.fill((0, 0, 0))
-        self.tela.blit(self.gradiente_jogo, (0, 0))
-
-        # Desenhar estrelas
-        from src.utils.visual import desenhar_estrelas
-        desenhar_estrelas(self.tela, self.estrelas)
+        self.atualizar_efeitos_visuais()
+        self.renderizar_fundo()
 
         # Texto de introdução com efeito
         tamanho = 70 + int(math.sin(tempo_atual / 200) * 5)
@@ -169,14 +165,11 @@ class FaseNormal(FaseBase):
         """Mostra a tela de congelamento antes do início."""
         self.tempo_congelamento -= 1
 
-        self.tela.fill((0, 0, 0))
-        self.tela.blit(self.gradiente_jogo, (0, 0))
+        self.atualizar_efeitos_visuais()
+        self.renderizar_fundo()
 
-        from src.utils.visual import desenhar_estrelas
-        desenhar_estrelas(self.tela, self.estrelas)
-
-        # Desenhar espinhos com animação (fases 11+)
-        if self.numero_fase >= 11:
+        # Desenhar espinhos com animação (fases 11-25)
+        if 11 <= self.numero_fase < 26:
             # Iniciar animação dos espinhos
             if not self.animacao_espinhos_iniciada:
                 self.animacao_espinhos_iniciada = True
@@ -286,6 +279,10 @@ class FaseNormal(FaseBase):
 
             # Restaurar velocidade original
             inimigo.velocidade = velocidade_original
+
+            # Peixe sempre aponta para o jogador
+            if hasattr(inimigo, 'tipo_peixe') and inimigo.tipo_peixe:
+                inimigo.atualizar_angulo_jogador(self.jogador)
 
             # Garantir que os inimigos não ultrapassem a área de jogo
             if inimigo.y + inimigo.tamanho > ALTURA_JOGO:

@@ -110,7 +110,7 @@ def tela_selecao_fase(tela, relogio, gradiente_selecao, fonte_titulo, fonte_norm
     fase_maxima = progress_manager.obter_fase_maxima()
     
     # Número total de fases que queremos exibir
-    total_fases = 25  # Aumentado para testar rolagem
+    total_fases = 50
     
     # Criar efeitos visuais
     estrelas = criar_estrelas(50)

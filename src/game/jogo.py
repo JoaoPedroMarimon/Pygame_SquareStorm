@@ -65,6 +65,7 @@ def main_game(game_surface=None):
     gradiente_menu = criar_gradiente((20, 0, 40), (0, 20, 60))
     gradiente_jogo = criar_gradiente((10, 0, 30), (0, 10, 40))
     gradiente_jogo_toxico = criar_gradiente((0, 30, 10), (10, 60, 20))  # Gradiente tóxico para fases 11+
+    gradiente_jogo_oceano = criar_gradiente((0, 40, 90), (0, 70, 130))  # Gradiente oceano para fases 26+
     gradiente_loja = criar_gradiente((30, 10, 0), (60, 30, 0))
     gradiente_vitoria = criar_gradiente((0, 30, 0), (0, 60, 20))
     gradiente_derrota = criar_gradiente((30, 0, 0), (60, 20, 0))
@@ -120,7 +121,12 @@ def main_game(game_surface=None):
             elif estado_atual == "jogar":
                 print(f" Iniciando fase {fase_atual}...")
                 # Selecionar gradiente baseado na fase (fases 11+ usam tema tóxico)
-                gradiente_fase = gradiente_jogo_toxico if fase_atual >= 11 else gradiente_jogo
+                if fase_atual >= 26:
+                    gradiente_fase = gradiente_jogo_oceano
+                elif fase_atual >= 11:
+                    gradiente_fase = gradiente_jogo_toxico
+                else:
+                    gradiente_fase = gradiente_jogo
                 # CORRIGIDO: Usar a função correta jogar_fase
                 resultado = jogar_fase(tela, relogio, fase_atual, gradiente_fase, fonte_titulo, fonte_normal)
                 
