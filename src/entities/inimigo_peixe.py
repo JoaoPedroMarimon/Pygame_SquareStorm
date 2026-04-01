@@ -34,9 +34,14 @@ class InimigoPeixe(Quadrado):
         self.vidas = 3
         self.vidas_max = 3
         self.tipo_peixe = True
-        self.tempo_cooldown = 1300  # 1.3s entre bolhas
-        # Começa apontando para a esquerda (em direção ao jogador)
+        self.tempo_cooldown = 1300  # 1.3s entre rajadas
         self.angulo_peixe = math.pi
+
+        # Rajada: segundo tiro 160ms após o primeiro
+        self._rajada_pendente = False
+        self._tempo_rajada    = 0
+        self._rajada_dx       = 0.0
+        self._rajada_dy       = 0.0
 
     def mover(self, dx, dy):
         """Move o peixe sem atualizar ângulo (ângulo é atualizado via atualizar_angulo_jogador)."""
@@ -50,15 +55,35 @@ class InimigoPeixe(Quadrado):
         jy = jogador.y + jogador.tamanho // 2
         self.angulo_peixe = math.atan2(jy - cy, jx - cx)
 
+    def _criar_bolha(self, tiros, dx, dy):
+        """Cria uma bolha e a adiciona à lista de tiros."""
+        centro_x = self.x + self.tamanho // 2
+        centro_y = self.y + self.tamanho // 2
+        bolha = Tiro(centro_x, centro_y, dx, dy, (150, 220, 255), 5)
+        bolha.tipo_bolha = True
+        bolha.raio = 9
+        bolha.cor_interna = (220, 245, 255)
+        bolha.ricochete = True
+        bolha.vida_ricochete = 420
+        tiros.append(bolha)
+        try:
+            pygame.mixer.Channel(1).play(pygame.mixer.Sound(gerar_som_tiro()))
+        except Exception:
+            pass
+
+    def atualizar_rajada(self, tiros):
+        """Dispara o segundo tiro da rajada quando o tempo chegar."""
+        if self._rajada_pendente and pygame.time.get_ticks() >= self._tempo_rajada:
+            self._rajada_pendente = False
+            self._criar_bolha(tiros, self._rajada_dx, self._rajada_dy)
+
     def atirar(self, tiros, direcao=None):
-        """Atira bolhas em vez de projéteis normais."""
+        """Inicia uma rajada de 2 bolhas (segundo tiro 160 ms depois)."""
         tempo_atual = pygame.time.get_ticks()
         if tempo_atual - self.tempo_ultimo_tiro < self.tempo_cooldown:
             return
 
         self.tempo_ultimo_tiro = tempo_atual
-        centro_x = self.x + self.tamanho // 2
-        centro_y = self.y + self.tamanho // 2
 
         if direcao:
             dx, dy = direcao
@@ -66,20 +91,14 @@ class InimigoPeixe(Quadrado):
             dx = math.cos(self.angulo_peixe)
             dy = math.sin(self.angulo_peixe)
 
-        # Som de tiro
-        try:
-            pygame.mixer.Channel(1).play(pygame.mixer.Sound(gerar_som_tiro()))
-        except Exception:
-            pass
+        # Primeiro tiro imediato
+        self._criar_bolha(tiros, dx, dy)
 
-        # Criar bolha (tiro com tipo_bolha=True)
-        bolha = Tiro(centro_x, centro_y, dx, dy, (150, 220, 255), 5)
-        bolha.tipo_bolha = True
-        bolha.raio = 9
-        bolha.cor_interna = (220, 245, 255)
-        bolha.ricochete = True
-        bolha.vida_ricochete = 420  # ~7 segundos a 60fps
-        tiros.append(bolha)
+        # Agenda o segundo tiro
+        self._rajada_pendente = True
+        self._tempo_rajada    = tempo_atual + 160
+        self._rajada_dx       = dx
+        self._rajada_dy       = dy
 
     def desenhar(self, tela, tempo_atual=None):
         """Desenha o inimigo como um peixe triangular com detalhes."""

@@ -41,6 +41,13 @@ class FaseNormal(FaseBase):
         self.tempo_movimento_inimigos = [0] * len(self.inimigos)
         self.intervalo_movimento = max(300, 600 - numero_fase * 30)  # Reduz com a fase
 
+        # Tubarão: sorteia UM inimigo como gatilho a cada vez que a fase for jogada
+        self._tubarao_inimigo_idx  = -1
+        self._tubarao_disparado    = False
+        self._cutscene_tubarao_em_curso = False
+        if numero_fase >= 26 and self.inimigos:
+            self._tubarao_inimigo_idx = random.randint(0, len(self.inimigos) - 1)
+
     def executar(self):
         """
         Loop principal da fase normal.
@@ -113,6 +120,16 @@ class FaseNormal(FaseBase):
 
             # Atualizar efeitos visuais
             self.atualizar_efeitos_visuais()
+
+            # Mini-cutscene do tubarão: gatilho no inimigo sorteado (1 vez por partida)
+            if (self._tubarao_inimigo_idx >= 0
+                    and not self._tubarao_disparado
+                    and not self._cutscene_tubarao_em_curso
+                    and not self.jogador_morto
+                    and self.tempo_transicao_vitoria is None):
+                if self.inimigos[self._tubarao_inimigo_idx].vidas <= 0:
+                    self._tubarao_disparado = True
+                    self._executar_cutscene_tubarao()
 
             # Verificar condições de vitória/derrota
             resultado_condicao = self._verificar_condicoes_fim()
@@ -378,6 +395,48 @@ class FaseNormal(FaseBase):
             x = self.jogador.x + random.randint(-50, 50)
             y = self.jogador.y + random.randint(-50, 50)
             criar_explosao(x, y, VERMELHO, self.particulas, 20)
+
+
+    def _executar_cutscene_tubarao(self):
+        """Dispara a mini-cutscene do tubarão e restaura o estado da fase."""
+        from src.entities.tubarao_cutscene import executar_cutscene_tubarao
+
+        self._cutscene_tubarao_em_curso = True
+
+        # Callback que desenha o jogo completo numa surface qualquer.
+        # show_player=False esconde o jogador (após ser engolido).
+        def render_gameplay(surf, show_player=True, show_hud=True):
+            tempo = pygame.time.get_ticks()
+            tela_orig = self.tela
+            self.tela = surf
+            self.renderizar_fundo()
+            if not show_player:
+                vidas_orig = self.jogador.vidas
+                self.jogador.vidas = 0
+            self.renderizar_objetos_jogo(tempo, self.inimigos)
+            if not show_player:
+                self.jogador.vidas = vidas_orig
+            if show_hud:
+                self.renderizar_hud(tempo, self.inimigos)
+            self.tela = tela_orig
+
+        executar_cutscene_tubarao(
+            self.tela,
+            self.relogio,
+            self.jogador,
+            render_gameplay,
+            self.fonte_titulo,
+            self.fonte_normal,
+            self.numero_fase,
+        )
+
+        # Recapturar WASD (podem ter sido soltas durante a cutscene)
+        keys = pygame.key.get_pressed()
+        self.movimento_x = (1 if keys[pygame.K_d] else 0) - (1 if keys[pygame.K_a] else 0)
+        self.movimento_y = (1 if keys[pygame.K_s] else 0) - (1 if keys[pygame.K_w] else 0)
+
+        self._cutscene_tubarao_em_curso = False
+
 
 
 def jogar_fase(tela, relogio, numero_fase, gradiente_jogo, fonte_titulo, fonte_normal):

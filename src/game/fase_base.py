@@ -200,6 +200,23 @@ class FaseBase:
         self.ultimo_clique_mouse = 0
         self.intervalo_minimo_clique = 100
 
+        # Joystick (Trimui via Moonlight)
+        pygame.joystick.init()
+        self.joystick = None
+        if pygame.joystick.get_count() > 0:
+            self.joystick = pygame.joystick.Joystick(0)
+            self.joystick.init()
+
+        # Mira virtual (unifica mouse e analógico direito)
+        self.mira_virtual_x = float(LARGURA // 2)
+        self.mira_virtual_y = float(ALTURA_JOGO // 2)
+        self.velocidade_mira_joystick = 8
+        self.ultimo_disparo_joystick = 0
+        self._botao_dash_anterior = False
+        self._botao_arma_anterior = False
+        self._botao_item_anterior = False
+        self._botao_pause_anterior = False
+
     def _inicializar_transicoes(self):
         """Inicializa transições de vitória/derrota."""
         self.tempo_transicao_vitoria = None
@@ -215,28 +232,38 @@ class FaseBase:
         Retorna: "sair", "menu" ou None
         """
         tempo_atual = pygame.time.get_ticks()
-        pos_mouse = convert_mouse_position(pygame.mouse.get_pos())
 
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 return "sair"
 
+            # Atualiza mira virtual com movimento real do mouse
+            if evento.type == pygame.MOUSEMOTION:
+                mx, my = convert_mouse_position(evento.pos)
+                self.mira_virtual_x = float(mx)
+                self.mira_virtual_y = float(my)
+
             # Controles durante o jogo (permitir movimento durante vitória, bloquear apenas durante derrota)
             if (not self.mostrando_inicio and not self.pausado and not self.jogador_morto and
                 not self.em_congelamento and self.tempo_transicao_derrota is None):
+                pos_mouse = self.obter_pos_mouse()
                 resultado = self._processar_controles_jogo(evento, tempo_atual, pos_mouse)
                 if resultado:
                     return resultado
 
             # Controles durante pausa
             elif self.pausado:
+                pos_mouse = self.obter_pos_mouse()
                 resultado = self._processar_controles_pausa(evento, pos_mouse)
                 if resultado:
                     return resultado
 
+        pos_mouse = self.obter_pos_mouse()
+
         # Tiro contínuo da metralhadora (permitir durante vitória)
         if (not self.mostrando_inicio and not self.pausado and not self.jogador_morto and
             not self.em_congelamento and self.tempo_transicao_derrota is None):
+            self._processar_joystick(tempo_atual)
             self._processar_tiro_continuo_metralhadora(pos_mouse)
             self._processar_mira_sniper()
 
@@ -408,21 +435,101 @@ class FaseBase:
 
 
     def _processar_tiro_continuo_metralhadora(self, pos_mouse):
-        """Processa tiro contínuo quando botão do mouse está pressionado."""
+        """Processa tiro contínuo quando botão do mouse ou gatilho do joystick está pressionado."""
         botoes_mouse = pygame.mouse.get_pressed()
-        if botoes_mouse[0]:  # Botão esquerdo pressionado
+        gatilho_joystick = False
+        if self.joystick and self.joystick.get_numaxes() > 5:
+            gatilho_joystick = self.joystick.get_axis(5) > 0.5
+        if botoes_mouse[0] or gatilho_joystick:
             if self.jogador.metralhadora_ativa and self.jogador.tiros_metralhadora > 0:
                 atirar_metralhadora(self.jogador, self.tiros_jogador, pos_mouse, self.particulas, self.flashes)
                 if self.jogador.tiros_metralhadora <= 0:
                     self.jogador.metralhadora_ativa = False
 
     def _processar_mira_sniper(self):
-        """Processa mira da sniper - ativa enquanto botão direito está pressionado."""
+        """Processa mira da sniper - ativa enquanto botão direito ou L1/L2 está pressionado."""
         if hasattr(self.jogador, 'sniper_ativa') and self.jogador.sniper_ativa:
             botoes_mouse = pygame.mouse.get_pressed()
-            # Botão direito (índice 2) pressionado = mirando
-            self.jogador.sniper_mirando = botoes_mouse[2]
+            mirando_mouse = botoes_mouse[2]
+            mirando_joystick = False
+            if self.joystick:
+                gatilho_esq = self.joystick.get_axis(4) if self.joystick.get_numaxes() > 4 else 0
+                botao_l1 = self.joystick.get_button(4) if self.joystick.get_numbuttons() > 4 else False
+                mirando_joystick = gatilho_esq > 0.5 or botao_l1
+            self.jogador.sniper_mirando = mirando_mouse or mirando_joystick
 
+    def _processar_joystick(self, tempo_atual):
+        """Processa entrada do controle (Trimui via Moonlight). Coexiste com teclado/mouse."""
+        # Tentar conectar joystick se plugado depois
+        if not self.joystick:
+            if pygame.joystick.get_count() > 0:
+                self.joystick = pygame.joystick.Joystick(0)
+                self.joystick.init()
+            return
+
+        dead_zone = 0.2
+
+        # === MOVIMENTO (analógico esquerdo) — só aplica se WASD não estiver pressionado ===
+        teclas = pygame.key.get_pressed()
+        usando_teclado = teclas[pygame.K_w] or teclas[pygame.K_s] or teclas[pygame.K_a] or teclas[pygame.K_d]
+        if not usando_teclado:
+            eixo_x = self.joystick.get_axis(0)
+            eixo_y = self.joystick.get_axis(1)
+            self.movimento_x = (1 if eixo_x > dead_zone else -1 if eixo_x < -dead_zone else 0)
+            self.movimento_y = (1 if eixo_y > dead_zone else -1 if eixo_y < -dead_zone else 0)
+
+        # === MIRA (analógico direito) ===
+        if self.joystick.get_numaxes() > 3:
+            eixo_mira_x = self.joystick.get_axis(2)
+            eixo_mira_y = self.joystick.get_axis(3)
+            if abs(eixo_mira_x) > dead_zone:
+                self.mira_virtual_x += eixo_mira_x * self.velocidade_mira_joystick
+            if abs(eixo_mira_y) > dead_zone:
+                self.mira_virtual_y += eixo_mira_y * self.velocidade_mira_joystick
+            self.mira_virtual_x = max(0.0, min(float(LARGURA), self.mira_virtual_x))
+            self.mira_virtual_y = max(0.0, min(float(ALTURA_JOGO), self.mira_virtual_y))
+
+        pos_mira = self.obter_pos_mouse()
+        num_botoes = self.joystick.get_numbuttons()
+        num_eixos = self.joystick.get_numaxes()
+
+        # === ATIRAR (R1=botão 5 ou R2=eixo 5) ===
+        gatilho_dir = self.joystick.get_axis(5) if num_eixos > 5 else 0
+        botao_r1 = self.joystick.get_button(5) if num_botoes > 5 else False
+        if gatilho_dir > 0.5 or botao_r1:
+            if tempo_atual - self.ultimo_disparo_joystick >= self.intervalo_minimo_clique:
+                self.ultimo_disparo_joystick = tempo_atual
+                evento_fake = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=pos_mira)
+                self._processar_ataques_mouse(evento_fake, pos_mira, tempo_atual)
+
+        # === DASH (botão Sul/A = 0) — disparo único por pressionamento ===
+        botao_dash = self.joystick.get_button(0) if num_botoes > 0 else False
+        if botao_dash and not self._botao_dash_anterior:
+            if hasattr(self.jogador, 'executar_dash'):
+                self.jogador.executar_dash()
+        self._botao_dash_anterior = botao_dash
+
+        # === ATIVAR ARMA (botão Leste/B = 1) ===
+        botao_arma = self.joystick.get_button(1) if num_botoes > 1 else False
+        if botao_arma and not self._botao_arma_anterior:
+            self._processar_ativacao_arma()
+        self._botao_arma_anterior = botao_arma
+
+        # === ATIVAR ITEM (botão Oeste/X = 2) ===
+        botao_item = self.joystick.get_button(2) if num_botoes > 2 else False
+        if botao_item and not self._botao_item_anterior:
+            self._processar_ativacao_item()
+        self._botao_item_anterior = botao_item
+
+        # === PAUSE (Start = botão 9 ou 7) ===
+        botao_pause = ((self.joystick.get_button(9) if num_botoes > 9 else False) or
+                       (self.joystick.get_button(7) if num_botoes > 7 else False))
+        if botao_pause and not self._botao_pause_anterior:
+            if self.tempo_transicao_derrota is None:
+                self.pausado = True
+                pygame.mixer.pause()
+                pygame.mouse.set_visible(True)
+        self._botao_pause_anterior = botao_pause
 
     def _processar_controles_pausa(self, evento, pos_mouse):
         """Processa controles durante pausa."""
@@ -935,8 +1042,8 @@ class FaseBase:
         return pygame.time.get_ticks()
 
     def obter_pos_mouse(self):
-        """Retorna a posição do mouse convertida."""
-        return convert_mouse_position(pygame.mouse.get_pos())
+        """Retorna a posição da mira virtual (unifica mouse e analógico direito do joystick)."""
+        return (int(self.mira_virtual_x), int(self.mira_virtual_y))
 
     def atualizar_moedas(self):
         """Atualiza e verifica coleta de moedas."""

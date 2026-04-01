@@ -14,7 +14,7 @@ from src.config import *
 from src.utils.visual import criar_gradiente, criar_estrelas
 from src.ui.menu import tela_inicio, tela_game_over, tela_vitoria_fase
 from src.ui.loja import tela_loja
-from src.game.fase import jogar_fase  # CORRIGIDO: Usar o nome correto da função
+from src.game.fase import jogar_fase
 from src.ui.selecao_fase import tela_selecao_fase
 from src.utils.progress import ProgressManager
 from src.game.inventario import tela_inventario

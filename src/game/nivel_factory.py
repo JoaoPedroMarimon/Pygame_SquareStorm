@@ -763,6 +763,57 @@ class NivelFactory:
 
 
     @staticmethod
+    def criar_inimigos_tubarao_espaco():
+        """
+        Inimigos que aparecem na sequência espacial da mini-cutscene do tubarão.
+        O jogador segue um arco arco-íris (base_y≈555, pico≈148, ALTURA_JOGO=740).
+        Posicione os inimigos ligeiramente deslocados do arco para forçar o desvio.
+        Edite livremente: troque tipos ou ajuste posições.
+
+        arco_y referências:
+          x=25% → y≈267  |  x=50% → y≈148  |  x=75% → y≈267
+        """
+        inimigos = []
+
+        # Inimigo 1: x=25%, um pouco abaixo do arco → jogador precisa subir
+        inimigos.append(InimigoFactory.criar_inimigo_basico(
+            int(LARGURA * 0.25), 310))
+
+        # Inimigo 2: x=50% (pico do arco), um pouco acima → jogador precisa descer
+        inimigos.append(InimigoFactory.criar_inimigo_especial(
+            int(LARGURA * 0.50), 105))
+
+        # Inimigo 3: x=75%, um pouco acima → jogador precisa descer novamente
+        inimigos.append(InimigoFactory.criar_inimigo_rapido(
+            int(LARGURA * 0.75), 220))
+
+        return inimigos
+
+    @staticmethod
+    def criar_minijogo_espaco(numero_fase, tela, relogio, jogador,
+                               grad_espaco, estrelas, fonte_titulo, fonte_normal):
+        """
+        Retorna o minijogo do espaço correto para cada fase.
+        Adicione novos casos à medida que criar as fases 27-30.
+        """
+        from src.entities.minijogo_espaco import MinijogoDesviarTiros
+
+        if numero_fase == 26:
+            inimigos = [
+                InimigoFactory.criar_inimigo_basico( int(LARGURA * 0.62), int(ALTURA_JOGO * 0.20)),
+                InimigoFactory.criar_inimigo_especial(int(LARGURA * 0.75), int(ALTURA_JOGO * 0.50)),
+                InimigoFactory.criar_inimigo_rapido(  int(LARGURA * 0.62), int(ALTURA_JOGO * 0.78)),
+                InimigoFactory.criar_inimigo_basico(  int(LARGURA * 0.88), int(ALTURA_JOGO * 0.35)),
+            ]
+            return MinijogoDesviarTiros(tela, relogio, jogador, grad_espaco,
+                                        estrelas, inimigos, fonte_titulo, fonte_normal)
+
+        # Fases 27-30: implemente aqui e retorne a subclasse correspondente
+        # if numero_fase == 27: ...
+
+        return None   # fase sem minijogo configurado
+
+    @staticmethod
     def obter_info_boss(resultado_fase):
         """
         Obtém informações sobre o boss fight.

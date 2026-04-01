@@ -236,6 +236,10 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
             dir_tiro_x += random.uniform(-imprecisao, imprecisao)
             dir_tiro_y += random.uniform(-imprecisao, imprecisao)
 
+            # Rajada pendente do peixe (segundo tiro)
+            if hasattr(inimigo, 'tipo_peixe') and inimigo.tipo_peixe:
+                inimigo.atualizar_rajada(tiros_inimigo)
+
             # Verificar se é inimigo metralhadora para usar método específico
             if hasattr(inimigo, 'tipo_metralhadora') and inimigo.tipo_metralhadora:
                 inimigo.atirar_metralhadora(jogador, tiros_inimigo, particulas, flashes)
