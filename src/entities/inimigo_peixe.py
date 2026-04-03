@@ -60,6 +60,7 @@ class InimigoPeixe(Quadrado):
         centro_x = self.x + self.tamanho // 2
         centro_y = self.y + self.tamanho // 2
         bolha = Tiro(centro_x, centro_y, dx, dy, (150, 220, 255), 5)
+        bolha.origem_peixe = self
         bolha.tipo_bolha = True
         bolha.raio = 9
         bolha.cor_interna = (220, 245, 255)

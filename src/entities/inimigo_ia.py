@@ -39,6 +39,9 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
     """
     # Se o inimigo foi derrotado, pular
     if inimigo.vidas <= 0:
+        if hasattr(inimigo, 'tipo_peixe') and inimigo.tipo_peixe:
+            tiros_inimigo[:] = [t for t in tiros_inimigo
+                                if getattr(t, 'origem_peixe', None) is not inimigo]
         return tempo_movimento_inimigos[idx]
 
     # Verificar se é inimigo mago e atualizar sistemas especiais
@@ -49,6 +52,11 @@ def atualizar_IA_inimigo(inimigo, idx, jogador, tiros_jogador, inimigos, tempo_a
         # Atualizar invocação (se estiver invocando)
         if inimigo.esta_invocando:
             inimigo.atualizar_invocacao(inimigos)
+
+    # Caranguejo — máquina de estados própria (perseguir / telegrafar / dash)
+    if hasattr(inimigo, 'tipo_crab') and inimigo.tipo_crab:
+        inimigo.atualizar_crab(jogador, particulas, flashes)
+        return tempo_movimento_inimigos[idx]
 
     # Verificar se é um inimigo perseguidor
     if hasattr(inimigo, 'perseguidor') and inimigo.perseguidor:

@@ -997,9 +997,10 @@ class FaseBase:
         # Efeito de tempo desacelerado
         desenhar_efeito_tempo_desacelerado(self.tela, self.jogador.tem_ampulheta_ativa(), tempo_atual)
 
-    def renderizar_hud(self, tempo_atual, alvos):
+    def renderizar_hud(self, tempo_atual, alvos, show_content=True):
         """Renderiza o HUD."""
-        desenhar_hud(self.tela, self.numero_fase, alvos, tempo_atual, self.moeda_manager, self.jogador)
+        desenhar_hud(self.tela, self.numero_fase, alvos, tempo_atual, self.moeda_manager, self.jogador,
+                     apenas_fundo=(not show_content))
 
     def renderizar_mira(self, pos_mouse):
         """Renderiza a mira do mouse."""

@@ -18,11 +18,11 @@ from src.items.granada import desenhar_granada_selecionada
 from src.weapons.sabre_luz import desenhar_icone_sabre_hud
 
 
-def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jogador=None):
+def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jogador=None, apenas_fundo=False):
     """
     Desenha a interface de usuário durante o jogo.
     Agora inclui indicador da arma selecionada no sistema de inventário, ampulheta e amuleto.
-    
+
     Args:
         tela: Superfície onde desenhar
         fase_atual: Número da fase atual
@@ -30,11 +30,15 @@ def desenhar_hud(tela, fase_atual, inimigos, tempo_atual, moeda_manager=None, jo
         tempo_atual: Tempo atual para efeitos
         moeda_manager: Gerenciador de moedas (opcional)
         jogador: Objeto do jogador para mostrar arma equipada (opcional)
+        apenas_fundo: Se True, desenha apenas o frame/fundo sem o conteúdo
     """
-    # Fundo da barra de HUD (área separada)
+    # Fundo da barra de HUD (área separada) — sempre visível
     pygame.draw.rect(tela, CINZA_ESCURO, (0, ALTURA_JOGO, LARGURA, ALTURA_HUD))
     pygame.draw.line(tela, (100, 100, 150), (0, ALTURA_JOGO), (LARGURA, ALTURA_JOGO), 2)
-    
+
+    if apenas_fundo:
+        return
+
     # Calcular inimigos restantes
     inimigos_restantes = sum(1 for inimigo in inimigos if inimigo.vidas > 0)
     

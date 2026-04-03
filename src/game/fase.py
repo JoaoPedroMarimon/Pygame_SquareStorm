@@ -130,6 +130,10 @@ class FaseNormal(FaseBase):
                 if self.inimigos[self._tubarao_inimigo_idx].vidas <= 0:
                     self._tubarao_disparado = True
                     self._executar_cutscene_tubarao()
+                    # Se o player morreu no minigame do espaço, derrota imediata
+                    if self.jogador.vidas <= 0:
+                        self.limpar()
+                        return False
 
             # Verificar condições de vitória/derrota
             resultado_condicao = self._verificar_condicoes_fim()
@@ -416,8 +420,7 @@ class FaseNormal(FaseBase):
             self.renderizar_objetos_jogo(tempo, self.inimigos)
             if not show_player:
                 self.jogador.vidas = vidas_orig
-            if show_hud:
-                self.renderizar_hud(tempo, self.inimigos)
+            self.renderizar_hud(tempo, self.inimigos, show_content=show_hud)
             self.tela = tela_orig
 
         executar_cutscene_tubarao(

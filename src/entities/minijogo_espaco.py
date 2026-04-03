@@ -382,3 +382,386 @@ class MinijogoDesviarTiros(MinijogoEspacoBase):
         cor_txt  = (255, 100, 100) if restante <= 5 else (255, 220, 220)
         desenhar_texto(self.tela, f"SOBREVIVA  {restante}s", 28, cor_txt,
                        self.LINHA_X // 2, 28)
+
+
+# ---------------------------------------------------------------------------
+# Fase 27 — Batata Quente
+# ---------------------------------------------------------------------------
+
+class MinijogoBatataQuente(MinijogoEspacoBase):
+    """
+    Fase 27: Batata Quente.
+    O player começa com a bomba. Inimigos fogem de quem tem a bomba.
+    Ao encostar em alguém a bomba transfere. Após TEMPO_BOMBA ms explode
+    matando o portador. Termina quando todos os inimigos morreram.
+    """
+
+    TEMPO_BOMBA       = 6000   # ms antes de explodir
+    COOLDOWN_TRANSFER = 1200   # imunidade de re-transferência
+
+    def __init__(self, tela, relogio, jogador_original, grad_espaco, estrelas,
+                 inimigos, fonte_titulo, fonte_normal):
+        super().__init__(tela, relogio, jogador_original, grad_espaco, estrelas,
+                         inimigos, fonte_titulo, fonte_normal)
+
+        # Posiciona inimigos espalhados pela arena
+        _pos = [
+            (int(LARGURA * 0.18), int(ALTURA_JOGO * 0.18)),
+            (int(LARGURA * 0.75), int(ALTURA_JOGO * 0.18)),
+            (int(LARGURA * 0.18), int(ALTURA_JOGO * 0.76)),
+            (int(LARGURA * 0.75), int(ALTURA_JOGO * 0.76)),
+            (int(LARGURA * 0.46), int(ALTURA_JOGO * 0.47)),
+        ]
+        for i, ini in enumerate(self.inimigos):
+            px, py = _pos[i % len(_pos)]
+            ini.x, ini.y = px, py
+            ini.rect.x, ini.rect.y = px, py
+
+        # Bomba: 'jogador' ou índice int na lista self.inimigos
+        self._bomb_holder  = 'jogador'
+        self._bomb_inicio  = 0   # nunca reseta — contador global
+        self._bomb_recebeu = {}  # holder_key -> tempo que recebeu (cooldown de re-transfer)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _holder_cx_cy(self):
+        """Centro de quem tem a bomba."""
+        if self._bomb_holder == 'jogador':
+            j = self.jogador
+            return j.x + j.tamanho // 2, j.y + j.tamanho // 2
+        h = self.inimigos[self._bomb_holder]
+        return h.x + h.tamanho // 2, h.y + h.tamanho // 2
+
+    def _transferir(self, novo_holder, tempo_atual):
+        self._bomb_holder = novo_holder
+        # _bomb_inicio NÃO reseta — o timer da bomba continua correndo
+        self._bomb_recebeu[novo_holder] = tempo_atual
+
+    def _pode_receber(self, holder_key, tempo_atual):
+        return tempo_atual - self._bomb_recebeu.get(holder_key, 0) >= self.COOLDOWN_TRANSFER
+
+    def _ia_fugir_de(self, inimigo, fx, fy):
+        """
+        Afasta o inimigo do ponto (fx, fy) com:
+        - repulsão de paredes (evita ficar preso no canto)
+        - finta lateral periódica (movimento mais natural)
+        """
+        agora = pygame.time.get_ticks()
+        cx = inimigo.x + inimigo.tamanho / 2
+        cy = inimigo.y + inimigo.tamanho / 2
+
+        # Direção de fuga base
+        dx, dy = cx - fx, cy - fy
+        dist = math.hypot(dx, dy)
+        if dist < 1:
+            dx, dy = random.uniform(-1, 1), random.uniform(-1, 1)
+            dist = max(1.0, math.hypot(dx, dy))
+        ndx, ndy = dx / dist, dy / dist
+
+        # Repulsão de paredes: empurra para longe das bordas
+        MARGEM = 140
+        wx = 0.0
+        wy = 0.0
+        if cx < MARGEM:
+            wx += (1.0 - cx / MARGEM) * 2.8
+        if cx > LARGURA - MARGEM:
+            wx -= (1.0 - (LARGURA - cx) / MARGEM) * 2.8
+        if cy < MARGEM:
+            wy += (1.0 - cy / MARGEM) * 2.8
+        if cy > ALTURA_JOGO - MARGEM:
+            wy -= (1.0 - (ALTURA_JOGO - cy) / MARGEM) * 2.8
+
+        # Finta lateral periódica
+        if not hasattr(inimigo, '_bq_dodge_t'):
+            inimigo._bq_dodge_t   = agora
+            inimigo._bq_dodge_dir = random.choice([-1, 1])
+            inimigo._bq_dodge_int = random.randint(900, 1800)
+
+        elapsed = agora - inimigo._bq_dodge_t
+        if elapsed > inimigo._bq_dodge_int:
+            inimigo._bq_dodge_t   = agora
+            inimigo._bq_dodge_dir = random.choice([-1, 1])
+            inimigo._bq_dodge_int = random.randint(900, 1800)
+            elapsed = 0
+
+        # Finta ativa nos primeiros 260ms do intervalo
+        finta = elapsed < 260
+        perp_x = -ndy * inimigo._bq_dodge_dir * 1.0 if finta else 0.0
+        perp_y =  ndx * inimigo._bq_dodge_dir * 1.0 if finta else 0.0
+
+        # Combinar forças
+        fx_t = ndx + wx + perp_x
+        fy_t = ndy + wy + perp_y
+        mag  = math.hypot(fx_t, fy_t)
+        if mag < 0.01:
+            return
+
+        vel = inimigo.velocidade * 1.4
+        inimigo.x = max(15, min(LARGURA - inimigo.tamanho - 15,
+                                inimigo.x + fx_t / mag * vel))
+        inimigo.y = max(15, min(ALTURA_JOGO - inimigo.tamanho - 15,
+                                inimigo.y + fy_t / mag * vel))
+        inimigo.rect.x = int(inimigo.x)
+        inimigo.rect.y = int(inimigo.y)
+
+    def _ia_perseguir(self, inimigo, tx, ty):
+        """Move o inimigo em direção a (tx, ty)."""
+        cx = inimigo.x + inimigo.tamanho / 2
+        cy = inimigo.y + inimigo.tamanho / 2
+        dx, dy = tx - cx, ty - cy
+        dist = math.hypot(dx, dy)
+        if dist < 1:
+            return
+        vel = inimigo.velocidade * 1.2
+        inimigo.x = max(10, min(LARGURA  - inimigo.tamanho - 10,
+                                inimigo.x + dx / dist * vel))
+        inimigo.y = max(10, min(ALTURA_JOGO - inimigo.tamanho - 10,
+                                inimigo.y + dy / dist * vel))
+        inimigo.rect.x = int(inimigo.x)
+        inimigo.rect.y = int(inimigo.y)
+
+    # ------------------------------------------------------------------
+    # Armas (desativadas durante o minijogo)
+    # ------------------------------------------------------------------
+
+    _ARMA_FLAGS = ('espingarda_ativa', 'metralhadora_ativa', 'desert_eagle_ativa',
+                   'spas12_ativa', 'sniper_ativa', 'sabre_equipado', 'granada_selecionada')
+
+    def _salvar_armas(self):
+        return {f: getattr(self.jogador, f, False) for f in self._ARMA_FLAGS}
+
+    def _restaurar_armas(self, estado):
+        for f, v in estado.items():
+            if hasattr(self.jogador, f):
+                setattr(self.jogador, f, v)
+
+    def _desativar_armas(self):
+        for f in self._ARMA_FLAGS:
+            if hasattr(self.jogador, f):
+                setattr(self.jogador, f, False)
+
+    # ------------------------------------------------------------------
+    # Loop principal
+    # ------------------------------------------------------------------
+
+    def _executar_conteudo(self) -> str:
+        tempo_atual = pygame.time.get_ticks()
+        self._bomb_inicio = tempo_atual
+        self._bomb_holder = 'jogador'
+        self._bomb_recebeu = {'jogador': tempo_atual}
+        estado_armas = self._salvar_armas()
+        self._desativar_armas()
+
+        # Vidas exclusivas do minigame (independentes da partida)
+        _vidas_reais = self.jogador.vidas
+        self._mg_vidas = 2
+
+        def _sair(resultado_str):
+            self._restaurar_armas(estado_armas)
+            self.jogador.vidas = _vidas_reais
+            return resultado_str
+
+        while True:
+            tempo_atual = self.obter_tempo_atual()
+            pos_mouse   = self.obter_pos_mouse()
+
+            resultado = self.processar_eventos()
+            if resultado in ("sair", "menu"):
+                return _sair('saiu')
+
+            if self.pausado:
+                self.renderizar_menu_pausa()
+                present_frame()
+                self.relogio.tick(FPS)
+                continue
+
+            # Invulnerabilidade inicial
+            if self.jogador.invulneravel and self.jogador.duracao_invulneravel != float('inf'):
+                self.jogador.duracao_invulneravel -= 1
+                if self.jogador.duracao_invulneravel <= 0:
+                    self.jogador.invulneravel = False
+
+            # Quem acabou de pegar a bomba fica parado 500ms
+            _congelado_player = (self._bomb_holder == 'jogador' and
+                                 tempo_atual - self._bomb_recebeu.get('jogador', 0) < 500)
+            if not _congelado_player:
+                self.atualizar_jogador(pos_mouse, tempo_atual)
+            else:
+                # Salva posição, atualiza (animações/dash/etc), restaura posição
+                _px, _py = self.jogador.x, self.jogador.y
+                self.atualizar_jogador(pos_mouse, tempo_atual)
+                self.jogador.x, self.jogador.y = _px, _py
+                self.jogador.rect.x = int(_px)
+                self.jogador.rect.y = int(_py)
+            self._desativar_armas()
+            self.tiros_jogador.clear()
+            self.atualizar_moedas()
+
+            hcx, hcy = self._holder_cx_cy()
+
+            # ── IA dos inimigos ─────────────────────────────────────────
+            for idx, ini in enumerate(self.inimigos):
+                if ini.vidas <= 0:
+                    continue
+                if self._bomb_holder == idx:
+                    # Congelado por 500ms após receber a bomba
+                    if tempo_atual - self._bomb_recebeu.get(idx, 0) < 500:
+                        continue
+                    # Portador: persegue entidade mais próxima para passar a bomba
+                    cx = ini.x + ini.tamanho / 2
+                    cy = ini.y + ini.tamanho / 2
+                    alvos = []
+                    jcx = self.jogador.x + self.jogador.tamanho / 2
+                    jcy = self.jogador.y + self.jogador.tamanho / 2
+                    alvos.append((math.hypot(jcx - cx, jcy - cy), jcx, jcy))
+                    for j, outro in enumerate(self.inimigos):
+                        if j != idx and outro.vidas > 0:
+                            ocx = outro.x + outro.tamanho / 2
+                            ocy = outro.y + outro.tamanho / 2
+                            alvos.append((math.hypot(ocx - cx, ocy - cy), ocx, ocy))
+                    if alvos:
+                        alvos.sort()
+                        _, tx, ty = alvos[0]
+                        self._ia_perseguir(ini, tx, ty)
+                else:
+                    # Não tem bomba: foge do portador
+                    self._ia_fugir_de(ini, hcx, hcy)
+
+            # ── Transferência por contato ────────────────────────────────
+            pode = self._pode_receber(self._bomb_holder, tempo_atual)
+            if pode:
+                if self._bomb_holder == 'jogador':
+                    # Player passa para inimigo que encostar
+                    for idx, ini in enumerate(self.inimigos):
+                        if ini.vidas > 0 and self._pode_receber(idx, tempo_atual):
+                            if self.jogador.rect.colliderect(ini.rect):
+                                self._transferir(idx, tempo_atual)
+                                break
+                else:
+                    holder_ini = self.inimigos[self._bomb_holder]
+                    # Inimigo portador encosta no player
+                    if self._pode_receber('jogador', tempo_atual):
+                        if holder_ini.rect.colliderect(self.jogador.rect):
+                            self._transferir('jogador', tempo_atual)
+                    # Inimigo portador encosta em outro inimigo
+                    if self._bomb_holder != 'jogador':   # pode ter mudado acima
+                        for idx, ini in enumerate(self.inimigos):
+                            if idx != self._bomb_holder and ini.vidas > 0:
+                                if self._pode_receber(idx, tempo_atual):
+                                    if holder_ini.rect.colliderect(ini.rect):
+                                        self._transferir(idx, tempo_atual)
+                                        break
+
+            # ── Explosão ─────────────────────────────────────────────────
+            if tempo_atual - self._bomb_inicio >= self.TEMPO_BOMBA:
+                from src.entities.particula import criar_explosao
+                if self._bomb_holder == 'jogador':
+                    from src.entities.particula import criar_explosao as _exp
+                    jex = int(self.jogador.x + self.jogador.tamanho / 2)
+                    jey = int(self.jogador.y + self.jogador.tamanho / 2)
+                    _exp(jex, jey, (255, 140, 0), self.particulas, 40)
+                    self._mg_vidas -= 1
+                    if self._mg_vidas <= 0:
+                        return _sair('morreu')
+                    # Sobreviveu — passa a bomba para o inimigo mais próximo
+                    vivos_idx_p = [i for i, ini in enumerate(self.inimigos) if ini.vidas > 0]
+                    if vivos_idx_p:
+                        mais_perto_p = min(vivos_idx_p,
+                                           key=lambda i: math.hypot(
+                                               self.inimigos[i].x - jex,
+                                               self.inimigos[i].y - jey))
+                        self._transferir(mais_perto_p, tempo_atual)
+                        self._bomb_inicio = tempo_atual
+                else:
+                    morto = self.inimigos[self._bomb_holder]
+                    morto.vidas = 0
+                    ex = int(morto.x + morto.tamanho / 2)
+                    ey = int(morto.y + morto.tamanho / 2)
+                    criar_explosao(ex, ey, (255, 140, 0), self.particulas, 40)
+
+                    # Passa a bomba para a entidade viva mais próxima
+                    vivos_idx = [i for i, ini in enumerate(self.inimigos) if ini.vidas > 0]
+                    if not vivos_idx:
+                        return _sair('sobreviveu')
+
+                    # Próximo holder: inimigo mais próximo do portador morto
+                    jcx = self.jogador.x + self.jogador.tamanho / 2
+                    jcy = self.jogador.y + self.jogador.tamanho / 2
+                    mais_perto = min(vivos_idx,
+                                     key=lambda i: math.hypot(
+                                         self.inimigos[i].x - jcx,
+                                         self.inimigos[i].y - jcy))
+                    self._transferir(mais_perto, tempo_atual)
+                    self._bomb_inicio = tempo_atual
+
+            # ── Condições de fim ─────────────────────────────────────────
+            # Morte do player tratada pela bomba — não usa verificar_jogador_morto
+            self.processar_transicoes()   # mantém efeitos visuais, ignora resultado
+
+            # Única condição de vitória: todos os inimigos mortos
+            if all(ini.vidas <= 0 for ini in self.inimigos):
+                return _sair('sobreviveu')
+
+            # ── Render ───────────────────────────────────────────────────
+            self.atualizar_efeitos_visuais()
+            self.renderizar_fundo()
+            self.renderizar_objetos_jogo(tempo_atual, self.inimigos)
+            self._desenhar_bomba(tempo_atual)
+            self._desenhar_hud()
+            self.renderizar_mira(pos_mouse)
+            present_frame()
+            self.relogio.tick(FPS)
+
+    # ------------------------------------------------------------------
+    # Visual
+    # ------------------------------------------------------------------
+
+    def _desenhar_bomba(self, tempo_atual):
+        """Desenha o ícone de bomba + barra de tempo sobre o portador."""
+        if self._bomb_holder == 'jogador':
+            bx = int(self.jogador.x + self.jogador.tamanho // 2)
+            by = int(self.jogador.y) - 20
+        else:
+            h  = self.inimigos[self._bomb_holder]
+            if h.vidas <= 0:
+                return
+            bx = int(h.x + h.tamanho // 2)
+            by = int(h.y) - 20
+
+        restante = max(0, self.TEMPO_BOMBA - (tempo_atual - self._bomb_inicio))
+        freq = 300 if restante > 2000 else (150 if restante > 1000 else 70)
+        pulse = (tempo_atual // freq) % 2 == 0
+
+        # Corpo da bomba
+        cor_bomba = (255, 60, 0) if (pulse and restante < 2000) else (25, 25, 25)
+        pygame.draw.circle(self.tela, cor_bomba, (bx, by), 11)
+        pygame.draw.circle(self.tela, (80, 80, 80), (bx, by), 11, 2)
+
+        # Mecha
+        pygame.draw.line(self.tela, (180, 130, 0), (bx, by - 11), (bx + 7, by - 20), 2)
+        # Faísca pulsante
+        if pulse:
+            pygame.draw.circle(self.tela, (255, 255, 80), (bx + 7, by - 20), 4)
+
+        # Barra de tempo debaixo da bomba
+        bar_w, bar_h = 44, 5
+        bar_x = bx - bar_w // 2
+        bar_y = by + 16
+        pygame.draw.rect(self.tela, (60, 0, 0), (bar_x, bar_y, bar_w, bar_h), 0, 2)
+        prog = int(restante / self.TEMPO_BOMBA * bar_w)
+        if prog > 0:
+            cor_bar = ((0, 200, 60)   if restante > 3000 else
+                       (255, 200, 0)  if restante > 1500 else
+                       (255, 40, 40))
+            pygame.draw.rect(self.tela, cor_bar, (bar_x, bar_y, prog, bar_h), 0, 2)
+
+    def _desenhar_hud(self):
+        """Contador de inimigos vivos + vidas do player no minigame."""
+        vivos = sum(1 for ini in self.inimigos if ini.vidas > 0)
+        desenhar_texto(self.tela, f"INIMIGOS: {vivos}", 26, (220, 220, 220),
+                       LARGURA // 2, 24)
+        vidas = getattr(self, '_mg_vidas', 2)
+        cor_vidas = (255, 80, 80) if vidas == 1 else (220, 220, 220)
+        desenhar_texto(self.tela, f"VIDAS: {vidas}", 24, cor_vidas, 80, 24)

@@ -760,6 +760,29 @@ class NivelFactory:
             'pos_jogador': pos_jogador
         }
 
+    @staticmethod
+    def criar_fase_27():
+        """
+        Fase 26: Introdução ao ambiente aquático - Inimigos Peixe.
+        Três peixes triangulares que atiram bolhas.
+        """
+        inimigos = []
+
+        pos_x1 = LARGURA - 150
+        pos_y1 = ALTURA_JOGO // 4
+        inimigos.append(InimigoFactory.criar_inimigo_crab(pos_x1, pos_y1))
+
+        pos_x2 = LARGURA - 250
+        pos_y2 = ALTURA_JOGO // 2
+        inimigos.append(InimigoFactory.criar_inimigo_crab(pos_x2, pos_y2))
+
+
+        pos_jogador = (100, ALTURA_JOGO // 2)
+
+        return {
+            'inimigos': inimigos,
+            'pos_jogador': pos_jogador
+        }
 
 
     @staticmethod
@@ -796,7 +819,7 @@ class NivelFactory:
         Retorna o minijogo do espaço correto para cada fase.
         Adicione novos casos à medida que criar as fases 27-30.
         """
-        from src.entities.minijogo_espaco import MinijogoDesviarTiros
+        from src.entities.minijogo_espaco import MinijogoDesviarTiros, MinijogoBatataQuente
 
         if numero_fase == 26:
             inimigos = [
@@ -808,8 +831,18 @@ class NivelFactory:
             return MinijogoDesviarTiros(tela, relogio, jogador, grad_espaco,
                                         estrelas, inimigos, fonte_titulo, fonte_normal)
 
-        # Fases 27-30: implemente aqui e retorne a subclasse correspondente
-        # if numero_fase == 27: ...
+        if numero_fase == 27:
+            inimigos = [
+                InimigoFactory.criar_inimigo_basico(  int(LARGURA * 0.18), int(ALTURA_JOGO * 0.18)),
+                InimigoFactory.criar_inimigo_especial( int(LARGURA * 0.75), int(ALTURA_JOGO * 0.18)),
+                InimigoFactory.criar_inimigo_rapido(   int(LARGURA * 0.18), int(ALTURA_JOGO * 0.76)),
+                InimigoFactory.criar_inimigo_basico(   int(LARGURA * 0.75), int(ALTURA_JOGO * 0.76)),
+                InimigoFactory.criar_inimigo_perseguidor(int(LARGURA * 0.46), int(ALTURA_JOGO * 0.47)),
+            ]
+            return MinijogoBatataQuente(tela, relogio, jogador, grad_espaco,
+                                        estrelas, inimigos, fonte_titulo, fonte_normal)
+
+        # Fases 28-30: implemente aqui e retorne a subclasse correspondente
 
         return None   # fase sem minijogo configurado
 

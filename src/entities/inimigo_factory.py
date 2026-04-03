@@ -13,6 +13,7 @@ from src.entities.inimigo_mago import InimigoMago
 from src.entities.inimigo_granada import InimigoGranada
 from src.entities.inimigo_fantasma import InimigoFantasma
 from src.entities.inimigo_peixe import InimigoPeixe
+from src.entities.inimigo_crab import InimigoCrab
 
 class InimigoFactory:
     """
@@ -193,3 +194,11 @@ class InimigoFactory:
             Objeto InimigoPeixe configurado
         """
         return InimigoPeixe(x, y)
+
+    @staticmethod
+    def criar_inimigo_crab(x, y):
+        """
+        Cria um inimigo caranguejo para fases aquáticas (26+).
+        Persegue o jogador; ao se aproximar, telegrafeia e dá um dash causando dano.
+        """
+        return InimigoCrab(x, y)
