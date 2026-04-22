@@ -71,6 +71,9 @@ TEMPO_SCOREBOARD = 5000
 # Velocidade
 VEL_BOXFIGHT = 3.5
 
+# Cura
+CURA_DURACAO = 2500   # ms segurando F para curar completamente
+
 
 # Armas: None -> sem arma, 'spas', 'metralhadora'
 ARMAS = {
@@ -178,6 +181,10 @@ class JogadorBoxFight:
 
         self.invulneravel_ate = 0
 
+        self.cura_usado = False
+        self.cura_inicio = 0
+        self.cura_ativo = False
+
         self.cor_escura = tuple(max(0, c - 60) for c in self.cor)
         self.cor_brilhante = tuple(min(255, c + 80) for c in self.cor)
 
@@ -196,6 +203,9 @@ class JogadorBoxFight:
         self.bot_rush_timer = 0
         self.bot_rush_celula_ini = (0, 0)
 
+        # Modo evacuacao (cura)
+        self.bot_evacuando = False
+
     def reset_rodada(self, spawn_x, spawn_y):
         self.hp = HP_MAX
         self.vivo = True
@@ -207,6 +217,9 @@ class JogadorBoxFight:
         self.em_construcao = False
         self.modo_edicao = False
         self.estado_pre_edicao = None
+        self.cura_usado = False
+        self.cura_inicio = 0
+        self.cura_ativo = False
         self.tempo_ultimo_tiro = 0
         self.bot_alvo = None
         self.bot_strafe_timer = 0
@@ -217,6 +230,7 @@ class JogadorBoxFight:
         self.bot_rush_fase  = 'construir'
         self.bot_rush_timer = 0
         self.bot_rush_celula_ini = (0, 0)
+        self.bot_evacuando = False
 
     def get_rect(self):
         return pygame.Rect(int(self.x), int(self.y), TAM_JOGADOR, TAM_JOGADOR)
@@ -242,6 +256,15 @@ class JogadorBoxFight:
             pulso = int(180 + 75 * math.sin(tempo / 200))
             pygame.draw.circle(tela, (50, pulso, 50),
                                (sx + tam // 2, sy + tam // 2), tam // 2 + 6, 2)
+
+        # Simbolo de cura (+) acima do jogador
+        if self.cura_ativo:
+            cx_h = sx + tam // 2
+            cy_h = sy - 26
+            pulso_c = int(160 + 95 * abs(math.sin(tempo / 150)))
+            cor_c = (50, pulso_c, 80)
+            pygame.draw.rect(tela, cor_c, (cx_h - 9, cy_h - 3, 18, 6), 0, 2)
+            pygame.draw.rect(tela, cor_c, (cx_h - 3, cy_h - 9, 6, 18), 0, 2)
 
         # Sombra
         pygame.draw.rect(tela, (15, 12, 20), (sx + 3, sy + 3, tam, tam), 0, 3)
@@ -270,6 +293,13 @@ class JogadorBoxFight:
         hp_ratio = max(0, self.hp / HP_MAX)
         cor_hp = VERDE if hp_ratio > 0.5 else VERMELHO
         pygame.draw.rect(tela, cor_hp, (hp_x, hp_y, int(hp_w * hp_ratio), hp_h), 0, 2)
+
+        # Barra de progresso de cura abaixo do HP
+        if self.cura_ativo and self.cura_inicio > 0:
+            progresso = min(1.0, (pygame.time.get_ticks() - self.cura_inicio) / CURA_DURACAO)
+            cy_bar = hp_y + hp_h + 3
+            pygame.draw.rect(tela, (20, 55, 30), (hp_x, cy_bar, hp_w, 4), 0, 2)
+            pygame.draw.rect(tela, (80, 255, 120), (hp_x, cy_bar, int(hp_w * progresso), 4), 0, 2)
 
 
 # ============================================================
@@ -1137,6 +1167,17 @@ def _bot_ai_boxfight(bot, jogadores, paredes, tempo):
 
     hp_ratio = bot.hp / HP_MAX
 
+    # ---- Modo evacuacao (HP critico + cura disponivel) ----
+    if (not bot.bot_evacuando and bot.hp <= BOT_EVAC_HP_THRESHOLD
+            and not bot.cura_usado and not bot.bot_rush_ativo):
+        bot.bot_evacuando = True
+        bot.bot_rush_ativo = False
+        bot.cura_inicio = 0
+
+    if bot.bot_evacuando:
+        _bot_evacuar(bot, paredes, jogadores, tempo)
+        return
+
     # ---- Modo rush ----
     if bot.bot_rush_ativo:
         _bot_rush_boxfight(bot, paredes, jogadores, tempo)
@@ -1269,6 +1310,61 @@ def _bot_atirar(bot, jogadores, paredes, projeteis, tempo):
 
 
 # ============================================================
+#  BOT EVACUACAO (cura de emergencia)
+# ============================================================
+
+BOT_EVAC_HP_THRESHOLD = 1   # HP abaixo ou igual para ativar evacuacao
+
+def _bot_evacuar(bot, paredes, jogadores, tempo):
+    """
+    Bot para, fecha-se em box, e se cura.
+    Continua atirando (em_construcao permanece False para nao bloquear _bot_atirar).
+    """
+    bot_cx = bot.x + TAM_JOGADOR // 2
+    bot_cy = bot.y + TAM_JOGADOR // 2
+    gx = int(bot_cx // GRID_SIZE)
+    gy = int(bot_cy // GRID_SIZE)
+    esp = PAREDE_ESPESSURA // 2
+
+    # Construir as 4 paredes da box continuamente
+    bordas = [
+        ((gx,     gy,     'h'), pygame.Rect(gx * GRID_SIZE, gy * GRID_SIZE - esp, GRID_SIZE, PAREDE_ESPESSURA)),
+        ((gx,     gy + 1, 'h'), pygame.Rect(gx * GRID_SIZE, (gy + 1) * GRID_SIZE - esp, GRID_SIZE, PAREDE_ESPESSURA)),
+        ((gx,     gy,     'v'), pygame.Rect(gx * GRID_SIZE - esp, gy * GRID_SIZE, PAREDE_ESPESSURA, GRID_SIZE)),
+        ((gx + 1, gy,     'v'), pygame.Rect((gx + 1) * GRID_SIZE - esp, gy * GRID_SIZE, PAREDE_ESPESSURA, GRID_SIZE)),
+    ]
+    for chave, rect in bordas:
+        gi, gj, _ = chave
+        if 0 <= gi <= GRID_COLS and 0 <= gj <= GRID_ROWS:
+            _colocar_parede(paredes, chave, rect, dono=bot)
+
+    # Parar de mover
+    bot.vx = 0
+    bot.vy = 0
+
+    # Iniciar timer de cura
+    if bot.cura_inicio == 0:
+        bot.cura_inicio = tempo
+    bot.cura_ativo = True
+
+    # Manter alvo e mira para _bot_atirar continuar funcionando
+    vivos = [j for j in jogadores if j is not bot and j.vivo]
+    if vivos:
+        if bot.bot_alvo is None or not bot.bot_alvo.vivo:
+            bot.bot_alvo = min(vivos, key=lambda j: (j.x - bot.x) ** 2 + (j.y - bot.y) ** 2)
+        bot.mira_x = bot.bot_alvo.x + TAM_JOGADOR // 2
+        bot.mira_y = bot.bot_alvo.y + TAM_JOGADOR // 2
+
+    # Verificar conclusao da cura
+    if tempo - bot.cura_inicio >= CURA_DURACAO:
+        bot.hp = HP_MAX
+        bot.cura_usado = True
+        bot.cura_ativo = False
+        bot.cura_inicio = 0
+        bot.bot_evacuando = False
+
+
+# ============================================================
 #  HUD
 # ============================================================
 
@@ -1311,6 +1407,18 @@ def _desenhar_hud_boxfight(tela, jogador, fonte_hud, fonte_peq, jogadores_vivos,
         edit_s = fonte_peq.render("[G] Editar Parede", True, (110, 110, 50))
     tela.blit(edit_s, (15, 64))
 
+    # Cura
+    if jogador.cura_ativo:
+        pulso_f = int(160 + 95 * abs(math.sin(tempo / 150)))
+        cura_s = fonte_peq.render("[F] CURANDO...", True, (50, pulso_f, 80))
+        tela.blit(cura_s, (15, 81))
+    elif jogador.cura_usado:
+        cura_s = fonte_peq.render("[F] Cura: USADA", True, (80, 80, 80))
+        tela.blit(cura_s, (15, 81))
+    else:
+        cura_s = fonte_peq.render("[F] Curar (1x)", True, (80, 200, 100))
+        tela.blit(cura_s, (15, 81))
+
     # Info central
     info = fonte_peq.render(
         f"Vivos: {jogadores_vivos}  |  Rodada: {rodada}/{NUM_RODADAS}", True, (180, 180, 200))
@@ -1322,7 +1430,7 @@ def _desenhar_hud_boxfight(tela, jogador, fonte_hud, fonte_peq, jogadores_vivos,
 
     # Controles
     ctrl = fonte_peq.render(
-        "WASD: Mover  |  E: Arma  |  Q: Construir  |  G: Editar  |  LMB: Atirar/Colocar/Remover",
+        "WASD: Mover  |  E: Arma  |  Q: Construir  |  G: Editar  |  F: Curar  |  LMB: Atirar/Colocar/Remover",
         True, (100, 100, 130))
     tela.blit(ctrl, (LARGURA // 2 - ctrl.get_width() // 2, ALTURA_JOGO - 18))
 
@@ -1762,6 +1870,34 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                     dy_mov *= f
                 jogador_humano.vx = dx_mov
                 jogador_humano.vy = dy_mov
+
+            # Cura com F (segurar 2.5s, 1 vez por round)
+            if jogador_humano.vivo and not jogador_humano.cura_usado:
+                if teclas[pygame.K_f]:
+                    if jogador_humano.cura_inicio == 0:
+                        jogador_humano.cura_inicio = tempo
+                    jogador_humano.cura_ativo = True
+                    if tempo - jogador_humano.cura_inicio >= CURA_DURACAO:
+                        jogador_humano.hp = HP_MAX
+                        jogador_humano.cura_usado = True
+                        jogador_humano.cura_ativo = False
+                        jogador_humano.cura_inicio = 0
+                        cx_c, cy_c = jogador_humano.get_centro()
+                        for _ in range(20):
+                            p = Particula(cx_c + random.uniform(-15, 15),
+                                          cy_c + random.uniform(-15, 15),
+                                          (80, 255, 120))
+                            p.velocidade_x = random.uniform(-4, 4)
+                            p.velocidade_y = random.uniform(-5, -1)
+                            p.vida = random.randint(15, 30)
+                            p.tamanho = random.uniform(2, 5)
+                            particulas.append(p)
+                else:
+                    jogador_humano.cura_ativo = False
+                    jogador_humano.cura_inicio = 0
+            elif not jogador_humano.vivo or jogador_humano.cura_usado:
+                jogador_humano.cura_ativo = False
+                jogador_humano.cura_inicio = 0
 
             # Tiro continuo com LMB mantido (metralhadora)
             mouse_buttons = pygame.mouse.get_pressed()
