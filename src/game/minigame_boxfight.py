@@ -18,6 +18,7 @@ from src.utils.visual import criar_mira, desenhar_mira
 from src.utils.display_manager import present_frame, convert_mouse_position
 from src.weapons.spas12 import desenhar_spas12
 from src.weapons.metralhadora import desenhar_metralhadora
+from src.network.multiplayer_utils import ordenar_humanos, sou_host
 
 # ============================================================
 #  CONSTANTES
@@ -161,6 +162,8 @@ class JogadorBoxFight:
         self.cor = cor
         self.is_bot = is_bot
         self.is_remote = is_remote
+        self.player_id = None  # id de rede (None em bots/single-player)
+        self.curando = False   # segurando F (usado pelo host para curar remotos)
         self.hp = HP_MAX
         self.vivo = True
         self.kills = 0
@@ -1605,22 +1608,24 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
     pygame.mouse.set_visible(False)
     mira_surface, mira_rect = criar_mira(12, BRANCO, (255, 140, 40))
 
-    # Criar jogadores (sempre 8)
+    # Host-autoritativo: só o host simula (bots, paredes, tiros, dano, mortes,
+    # rodadas) e transmite o estado; os clientes renderizam e mandam só o input.
+    host_autoritativo = sou_host(cliente)
+
+    # Criar jogadores (sempre 8) em ordem DETERMINÍSTICA (por player_id),
+    # idêntica em todos os clientes.
     jogadores = []
     cor_local = customizacao.get('cor', AZUL)
-    jogador_humano = JogadorBoxFight(nome_jogador, cor_local, is_bot=False)
-    jogador_humano.arma = None  # começa sem arma; pega com E
-    jogadores.append(jogador_humano)
 
-    remotos = {}
-    if cliente:
-        remotos = cliente.get_remote_players()
-
-    for pid, rp in remotos.items():
-        ci = (pid - 1) % len(PALETA_CORES)
-        jr = JogadorBoxFight(rp.name, PALETA_CORES[ci], is_bot=False, is_remote=True)
-        jr.arma = 'spas'
-        jogadores.append(jr)
+    jogador_humano = None
+    for pid, nome, is_local in ordenar_humanos(cliente, nome_jogador):
+        cor = cor_local if is_local else PALETA_CORES[(pid - 1) % len(PALETA_CORES)]
+        j = JogadorBoxFight(nome, cor, is_bot=False, is_remote=not is_local)
+        j.player_id = pid
+        j.arma = None if is_local else 'spas'  # local começa sem arma; pega com E
+        jogadores.append(j)
+        if is_local:
+            jogador_humano = j
 
     nomes_bots = ["Bot Alpha", "Bot Bravo", "Bot Charlie", "Bot Delta",
                   "Bot Echo",  "Bot Foxtrot", "Bot Golf",  "Bot Hotel"]
@@ -1628,9 +1633,16 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
     while len(jogadores) < 8:
         ci = len(jogadores) % len(PALETA_CORES)
         bot = JogadorBoxFight(nomes_bots[bot_idx], PALETA_CORES[ci], is_bot=True)
+        bot.player_id = None
         bot.arma = random.choice(['spas', 'metralhadora'])
         jogadores.append(bot)
         bot_idx += 1
+
+    # Mapa player_id -> jogador, para rotear ações de rede ao jogador certo
+    jogadores_por_pid = {
+        j.player_id: j for j in jogadores
+        if not j.is_bot and j.player_id is not None
+    }
 
     # Posicionar nos spawn points
     for i, j in enumerate(jogadores):
@@ -1660,6 +1672,99 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
     rodada_atual    = 1
     scoreboard_start = 0
     round_vencedor  = None
+
+    def _idx_de(d):
+        return jogadores.index(d) if d in jogadores else -1
+
+    def _construir_snapshot():
+        """Estado autoritativo do jogo (só o host monta e envia)."""
+        pl = []
+        for j in jogadores:
+            pl.append({
+                'x': round(j.x, 1), 'y': round(j.y, 1),
+                'mx': round(j.mira_x, 1), 'my': round(j.mira_y, 1),
+                'hp': j.hp, 'v': j.vivo, 'k': j.kills, 'rv': j.rodadas_vencidas,
+                'arma': j.arma, 'ec': j.em_construcao, 'ca': j.cura_ativo,
+                'ci': max(0, tempo - j.cura_inicio) if j.cura_inicio else 0,
+                'inv': max(0, j.invulneravel_ate - tempo),
+            })
+        pd = []
+        for chave, parede in paredes.items():
+            r = parede['rect']
+            pd.append({
+                'c': list(chave), 'r': [r.x, r.y, r.width, r.height],
+                'hp': parede['hp'], 's': list(parede['secoes']),
+                'd': _idx_de(parede.get('dono')),
+            })
+        proj = [[round(p['x'], 1), round(p['y'], 1), p['raio'],
+                 p['cor'][0], p['cor'][1], p['cor'][2]] for p in projeteis]
+        kf = [{'kl': f.get('killer', ''), 'vc': f.get('victim', ''),
+               'kc': list(f.get('killer_cor', (255, 255, 255))),
+               'vcc': list(f.get('victim_cor', (255, 255, 255))),
+               'age': max(0, tempo - f.get('tempo', tempo))} for f in kill_feed]
+        return {
+            'action': 'box_state',
+            'st': estado, 'rd': rodada_atual, 'rvi': _idx_de(round_vencedor),
+            'np': len(jogadores), 'pl': pl, 'pd': pd, 'proj': proj, 'kf': kf,
+        }
+
+    def _aplicar_snapshot(snap):
+        """Aplica o estado recebido do host (só no cliente)."""
+        nonlocal estado, tempo_estado, rodada_atual, round_vencedor
+        nonlocal paredes, projeteis, kill_feed
+
+        novo = snap.get('st', estado)
+        if novo != estado:
+            estado = novo
+            tempo_estado = pygame.time.get_ticks()
+        rodada_atual = snap.get('rd', rodada_atual)
+
+        now = pygame.time.get_ticks()
+        pl = snap.get('pl', [])
+        for idx, j in enumerate(jogadores):
+            if idx >= len(pl):
+                break
+            pj = pl[idx]
+            # Mantém posição/mira prevista localmente quando ESTE cliente está
+            # vivo e lutando (responsividade). O resto vem do host.
+            eh_local = (j is jogador_humano and estado == "FIGHT" and pj['v'])
+            if not eh_local:
+                j.x = pj['x']
+                j.y = pj['y']
+                j.mira_x = pj['mx']
+                j.mira_y = pj['my']
+                j.arma = pj['arma']
+                j.em_construcao = pj['ec']
+            j.hp = pj['hp']
+            j.vivo = pj['v']
+            j.kills = pj['k']
+            j.rodadas_vencidas = pj['rv']
+            j.cura_ativo = pj['ca']
+            j.cura_inicio = (now - pj['ci']) if pj['ci'] else 0
+            j.invulneravel_ate = now + pj['inv']
+
+        rvi = snap.get('rvi', -1)
+        round_vencedor = jogadores[rvi] if 0 <= rvi < len(jogadores) else None
+
+        # Reconstruir paredes
+        paredes = {}
+        for pw in snap.get('pd', []):
+            chave = tuple(pw['c'])
+            paredes[chave] = {
+                'hp': pw['hp'],
+                'rect': pygame.Rect(pw['r']),
+                'secoes': list(pw['s']),
+                'dono': jogadores[pw['d']] if 0 <= pw['d'] < len(jogadores) else None,
+            }
+
+        # Reconstruir projéteis (só visual)
+        projeteis = [{'x': p[0], 'y': p[1], 'raio': p[2], 'cor': (p[3], p[4], p[5]),
+                      'vx': 0, 'vy': 0, 'vida': 1} for p in snap.get('proj', [])]
+
+        # Reconstruir kill feed
+        kill_feed = [{'killer': f['kl'], 'victim': f['vc'],
+                      'killer_cor': tuple(f['kc']), 'victim_cor': tuple(f['vcc']),
+                      'tempo': now - f['age']} for f in snap.get('kf', [])]
 
     while True:
         tempo = pygame.time.get_ticks()
@@ -1735,15 +1840,17 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                     my_world = float(my_s) + cam_y
 
                     if jogador_humano.em_construcao:
-                        # Colocar parede (dentro do limite de distancia)
+                        # Colocar parede (dentro do limite de distancia).
+                        # Host coloca; cliente envia pedido e recebe no snapshot.
                         chave_c, rect_c = _obter_posicao_parede(mx_world, my_world)
                         if chave_c and rect_c:
                             cx_h2, cy_h2 = jogador_humano.get_centro()
                             ddx_b = rect_c.centerx - cx_h2
                             ddy_b = rect_c.centery - cy_h2
                             if ddx_b * ddx_b + ddy_b * ddy_b <= BUILD_MAX_DIST * BUILD_MAX_DIST:
-                                if _colocar_parede(paredes, chave_c, rect_c,
-                                                   dono=jogador_humano) and cliente:
+                                if host_autoritativo:
+                                    _colocar_parede(paredes, chave_c, rect_c, dono=jogador_humano)
+                                elif cliente:
                                     cliente.send_minigame_action({
                                         'action': 'boxfight_parede',
                                         'chave': list(chave_c),
@@ -1758,7 +1865,7 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                         if chave_e is not None:
                             drag_edit_secoes.add((chave_e, idx_e))
                     else:
-                        # Atirar (clique inicial)
+                        # Atirar (clique inicial): host cria; cliente envia
                         if jogador_humano.arma:
                             info = ARMAS[jogador_humano.arma]
                             if tempo - jogador_humano.tempo_ultimo_tiro >= info['cooldown']:
@@ -1769,8 +1876,14 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                                 if dist_t > 0:
                                     dx_t /= dist_t
                                     dy_t /= dist_t
-                                _criar_tiro(jogador_humano, projeteis, cx_h, cy_h, dx_t, dy_t, tempo)
                                 jogador_humano.tempo_ultimo_tiro = tempo
+                                if host_autoritativo:
+                                    _criar_tiro(jogador_humano, projeteis, cx_h, cy_h, dx_t, dy_t, tempo)
+                                elif cliente:
+                                    cliente.send_minigame_action({
+                                        'action': 'boxfight_tiro',
+                                        'cx': cx_h, 'cy': cy_h, 'dx': dx_t, 'dy': dy_t,
+                                    })
                                 try:
                                     from src.utils.sound import gerar_som_tiro
                                     som = pygame.mixer.Sound(gerar_som_tiro())
@@ -1790,12 +1903,24 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                     chave_r, _ = _obter_secao_em(mx_w, my_w, paredes,
                                                   jogador_humano, cx_r, cy_r)
                     if chave_r is not None and chave_r in paredes:
-                        paredes[chave_r]['secoes'] = [True] * SECOES_POR_PAREDE
+                        if host_autoritativo:
+                            paredes[chave_r]['secoes'] = [True] * SECOES_POR_PAREDE
+                        elif cliente:
+                            cliente.send_minigame_action({
+                                'action': 'boxfight_restore', 'chave': list(chave_r),
+                            })
 
             if ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
                 if drag_edit_ativo and drag_edit_secoes:
-                    for chave_d, idx_d in list(drag_edit_secoes):
-                        _remover_secao_parede(paredes, chave_d, idx_d)
+                    # Host remove; cliente envia a lista de seções a remover.
+                    if host_autoritativo:
+                        for chave_d, idx_d in list(drag_edit_secoes):
+                            _remover_secao_parede(paredes, chave_d, idx_d)
+                    elif cliente:
+                        cliente.send_minigame_action({
+                            'action': 'boxfight_edit',
+                            'secoes': [[list(c), i] for (c, i) in drag_edit_secoes],
+                        })
                 drag_edit_secoes.clear()
                 drag_edit_ativo = False
                 # Sair do modo edicao automaticamente ao soltar o mouse
@@ -1809,16 +1934,12 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
         #  MAQUINA DE ESTADOS
         # ============================================================
 
-        if estado == "INTRO":
-            if tempo_no_estado < 500:
-                alpha_fade = int(255 * (1 - tempo_no_estado / 500))
-            else:
-                alpha_fade = 0
+        if host_autoritativo and estado == "INTRO":
             if tempo_no_estado >= TEMPO_INTRO:
                 estado = "COUNTDOWN"
                 tempo_estado = tempo
 
-        elif estado == "COUNTDOWN":
+        elif host_autoritativo and estado == "COUNTDOWN":
             if tempo_no_estado >= TEMPO_COUNTDOWN:
                 estado = "FIGHT"
                 tempo_estado = tempo
@@ -1831,32 +1952,9 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                         _j.bot_rush_timer = tempo + BOT_RUSH_CONSTRUIR_DUR
 
         elif estado == "FIGHT":
-            # Acoes remotas
-            if cliente:
-                for action in cliente.get_minigame_actions():
-                    act = action.get('action')
-                    for j in jogadores:
-                        if not j.is_remote or not j.vivo:
-                            continue
-                        if act == 'boxfight_input':
-                            j.x = action.get('x', j.x)
-                            j.y = action.get('y', j.y)
-                            j.mira_x = action.get('mx', j.mira_x)
-                            j.mira_y = action.get('my', j.mira_y)
-                        elif act == 'boxfight_tiro':
-                            cx2 = action.get('cx', j.x + TAM_JOGADOR // 2)
-                            cy2 = action.get('cy', j.y + TAM_JOGADOR // 2)
-                            dx2 = action.get('dx', 1.0)
-                            dy2 = action.get('dy', 0.0)
-                            _criar_tiro(j, projeteis, cx2, cy2, dx2, dy2, tempo)
-                        elif act == 'boxfight_parede':
-                            chave_r = tuple(action.get('chave', [0, 0, 'h']))
-                            rd = action.get('rect', [0, 0, 1, 1])
-                            _colocar_parede(paredes, chave_r, pygame.Rect(rd))
-                        elif act == 'boxfight_arma':
-                            j.arma = action.get('arma')
+            # (As ações remotas são processadas no bloco de REDE, mais abaixo.)
 
-            # Movimento do jogador humano
+            # --- INPUT LOCAL (host e cliente): controla o próprio jogador ---
             teclas = pygame.key.get_pressed()
             if jogador_humano.vivo:
                 dx_mov, dy_mov = 0.0, 0.0
@@ -1870,36 +1968,16 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                     dy_mov *= f
                 jogador_humano.vx = dx_mov
                 jogador_humano.vy = dy_mov
+                jogador_humano.curando = bool(teclas[pygame.K_f]) and not jogador_humano.cura_usado
+            else:
+                jogador_humano.curando = False
 
-            # Cura com F (segurar 2.5s, 1 vez por round)
-            if jogador_humano.vivo and not jogador_humano.cura_usado:
-                if teclas[pygame.K_f]:
-                    if jogador_humano.cura_inicio == 0:
-                        jogador_humano.cura_inicio = tempo
-                    jogador_humano.cura_ativo = True
-                    if tempo - jogador_humano.cura_inicio >= CURA_DURACAO:
-                        jogador_humano.hp = HP_MAX
-                        jogador_humano.cura_usado = True
-                        jogador_humano.cura_ativo = False
-                        jogador_humano.cura_inicio = 0
-                        cx_c, cy_c = jogador_humano.get_centro()
-                        for _ in range(20):
-                            p = Particula(cx_c + random.uniform(-15, 15),
-                                          cy_c + random.uniform(-15, 15),
-                                          (80, 255, 120))
-                            p.velocidade_x = random.uniform(-4, 4)
-                            p.velocidade_y = random.uniform(-5, -1)
-                            p.vida = random.randint(15, 30)
-                            p.tamanho = random.uniform(2, 5)
-                            particulas.append(p)
-                else:
-                    jogador_humano.cura_ativo = False
-                    jogador_humano.cura_inicio = 0
-            elif not jogador_humano.vivo or jogador_humano.cura_usado:
-                jogador_humano.cura_ativo = False
-                jogador_humano.cura_inicio = 0
+            # Mira do jogador humano
+            mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
+            jogador_humano.mira_x = float(mouse_pos[0]) + cam_x
+            jogador_humano.mira_y = float(mouse_pos[1]) + cam_y
 
-            # Tiro continuo com LMB mantido (metralhadora)
+            # Tiro continuo com LMB mantido: host cria a bala; cliente envia
             mouse_buttons = pygame.mouse.get_pressed()
             if (mouse_buttons[0] and jogador_humano.vivo
                     and not jogador_humano.em_construcao
@@ -1907,23 +1985,22 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                     and jogador_humano.arma):
                 info = ARMAS[jogador_humano.arma]
                 if tempo - jogador_humano.tempo_ultimo_tiro >= info['cooldown']:
-                    mouse_pos_s = convert_mouse_position(pygame.mouse.get_pos())
-                    mx_world_c = float(mouse_pos_s[0]) + cam_x
-                    my_world_c = float(mouse_pos_s[1]) + cam_y
+                    mx_wc = float(mouse_pos[0]) + cam_x
+                    my_wc = float(mouse_pos[1]) + cam_y
                     cx_h, cy_h = jogador_humano.get_centro()
-                    dx_t = mx_world_c - cx_h
-                    dy_t = my_world_c - cy_h
+                    dx_t = mx_wc - cx_h
+                    dy_t = my_wc - cy_h
                     dist_t = math.sqrt(dx_t * dx_t + dy_t * dy_t)
                     if dist_t > 0:
                         dx_t /= dist_t
                         dy_t /= dist_t
-                    _criar_tiro(jogador_humano, projeteis, cx_h, cy_h, dx_t, dy_t, tempo)
                     jogador_humano.tempo_ultimo_tiro = tempo
-                    if cliente:
+                    if host_autoritativo:
+                        _criar_tiro(jogador_humano, projeteis, cx_h, cy_h, dx_t, dy_t, tempo)
+                    elif cliente:
                         cliente.send_minigame_action({
                             'action': 'boxfight_tiro',
-                            'cx': cx_h, 'cy': cy_h,
-                            'dx': dx_t, 'dy': dy_t,
+                            'cx': cx_h, 'cy': cy_h, 'dx': dx_t, 'dy': dy_t,
                         })
                     try:
                         from src.utils.sound import gerar_som_tiro
@@ -1933,94 +2010,114 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                     except Exception:
                         pass
 
-            # Construcao continua: segurando LMB no modo construcao
+            # Construcao continua com LMB no modo construcao: host coloca; cliente envia
             if (mouse_buttons[0] and jogador_humano.vivo
                     and jogador_humano.em_construcao):
-                mp_cb = convert_mouse_position(pygame.mouse.get_pos())
-                mx_cb = float(mp_cb[0]) + cam_x
-                my_cb = float(mp_cb[1]) + cam_y
+                mx_cb = float(mouse_pos[0]) + cam_x
+                my_cb = float(mouse_pos[1]) + cam_y
                 chave_cb, rect_cb = _obter_posicao_parede(mx_cb, my_cb)
                 if chave_cb and rect_cb:
                     cx_cb, cy_cb = jogador_humano.get_centro()
                     ddx_cb = rect_cb.centerx - cx_cb
                     ddy_cb = rect_cb.centery - cy_cb
                     if ddx_cb * ddx_cb + ddy_cb * ddy_cb <= BUILD_MAX_DIST * BUILD_MAX_DIST:
-                        if _colocar_parede(paredes, chave_cb, rect_cb,
-                                           dono=jogador_humano) and cliente:
+                        if host_autoritativo:
+                            _colocar_parede(paredes, chave_cb, rect_cb, dono=jogador_humano)
+                        elif cliente:
                             cliente.send_minigame_action({
                                 'action': 'boxfight_parede',
                                 'chave': list(chave_cb),
-                                'rect': [rect_cb.x, rect_cb.y,
-                                         rect_cb.width, rect_cb.height],
+                                'rect': [rect_cb.x, rect_cb.y, rect_cb.width, rect_cb.height],
                             })
 
-            # Mira do jogador humano
-            mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
-            jogador_humano.mira_x = float(mouse_pos[0]) + cam_x
-            jogador_humano.mira_y = float(mouse_pos[1]) + cam_y
-
-            # Expandir selecao do drag de edicao enquanto LMB mantido
+            # Expandir selecao do drag de edicao enquanto LMB mantido (UI local)
             if drag_edit_ativo and jogador_humano.modo_edicao and jogador_humano.vivo:
                 if pygame.mouse.get_pressed()[0]:
-                    mp_d = convert_mouse_position(pygame.mouse.get_pos())
                     cx_d, cy_d = jogador_humano.get_centro()
                     chave_d2, idx_d2 = _obter_secao_em(
-                        float(mp_d[0]) + cam_x, float(mp_d[1]) + cam_y,
+                        float(mouse_pos[0]) + cam_x, float(mouse_pos[1]) + cam_y,
                         paredes, jogador_humano, cx_d, cy_d)
                     if chave_d2 is not None:
                         drag_edit_secoes.add((chave_d2, idx_d2))
                 else:
-                    # LMB solto fora de foco — aplica e limpa
-                    for chave_d, idx_d in list(drag_edit_secoes):
-                        _remover_secao_parede(paredes, chave_d, idx_d)
+                    if host_autoritativo:
+                        for chave_d, idx_d in list(drag_edit_secoes):
+                            _remover_secao_parede(paredes, chave_d, idx_d)
+                    elif cliente and drag_edit_secoes:
+                        cliente.send_minigame_action({
+                            'action': 'boxfight_edit',
+                            'secoes': [[list(c), i] for (c, i) in drag_edit_secoes],
+                        })
                     drag_edit_secoes.clear()
                     drag_edit_ativo = False
 
-            # Bot AI
-            for j in jogadores:
-                if j.is_bot and j.vivo:
-                    _bot_ai_boxfight(j, jogadores, paredes, tempo)
-                    _bot_atirar(j, jogadores, paredes, projeteis, tempo)
+            # Integrar posicao do jogador LOCAL (predicao) + colisao com paredes
+            if jogador_humano.vivo:
+                jogador_humano.x += jogador_humano.vx
+                jogador_humano.y += jogador_humano.vy
+                jogador_humano.x = max(4, min(jogador_humano.x, ARENA_W - TAM_JOGADOR - 4))
+                jogador_humano.y = max(4, min(jogador_humano.y, ARENA_H - TAM_JOGADOR - 4))
+                _resolver_colisao_jogador_paredes(jogador_humano, paredes)
+                jogador_humano.x = max(4, min(jogador_humano.x, ARENA_W - TAM_JOGADOR - 4))
+                jogador_humano.y = max(4, min(jogador_humano.y, ARENA_H - TAM_JOGADOR - 4))
 
-            # Atualizar posicoes
-            for j in jogadores:
-                if j.vivo:
-                    if not j.is_remote:
+            # --- SIMULACAO: só no host ---
+            if host_autoritativo:
+                # Cura (todos os jogadores, baseado no flag 'curando')
+                for j in jogadores:
+                    if j.vivo and not j.cura_usado and j.curando:
+                        if j.cura_inicio == 0:
+                            j.cura_inicio = tempo
+                        j.cura_ativo = True
+                        if tempo - j.cura_inicio >= CURA_DURACAO:
+                            j.hp = HP_MAX
+                            j.cura_usado = True
+                            j.cura_ativo = False
+                            j.cura_inicio = 0
+                            cx_c, cy_c = j.get_centro()
+                            for _ in range(20):
+                                p = Particula(cx_c + random.uniform(-15, 15),
+                                              cy_c + random.uniform(-15, 15),
+                                              (80, 255, 120))
+                                p.velocidade_x = random.uniform(-4, 4)
+                                p.velocidade_y = random.uniform(-5, -1)
+                                p.vida = random.randint(15, 30)
+                                p.tamanho = random.uniform(2, 5)
+                                particulas.append(p)
+                    else:
+                        j.cura_ativo = False
+                        j.cura_inicio = 0
+
+                # Bot AI
+                for j in jogadores:
+                    if j.is_bot and j.vivo:
+                        _bot_ai_boxfight(j, jogadores, paredes, tempo)
+                        _bot_atirar(j, jogadores, paredes, projeteis, tempo)
+
+                # Atualizar posicoes dos bots + colisao com paredes
+                for j in jogadores:
+                    if j.vivo and j.is_bot:
                         j.x += j.vx
                         j.y += j.vy
-                    j.x = max(4, min(j.x, ARENA_W - TAM_JOGADOR - 4))
-                    j.y = max(4, min(j.y, ARENA_H - TAM_JOGADOR - 4))
+                        j.x = max(4, min(j.x, ARENA_W - TAM_JOGADOR - 4))
+                        j.y = max(4, min(j.y, ARENA_H - TAM_JOGADOR - 4))
+                        _resolver_colisao_jogador_paredes(j, paredes)
+                        j.x = max(4, min(j.x, ARENA_W - TAM_JOGADOR - 4))
+                        j.y = max(4, min(j.y, ARENA_H - TAM_JOGADOR - 4))
 
-            # Colisao de jogadores com paredes (nao se aplica a remotos)
-            for j in jogadores:
-                if j.vivo and not j.is_remote:
-                    _resolver_colisao_jogador_paredes(j, paredes)
-                    j.x = max(4, min(j.x, ARENA_W - TAM_JOGADOR - 4))
-                    j.y = max(4, min(j.y, ARENA_H - TAM_JOGADOR - 4))
+                # Projeteis
+                _atualizar_projeteis(projeteis, jogadores, paredes, particulas, kill_feed, tempo)
 
-            # Enviar posicao local
-            if cliente and jogador_humano.vivo:
-                cliente.send_minigame_action({
-                    'action': 'boxfight_input',
-                    'x': jogador_humano.x,
-                    'y': jogador_humano.y,
-                    'mx': jogador_humano.mira_x,
-                    'my': jogador_humano.mira_y,
-                })
+                # Checar fim da rodada
+                vivos = [j for j in jogadores if j.vivo]
+                if len(vivos) <= 1:
+                    round_vencedor = vivos[0] if vivos else None
+                    if round_vencedor:
+                        round_vencedor.rodadas_vencidas += 1
+                    estado = "ROUND_END"
+                    tempo_estado = tempo
 
-            # Projeteis
-            _atualizar_projeteis(projeteis, jogadores, paredes, particulas, kill_feed, tempo)
-
-            # Checar fim da rodada
-            vivos = [j for j in jogadores if j.vivo]
-            if len(vivos) <= 1:
-                round_vencedor = vivos[0] if vivos else None
-                if round_vencedor:
-                    round_vencedor.rodadas_vencidas += 1
-                estado = "ROUND_END"
-                tempo_estado = tempo
-
-        elif estado == "ROUND_END":
+        elif host_autoritativo and estado == "ROUND_END":
             if tempo_no_estado >= TEMPO_ROUND_END:
                 if rodada_atual >= NUM_RODADAS:
                     estado = "SCOREBOARD"
@@ -2043,9 +2140,73 @@ def executar_minigame_boxfight(tela, relogio, gradiente_jogo, fonte_titulo, font
                     tempo_estado = tempo
 
         elif estado == "SCOREBOARD":
+            # Vale para host e cliente (ambos saem quando o placar termina)
             if tempo_no_estado >= TEMPO_SCOREBOARD:
                 pygame.mouse.set_visible(True)
                 return None
+
+        # --- Fade-in do INTRO (host e cliente) ---
+        if estado == "INTRO" and tempo_no_estado < 500:
+            alpha_fade = int(255 * (1 - tempo_no_estado / 500))
+        else:
+            alpha_fade = 0
+
+        # ============================================================
+        #  REDE (host envia estado; cliente envia input e aplica estado)
+        # ============================================================
+        if cliente:
+            if host_autoritativo:
+                for acao in cliente.get_minigame_actions():
+                    j = jogadores_por_pid.get(acao.get('player_id'))
+                    if j is None or j is jogador_humano:
+                        continue
+                    act = acao.get('action', '')
+                    if act == 'boxfight_input':
+                        if j.vivo:
+                            j.x = acao.get('x', j.x)
+                            j.y = acao.get('y', j.y)
+                            j.mira_x = acao.get('mx', j.mira_x)
+                            j.mira_y = acao.get('my', j.mira_y)
+                            j.em_construcao = acao.get('ec', False)
+                            j.curando = acao.get('cur', False) and not j.cura_usado
+                            j.x = max(4, min(j.x, ARENA_W - TAM_JOGADOR - 4))
+                            j.y = max(4, min(j.y, ARENA_H - TAM_JOGADOR - 4))
+                    elif act == 'boxfight_tiro':
+                        if j.vivo:
+                            _criar_tiro(j, projeteis, acao.get('cx', j.x + TAM_JOGADOR // 2),
+                                        acao.get('cy', j.y + TAM_JOGADOR // 2),
+                                        acao.get('dx', 1.0), acao.get('dy', 0.0), tempo)
+                    elif act == 'boxfight_parede':
+                        chave_r = tuple(acao.get('chave', [0, 0, 'h']))
+                        _colocar_parede(paredes, chave_r,
+                                        pygame.Rect(acao.get('rect', [0, 0, 1, 1])), dono=j)
+                    elif act == 'boxfight_edit':
+                        for c, i in acao.get('secoes', []):
+                            _remover_secao_parede(paredes, tuple(c), i)
+                    elif act == 'boxfight_restore':
+                        chave_r = tuple(acao.get('chave', [0, 0, 'h']))
+                        if chave_r in paredes:
+                            paredes[chave_r]['secoes'] = [True] * SECOES_POR_PAREDE
+                    elif act == 'boxfight_arma':
+                        j.arma = acao.get('arma')
+                # Host transmite o estado autoritativo
+                cliente.send_minigame_action(_construir_snapshot())
+            else:
+                # Cliente envia o input do próprio jogador
+                if estado == "FIGHT" and jogador_humano.vivo:
+                    cliente.send_minigame_action({
+                        'action': 'boxfight_input',
+                        'x': jogador_humano.x, 'y': jogador_humano.y,
+                        'mx': jogador_humano.mira_x, 'my': jogador_humano.mira_y,
+                        'ec': jogador_humano.em_construcao,
+                        'cur': jogador_humano.curando,
+                    })
+                ultimo_snap = None
+                for acao in cliente.get_minigame_actions():
+                    if acao.get('action') == 'box_state':
+                        ultimo_snap = acao
+                if ultimo_snap:
+                    _aplicar_snapshot(ultimo_snap)
 
         # ============================================================
         #  CAMERA
