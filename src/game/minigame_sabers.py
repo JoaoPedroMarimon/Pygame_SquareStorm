@@ -21,6 +21,7 @@ from src.weapons.sabre_luz import (
     alternar_modo_defesa, distancia_ponto_linha,
     criar_som_sabre_ativacao
 )
+from src.network.multiplayer_utils import ordenar_humanos, sou_host
 
 # ============================================================
 #  CONSTANTES
@@ -103,6 +104,7 @@ class JogadorSabers:
         self.cor = cor
         self.is_bot = is_bot
         self.is_remote = is_remote
+        self.player_id = None  # id de rede (None em bots/single-player)
         self.hp = HP_MAX
         self.vivo = True
         self.kills = 0
@@ -1251,28 +1253,39 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
     pygame.mouse.set_visible(False)
     mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
 
-    # Criar jogadores (sempre 8)
+    # Host-autoritativo: só o host simula (bots, sabres, dano, mortes, rodadas)
+    # e transmite o estado; os clientes renderizam e mandam só o próprio input.
+    host_autoritativo = sou_host(cliente)
+
+    # Criar jogadores (sempre 8) em ordem DETERMINÍSTICA (por player_id),
+    # idêntica em todos os clientes.
     jogadores = []
     cor_local = customizacao.get('cor', AZUL)
 
-    jogador_humano = JogadorSabers(nome_jogador, cor_local, is_bot=False)
-    jogadores.append(jogador_humano)
-
-    remotos = {}
-    if cliente:
-        remotos = cliente.get_remote_players()
-
-    for pid, rp in remotos.items():
-        ci = (pid - 1) % len(PALETA_CORES)
-        jogadores.append(JogadorSabers(rp.name, PALETA_CORES[ci], is_bot=False, is_remote=True))
+    jogador_humano = None
+    for pid, nome, is_local in ordenar_humanos(cliente, nome_jogador):
+        cor = cor_local if is_local else PALETA_CORES[(pid - 1) % len(PALETA_CORES)]
+        j = JogadorSabers(nome, cor, is_bot=False, is_remote=not is_local)
+        j.player_id = pid
+        jogadores.append(j)
+        if is_local:
+            jogador_humano = j
 
     nomes_bots = ["Bot Alpha", "Bot Bravo", "Bot Charlie", "Bot Delta",
                   "Bot Echo", "Bot Foxtrot", "Bot Golf", "Bot Hotel"]
     bot_idx = 0
     while len(jogadores) < 8:
         ci = len(jogadores) % len(PALETA_CORES)
-        jogadores.append(JogadorSabers(nomes_bots[bot_idx], PALETA_CORES[ci], is_bot=True))
+        b = JogadorSabers(nomes_bots[bot_idx], PALETA_CORES[ci], is_bot=True)
+        b.player_id = None
+        jogadores.append(b)
         bot_idx += 1
+
+    # Mapa player_id -> jogador, para rotear ações de rede ao jogador certo
+    jogadores_por_pid = {
+        j.player_id: j for j in jogadores
+        if not j.is_bot and j.player_id is not None
+    }
 
     # Bots escolhem cor de sabre aleatoria
     for j in jogadores:
@@ -1301,6 +1314,83 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
     scoreboard_start = 0
     round_vencedor = None
     alpha_fade = 255
+
+    def _idx_de(d):
+        return jogadores.index(d) if d in jogadores else -1
+
+    def _construir_snapshot():
+        """Estado autoritativo do jogo (só o host monta e envia)."""
+        pl = []
+        for j in jogadores:
+            s = j.sabre_info
+            pl.append({
+                'x': round(j.x, 1), 'y': round(j.y, 1),
+                'mx': round(j.mira_x, 1), 'my': round(j.mira_y, 1),
+                'hp': j.hp, 'v': j.vivo, 'k': j.kills, 'rv': j.rodadas_vencidas,
+                'csi': j.cor_sabre_idx, 'inv': max(0, j.invulneravel_ate - tempo),
+                'md': s.get('modo_defesa', False), 'ar': s.get('arremessado', False),
+                'apx': round(s.get('arremesso_pos_x', 0), 1),
+                'apy': round(s.get('arremesso_pos_y', 0), 1),
+                'arot': round(s.get('arremesso_rotacao', 0), 2),
+                'aret': s.get('arremesso_retornando', False),
+                'at': s.get('ativo', True), 'ca': s.get('comprimento_atual', 90),
+                'aa': s.get('animacao_ativacao', 100),
+            })
+        return {
+            'action': 'saber_state',
+            'st': estado, 'rd': rodada_atual, 'rvi': _idx_de(round_vencedor),
+            'np': len(jogadores), 'pl': pl,
+        }
+
+    def _aplicar_snapshot(snap):
+        """Aplica o estado recebido do host (só no cliente)."""
+        nonlocal estado, tempo_estado, rodada_atual, round_vencedor
+
+        novo = snap.get('st', estado)
+        if novo != estado:
+            estado = novo
+            tempo_estado = pygame.time.get_ticks()
+        rodada_atual = snap.get('rd', rodada_atual)
+
+        now = pygame.time.get_ticks()
+        pl = snap.get('pl', [])
+        for idx, j in enumerate(jogadores):
+            if idx >= len(pl):
+                break
+            pj = pl[idx]
+            # Mantém posição/mira/cor prevista localmente quando ESTE cliente é o
+            # jogador, está vivo e em FIGHT (responsividade). O resto vem do host.
+            eh_local = (j is jogador_humano and estado == "FIGHT" and pj['v'])
+            if not eh_local:
+                j.x = pj['x']
+                j.y = pj['y']
+                j.mira_x = pj['mx']
+                j.mira_y = pj['my']
+                j.cor_sabre_idx = pj['csi']
+            j.hp = pj['hp']
+            j.vivo = pj['v']
+            j.kills = pj['k']
+            j.rodadas_vencidas = pj['rv']
+            j.invulneravel_ate = now + pj['inv']
+            s = j.sabre_info
+            s['modo_defesa'] = pj['md']
+            s['arremessado'] = pj['ar']
+            s['arremesso_pos_x'] = pj['apx']
+            s['arremesso_pos_y'] = pj['apy']
+            s['arremesso_rotacao'] = pj['arot']
+            s['arremesso_retornando'] = pj['aret']
+            s['ativo'] = pj['at']
+            s['comprimento_atual'] = pj['ca']
+            s['animacao_ativacao'] = pj['aa']
+
+        rvi = snap.get('rvi', -1)
+        round_vencedor = jogadores[rvi] if 0 <= rvi < len(jogadores) else None
+
+        # Recalcula a posição visual do sabre EMPUNHADO de cada jogador (o
+        # arremessado usa a posição vinda do host). É determinístico (x/y/mira).
+        for j in jogadores:
+            if j.vivo:
+                _atualizar_posicao_sabre(j)
 
     while True:
         tempo = pygame.time.get_ticks()
@@ -1347,32 +1437,34 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
                             })
 
             # Click esquerdo - arremessar sabre (ou forcar retorno) / Click direito - modo defesa
+            # Ações de combate são autoritativas do host: o host executa; o
+            # cliente só avisa e recebe o resultado no snapshot.
             if ev.type == pygame.MOUSEBUTTONDOWN:
                 if ev.button == 1 and estado == "FIGHT" and jogador_humano.vivo:
                     if jogador_humano.sabre_info.get('arremessado', False):
                         # Sabre ja no ar - forcar retorno
-                        jogador_humano.sabre_info['arremesso_retornando'] = True
-                        if cliente:
+                        if host_autoritativo:
+                            jogador_humano.sabre_info['arremesso_retornando'] = True
+                        elif cliente:
                             cliente.send_minigame_action({'action': 'saber_recall'})
                     else:
                         # Arremessar
                         mx, my = convert_mouse_position(pygame.mouse.get_pos())
                         mundo_mx = mx + cam_x
                         mundo_my = my + cam_y
-                        if _arremessar_sabre_jogador(jogador_humano, (mundo_mx, mundo_my)):
-                            if cliente:
-                                cliente.send_minigame_action({
-                                    'action': 'saber_throw',
-                                    'mx': mundo_mx, 'my': mundo_my,
-                                })
+                        if host_autoritativo:
+                            _arremessar_sabre_jogador(jogador_humano, (mundo_mx, mundo_my))
+                        elif cliente:
+                            cliente.send_minigame_action({
+                                'action': 'saber_throw',
+                                'mx': mundo_mx, 'my': mundo_my,
+                            })
                 if ev.button == 3 and estado == "FIGHT":  # Botao direito
                     if jogador_humano.vivo and not jogador_humano.sabre_info.get('arremessado', False):
-                        jogador_humano.sabre_info['modo_defesa'] = not jogador_humano.sabre_info['modo_defesa']
-                        if cliente:
-                            cliente.send_minigame_action({
-                                'action': 'saber_defense',
-                                'defesa': jogador_humano.sabre_info['modo_defesa'],
-                            })
+                        if host_autoritativo:
+                            jogador_humano.sabre_info['modo_defesa'] = not jogador_humano.sabre_info['modo_defesa']
+                        elif cliente:
+                            cliente.send_minigame_action({'action': 'saber_defense_toggle'})
 
                 # Click esquerdo na tela de selecao de cor
                 if ev.button == 1 and estado == "COLOR_SELECT":
@@ -1390,59 +1482,30 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
                                     'cor_idx': i,
                                 })
 
-        # ========== MAQUINA DE ESTADOS ==========
+        # ========== MAQUINA DE ESTADOS (só o host simula; cliente segue snapshot) ==========
 
-        if estado == "INTRO":
-            if tempo_no_estado < 500:
-                alpha_fade = int(255 * (1 - tempo_no_estado / 500))
-            else:
-                alpha_fade = 0
-
+        if host_autoritativo and estado == "INTRO":
             if tempo_no_estado >= TEMPO_INTRO:
                 estado = "COLOR_SELECT"
                 tempo_estado = tempo
-                pygame.mouse.set_visible(True)
 
-        elif estado == "COLOR_SELECT":
+        elif host_autoritativo and estado == "COLOR_SELECT":
             if tempo_no_estado >= TEMPO_COLOR_SELECT:
                 estado = "COUNTDOWN"
                 tempo_estado = tempo
-                pygame.mouse.set_visible(False)
                 # Ativar sabres de todos
                 for j in jogadores:
                     j.sabre_info['ativo'] = True
                     j.sabre_info['animacao_ativacao'] = 100
                     j.sabre_info['comprimento_atual'] = 90
 
-        elif estado == "COUNTDOWN":
+        elif host_autoritativo and estado == "COUNTDOWN":
             if tempo_no_estado >= TEMPO_COUNTDOWN:
                 estado = "FIGHT"
                 tempo_estado = tempo
 
-        elif estado == "FIGHT":
-            # Processar acoes remotas
-            if cliente:
-                for action in cliente.get_minigame_actions():
-                    act = action.get('action')
-                    for j in jogadores:
-                        if j.is_remote and j.vivo:
-                            if act == 'saber_input':
-                                j.x = action.get('x', j.x)
-                                j.y = action.get('y', j.y)
-                                j.mira_x = action.get('mx', j.mira_x)
-                                j.mira_y = action.get('my', j.mira_y)
-                            elif act == 'saber_throw':
-                                rmx = action.get('mx', 0)
-                                rmy = action.get('my', 0)
-                                _arremessar_sabre_jogador(j, (rmx, rmy))
-                            elif act == 'saber_defense':
-                                j.sabre_info['modo_defesa'] = action.get('defesa', False)
-                            elif act == 'saber_dash':
-                                j.executar_dash(action.get('dx', 0), action.get('dy', 0))
-                            elif act == 'saber_color':
-                                j.cor_sabre_idx = action.get('cor_idx', 0) % len(CORES_SABRE)
-                            elif act == 'saber_recall':
-                                j.sabre_info['arremesso_retornando'] = True
+        elif host_autoritativo and estado == "FIGHT":
+            # (As ações remotas são processadas no bloco de REDE, mais abaixo.)
 
             # Movimento do jogador humano local
             teclas = pygame.key.get_pressed()
@@ -1484,13 +1547,7 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
                     j.x = max(4, min(j.x, ARENA_W - TAM_JOGADOR - 4))
                     j.y = max(4, min(j.y, ARENA_H - TAM_JOGADOR - 4))
 
-            # Enviar posicao do jogador local
-            if cliente and jogador_humano.vivo:
-                cliente.send_minigame_action({
-                    'action': 'saber_input',
-                    'x': jogador_humano.x, 'y': jogador_humano.y,
-                    'mx': jogador_humano.mira_x, 'my': jogador_humano.mira_y,
-                })
+            # (O envio da posição do jogador local é feito no bloco de REDE, abaixo.)
 
             # Atualizar sabres arremessados
             for j in jogadores:
@@ -1653,7 +1710,7 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
                 estado = "ROUND_END"
                 tempo_estado = tempo
 
-        elif estado == "ROUND_END":
+        elif host_autoritativo and estado == "ROUND_END":
             if tempo_no_estado >= TEMPO_ROUND_END:
                 if rodada_atual >= NUM_RODADAS:
                     estado = "SCOREBOARD"
@@ -1670,9 +1727,97 @@ def executar_minigame_sabers(tela, relogio, gradiente_jogo, fonte_titulo, fonte_
                     tempo_estado = tempo
 
         elif estado == "SCOREBOARD":
+            # Vale para host e cliente (ambos saem quando o placar termina)
             if tempo_no_estado >= TEMPO_SCOREBOARD:
                 pygame.mouse.set_visible(True)
                 return None
+
+        # --- Cliente: prevê o movimento do PRÓPRIO jogador durante o FIGHT ---
+        if (not host_autoritativo and estado == "FIGHT"
+                and jogador_humano.vivo and not jogador_humano.dash_ativo):
+            teclas = pygame.key.get_pressed()
+            dx_mov, dy_mov = 0.0, 0.0
+            if teclas[pygame.K_w] or teclas[pygame.K_UP]:
+                dy_mov -= VEL_SABERS
+            if teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
+                dy_mov += VEL_SABERS
+            if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
+                dx_mov -= VEL_SABERS
+            if teclas[pygame.K_d] or teclas[pygame.K_RIGHT]:
+                dx_mov += VEL_SABERS
+            if dx_mov != 0 and dy_mov != 0:
+                f = VEL_SABERS / math.sqrt(dx_mov * dx_mov + dy_mov * dy_mov)
+                dx_mov *= f
+                dy_mov *= f
+            jogador_humano.vx = dx_mov
+            jogador_humano.vy = dy_mov
+        if not host_autoritativo and estado == "FIGHT" and jogador_humano.vivo:
+            jogador_humano.atualizar_dash()
+            if not jogador_humano.dash_ativo:
+                jogador_humano.x += jogador_humano.vx
+                jogador_humano.y += jogador_humano.vy
+            jogador_humano.x = max(4, min(jogador_humano.x, ARENA_W - TAM_JOGADOR - 4))
+            jogador_humano.y = max(4, min(jogador_humano.y, ARENA_H - TAM_JOGADOR - 4))
+            # Mira do jogador local (mundo)
+            mouse_pos = convert_mouse_position(pygame.mouse.get_pos())
+            jogador_humano.mira_x = float(mouse_pos[0]) + cam_x
+            jogador_humano.mira_y = float(mouse_pos[1]) + cam_y
+            _atualizar_posicao_sabre(jogador_humano)
+
+        # --- Fade-in do INTRO (host e cliente) ---
+        if estado == "INTRO" and tempo_no_estado < 500:
+            alpha_fade = int(255 * (1 - tempo_no_estado / 500))
+        else:
+            alpha_fade = 0
+
+        # Cursor do mouse: visível só na seleção de cor
+        pygame.mouse.set_visible(estado == "COLOR_SELECT")
+
+        # ========== REDE (host envia estado; cliente envia input e aplica estado) ==========
+        if cliente:
+            if host_autoritativo:
+                for acao in cliente.get_minigame_actions():
+                    j = jogadores_por_pid.get(acao.get('player_id'))
+                    if j is None or j is jogador_humano:
+                        continue
+                    act = acao.get('action', '')
+                    if act == 'saber_input':
+                        if j.vivo:
+                            j.x = acao.get('x', j.x)
+                            j.y = acao.get('y', j.y)
+                            j.mira_x = acao.get('mx', j.mira_x)
+                            j.mira_y = acao.get('my', j.mira_y)
+                            j.x = max(4, min(j.x, ARENA_W - TAM_JOGADOR - 4))
+                            j.y = max(4, min(j.y, ARENA_H - TAM_JOGADOR - 4))
+                    elif act == 'saber_throw':
+                        if j.vivo and estado == "FIGHT":
+                            _arremessar_sabre_jogador(j, (acao.get('mx', 0), acao.get('my', 0)))
+                    elif act == 'saber_recall':
+                        j.sabre_info['arremesso_retornando'] = True
+                    elif act == 'saber_defense_toggle':
+                        if not j.sabre_info.get('arremessado', False):
+                            j.sabre_info['modo_defesa'] = not j.sabre_info.get('modo_defesa', False)
+                    elif act == 'saber_dash':
+                        # Concede a invulnerabilidade do dash (posição vem do input)
+                        j.invulneravel_ate = tempo + 350
+                    elif act == 'saber_color':
+                        j.cor_sabre_idx = acao.get('cor_idx', 0) % len(CORES_SABRE)
+                # Host transmite o estado autoritativo
+                cliente.send_minigame_action(_construir_snapshot())
+            else:
+                # Cliente envia o input do próprio jogador
+                if estado == "FIGHT" and jogador_humano.vivo:
+                    cliente.send_minigame_action({
+                        'action': 'saber_input',
+                        'x': jogador_humano.x, 'y': jogador_humano.y,
+                        'mx': jogador_humano.mira_x, 'my': jogador_humano.mira_y,
+                    })
+                ultimo_snap = None
+                for acao in cliente.get_minigame_actions():
+                    if acao.get('action') == 'saber_state':
+                        ultimo_snap = acao
+                if ultimo_snap:
+                    _aplicar_snapshot(ultimo_snap)
 
         # ========== ATUALIZAR CAMERA ==========
         if jogador_humano.vivo:
