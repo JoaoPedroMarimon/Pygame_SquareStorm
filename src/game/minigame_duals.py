@@ -20,6 +20,10 @@ from src.weapons.metralhadora import desenhar_metralhadora
 from src.weapons.sniper import desenhar_sniper
 from src.weapons.espingarda import desenhar_espingarda
 from src.entities.misterioso_cutscene import InimigoMisterioso
+from src.network.multiplayer_utils import ordenar_humanos, sou_host
+
+# Lookup de config de arma por nome (para reconstruir armas no cliente)
+# (preenchido depois que ARMA_TIPOS é definido, mais abaixo)
 
 # ============================================================
 #  CONSTANTES
@@ -64,6 +68,9 @@ ARMA_TIPOS = [
 ]
 ARMA_DROP_INTERVALO = 4000  # ms entre drops
 ARMA_TAM = 22
+
+# Config de arma por nome (para o cliente reconstruir armas recebidas no snapshot)
+ARMA_POR_NOME = {cfg['nome']: cfg for cfg in ARMA_TIPOS}
 
 # Bot AI (inspirado em fase_base)
 BOT_STRAFE_INTERVALO = 800   # ms entre mudancas de strafe
@@ -222,6 +229,7 @@ class JogadorDuals:
         self.cor = cor
         self.is_bot = is_bot
         self.is_remote = is_remote  # Jogador humano remoto (controlado via rede)
+        self.player_id = None  # id de rede (None em bots/single-player)
         self.hp = HP_MAX
         self.vivo = True
         self.eliminado = False  # eliminado do torneio
@@ -940,30 +948,40 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
     pygame.mouse.set_visible(False)
     mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
 
-    # --- Criar jogadores (sempre 8) ---
+    # --- Host-autoritativo: só o host simula (duelos, bots, armas, dano,
+    # bracket) e transmite o estado; os clientes renderizam e mandam só o
+    # próprio input. ---
+    host_autoritativo = sou_host(cliente)
+
+    # --- Criar jogadores (sempre 8) em ordem DETERMINÍSTICA (por player_id),
+    # idêntica em todos os clientes, para o bracket com seed bater em todos. ---
     jogadores = []
     cor_local = customizacao.get('cor', AZUL)
 
-    jogador_humano = JogadorDuals(nome_jogador, cor_local, is_bot=False)
-    jogadores.append(jogador_humano)
-
-    remotos = {}
-    if cliente:
-        remotos = cliente.get_remote_players()
-
-    pid_idx = 1
-    for pid, rp in remotos.items():
-        ci = (pid - 1) % len(PALETA_CORES)
-        jogadores.append(JogadorDuals(rp.name, PALETA_CORES[ci], is_bot=False, is_remote=True))
-        pid_idx += 1
+    jogador_humano = None
+    for pid, nome, is_local in ordenar_humanos(cliente, nome_jogador):
+        cor = cor_local if is_local else PALETA_CORES[(pid - 1) % len(PALETA_CORES)]
+        j = JogadorDuals(nome, cor, is_bot=False, is_remote=not is_local)
+        j.player_id = pid
+        jogadores.append(j)
+        if is_local:
+            jogador_humano = j
 
     nomes_bots = ["Bot Alpha", "Bot Bravo", "Bot Charlie", "Bot Delta",
                   "Bot Echo", "Bot Foxtrot", "Bot Golf", "Bot Hotel"]
     bot_idx = 0
     while len(jogadores) < 8:
         ci = len(jogadores) % len(PALETA_CORES)
-        jogadores.append(JogadorDuals(nomes_bots[bot_idx], PALETA_CORES[ci], is_bot=True))
+        b = JogadorDuals(nomes_bots[bot_idx], PALETA_CORES[ci], is_bot=True)
+        b.player_id = None
+        jogadores.append(b)
         bot_idx += 1
+
+    # Mapa player_id -> jogador, para rotear ações de rede ao jogador certo
+    jogadores_por_pid = {
+        j.player_id: j for j in jogadores
+        if not j.is_bot and j.player_id is not None
+    }
 
     # --- Misterioso ---
     misterioso = InimigoMisterioso(MISTERIOSO_X, MISTERIOSO_Y)
@@ -1007,6 +1025,123 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
     round_msg = ""
     round_vencedor = None
 
+    # Balas recebidas do host (cliente usa só para desenhar)
+    tiros_render = []
+
+    def _idx_de(d):
+        return jogadores.index(d) if d in jogadores else -1
+
+    def _construir_snapshot():
+        """Estado autoritativo do jogo (só o host monta e envia)."""
+        pl = []
+        for j in jogadores:
+            pl.append({
+                'x': round(j.x, 1), 'y': round(j.y, 1),
+                'tx': round(j.target_x, 1), 'ty': round(j.target_y, 1),
+                'mx': round(j.mira_x, 1), 'my': round(j.mira_y, 1),
+                'hp': j.hp, 'v': j.vivo, 'ia': j.in_arena, 'el': j.eliminado,
+                'vit': j.vitorias, 'arma': j.arma, 'ta': j.tiros_arma,
+                'inv': max(0, j.invulneravel_ate - tempo),
+            })
+        ac = [{'x': round(a.x, 1), 'y': round(a.y, 1), 'n': a.nome, 'at': a.ativa}
+              for a in armas_chao]
+        av = [{'n': a.config['nome'], 'ox': a.ox, 'oy': a.oy, 'dx': a.dx, 'dy': a.dy,
+               'p': round(a.progresso, 3)} for a in armas_voando]
+        bul = [[round(t.x, 1), round(t.y, 1)] for t in tiros]
+        return {
+            'action': 'duel_state',
+            'st': estado, 'sv': list(sobreviventes), 'di': duelo_idx, 'rd': rodada,
+            'd1': _idx_de(duelista1), 'd2': _idx_de(duelista2),
+            'md': misterioso_duelo, 'np': len(jogadores),
+            'rm': round_msg, 'rv': _idx_de(round_vencedor),
+            'pl': pl, 'ac': ac, 'av': av, 'bul': bul,
+        }
+
+    def _aplicar_snapshot(snap):
+        """Aplica o estado recebido do host (só no cliente)."""
+        nonlocal estado, tempo_estado, sobreviventes, duelo_idx, rodada
+        nonlocal duelista1, duelista2, misterioso_duelo, round_msg, round_vencedor
+        nonlocal armas_chao, armas_voando
+
+        novo = snap.get('st', estado)
+        if novo != estado:
+            estado = novo
+            tempo_estado = pygame.time.get_ticks()
+        sobreviventes = snap.get('sv', sobreviventes)
+        duelo_idx = snap.get('di', duelo_idx)
+        rodada = snap.get('rd', rodada)
+        misterioso_duelo = snap.get('md', misterioso_duelo)
+        round_msg = snap.get('rm', round_msg)
+
+        # Misterioso entrou no duelo -> criar a entidade também no cliente
+        np = snap.get('np', len(jogadores))
+        while len(jogadores) < np:
+            mist = JogadorDuals("???", (20, 20, 20), is_bot=True)
+            mist.player_id = None
+            mist.hp = MISTERIOSO_HP
+            mist.x = float(MISTERIOSO_X)
+            mist.y = float(MISTERIOSO_Y)
+            mist.target_x = float(MISTERIOSO_X)
+            mist.target_y = float(MISTERIOSO_Y)
+            jogadores.append(mist)
+
+        now = pygame.time.get_ticks()
+        pl = snap.get('pl', [])
+        for idx, j in enumerate(jogadores):
+            if idx >= len(pl):
+                break
+            pj = pl[idx]
+            # Mantém a posição/mira prevista localmente quando ESTE cliente é o
+            # duelista, está vivo e na arena (responsividade). O resto vem do host.
+            eh_local_duelista = (j is jogador_humano and estado == "FIGHT"
+                                 and pj['v'] and pj['ia'])
+            if not eh_local_duelista:
+                j.x = pj['x']
+                j.y = pj['y']
+                j.mira_x = pj['mx']
+                j.mira_y = pj['my']
+            j.target_x = pj['tx']
+            j.target_y = pj['ty']
+            j.hp = pj['hp']
+            j.vivo = pj['v']
+            j.in_arena = pj['ia']
+            j.eliminado = pj['el']
+            j.vitorias = pj['vit']
+            j.arma = pj['arma']
+            j.tiros_arma = pj['ta']
+            j.invulneravel_ate = now + pj['inv']
+
+        d1 = snap.get('d1', -1)
+        d2 = snap.get('d2', -1)
+        duelista1 = jogadores[d1] if 0 <= d1 < len(jogadores) else None
+        duelista2 = jogadores[d2] if 0 <= d2 < len(jogadores) else None
+        rv = snap.get('rv', -1)
+        round_vencedor = jogadores[rv] if 0 <= rv < len(jogadores) else None
+
+        armas_chao = []
+        for a in snap.get('ac', []):
+            cfg = ARMA_POR_NOME.get(a['n'])
+            if cfg:
+                arma = ArmaChao(cfg)
+                arma.x = a['x']
+                arma.y = a['y']
+                arma.rect.x = int(a['x']) - ARMA_TAM // 2
+                arma.rect.y = int(a['y']) - ARMA_TAM // 2
+                arma.ativa = a['at']
+                armas_chao.append(arma)
+
+        armas_voando = []
+        for a in snap.get('av', []):
+            cfg = ARMA_POR_NOME.get(a['n'])
+            if cfg:
+                av = ArmaVoando(cfg, a['ox'], a['oy'], a['dx'], a['dy'])
+                av.progresso = a['p']
+                armas_voando.append(av)
+
+        tiros_render.clear()
+        for b in snap.get('bul', []):
+            tiros_render.append((b[0], b[1]))
+
     while True:
         tempo = pygame.time.get_ticks()
         tempo_no_estado = tempo - tempo_estado
@@ -1040,18 +1175,19 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                                     'dx': ddx, 'dy': ddy,
                                 })
 
-            # Tiro do jogador humano local
+            # Tiro do jogador humano local (só o seu duelista)
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-                if estado == "FIGHT":
-                    for d in (duelista1, duelista2):
-                        if d and not d.is_bot and not d.is_remote and d.vivo:
-                            mx, my = convert_mouse_position(pygame.mouse.get_pos())
-                            _disparar(d, mx, my, tiros, particulas, flashes)
-                            if cliente:
-                                cliente.send_minigame_action({
-                                    'action': 'duel_shot',
-                                    'mx': mx, 'my': my,
-                                })
+                if estado == "FIGHT" and jogador_humano in (duelista1, duelista2) and jogador_humano.vivo:
+                    mx, my = convert_mouse_position(pygame.mouse.get_pos())
+                    if host_autoritativo:
+                        # Host cria a bala e faz a detecção de acerto
+                        _disparar(jogador_humano, mx, my, tiros, particulas, flashes)
+                    elif cliente:
+                        # Cliente avisa o host, que cria a bala e devolve no snapshot
+                        cliente.send_minigame_action({
+                            'action': 'duel_shot',
+                            'mx': mx, 'my': my,
+                        })
 
         # ========== PULSACAO ==========
         if tempo - ultimo_pulso > 100:
@@ -1066,19 +1202,14 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                 d.mira_x = float(mouse_pos[0])
                 d.mira_y = float(mouse_pos[1])
 
-        # ========== MAQUINA DE ESTADOS ==========
+        # ========== MAQUINA DE ESTADOS (só o host simula; cliente segue o snapshot) ==========
 
-        if estado == "INTRO":
-            if tempo_no_estado < 500:
-                alpha_fade = int(255 * (1 - tempo_no_estado / 500))
-            else:
-                alpha_fade = 0
-
+        if host_autoritativo and estado == "INTRO":
             if tempo_no_estado >= TEMPO_INTRO:
                 estado = "SETUP_DUEL"
                 tempo_estado = tempo
 
-        elif estado == "SETUP_DUEL":
+        elif host_autoritativo and estado == "SETUP_DUEL":
             if len(sobreviventes) < 2:
                 estado = "SCOREBOARD"
                 tempo_estado = tempo
@@ -1109,7 +1240,7 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                 estado = "COUNTDOWN"
                 tempo_estado = tempo
 
-        elif estado == "COUNTDOWN":
+        elif host_autoritativo and estado == "COUNTDOWN":
             duelista1.x += (duelista1.target_x - duelista1.x) * 0.15
             duelista1.y += (duelista1.target_y - duelista1.y) * 0.15
             duelista2.x += (duelista2.target_x - duelista2.x) * 0.15
@@ -1128,27 +1259,8 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                         d.bot_next_shot = tempo + random.randint(500, 1000)
                         d.bot_strafe_timer = tempo + random.randint(200, 600)
 
-        elif estado == "FIGHT":
-            # --- Processar ações remotas via rede ---
-            if cliente:
-                for action in cliente.get_minigame_actions():
-                    act = action.get('action')
-                    for d in (duelista1, duelista2):
-                        if d and d.is_remote and d.vivo:
-                            if act == 'duel_input':
-                                # Posição e mira do jogador remoto
-                                d.x = action.get('x', d.x)
-                                d.y = action.get('y', d.y)
-                                d.mira_x = action.get('mx', d.mira_x)
-                                d.mira_y = action.get('my', d.mira_y)
-                            elif act == 'duel_shot':
-                                rmx = action.get('mx', 0)
-                                rmy = action.get('my', 0)
-                                _disparar(d, rmx, rmy, tiros, particulas, flashes)
-                            elif act == 'duel_dash':
-                                ddx = action.get('dx', 0)
-                                ddy = action.get('dy', 0)
-                                d.executar_dash(ddx, ddy)
+        elif host_autoritativo and estado == "FIGHT":
+            # (As ações remotas são processadas no bloco de REDE, mais abaixo.)
 
             # --- Movimento do jogador humano local ---
             teclas = pygame.key.get_pressed()
@@ -1186,15 +1298,7 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                     d.x = max(ARENA_X + 4, min(d.x, ARENA_X + ARENA_W - TAM_JOGADOR - 4))
                     d.y = max(ARENA_Y + 4, min(d.y, ARENA_Y + ARENA_H - TAM_JOGADOR - 4))
 
-            # --- Enviar posição final do jogador humano local via rede ---
-            if cliente:
-                for d in (duelista1, duelista2):
-                    if d and not d.is_bot and not d.is_remote and d.vivo:
-                        cliente.send_minigame_action({
-                            'action': 'duel_input',
-                            'x': d.x, 'y': d.y,
-                            'mx': d.mira_x, 'my': d.mira_y,
-                        })
+            # (O envio da posição do jogador local é feito no bloco de REDE, abaixo.)
 
             # --- Drop de armas (misterioso joga via telecinese) ---
             if tempo - ultimo_drop >= ARMA_DROP_INTERVALO:
@@ -1342,7 +1446,7 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                         estado = "ROUND_END"
                         tempo_estado = tempo
 
-        elif estado == "ROUND_END":
+        elif host_autoritativo and estado == "ROUND_END":
             if tempo_no_estado >= TEMPO_ROUND_END:
                 duelo_idx += 1
 
@@ -1407,9 +1511,80 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                     tempo_estado = tempo
 
         elif estado == "SCOREBOARD":
+            # Vale para host e cliente (ambos saem quando o placar termina)
             if tempo_no_estado >= TEMPO_SCOREBOARD:
                 pygame.mouse.set_visible(True)
                 return None
+
+        # --- Cliente: prevê o movimento do PRÓPRIO duelista durante o FIGHT ---
+        if (not host_autoritativo and estado == "FIGHT"
+                and jogador_humano in (duelista1, duelista2) and jogador_humano.vivo):
+            d = jogador_humano
+            teclas = pygame.key.get_pressed()
+            dx_mov, dy_mov = 0.0, 0.0
+            if teclas[pygame.K_w] or teclas[pygame.K_UP]:
+                dy_mov -= VEL_DUELO
+            if teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
+                dy_mov += VEL_DUELO
+            if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
+                dx_mov -= VEL_DUELO
+            if teclas[pygame.K_d] or teclas[pygame.K_RIGHT]:
+                dx_mov += VEL_DUELO
+            d.vx = dx_mov
+            d.vy = dy_mov
+            d.atualizar_dash()
+            if not d.dash_ativo:
+                d.x += d.vx
+                d.y += d.vy
+            d.x = max(ARENA_X + 4, min(d.x, ARENA_X + ARENA_W - TAM_JOGADOR - 4))
+            d.y = max(ARENA_Y + 4, min(d.y, ARENA_Y + ARENA_H - TAM_JOGADOR - 4))
+
+        # --- Fade-in do INTRO (host e cliente) ---
+        if estado == "INTRO" and tempo_no_estado < 500:
+            alpha_fade = int(255 * (1 - tempo_no_estado / 500))
+        else:
+            alpha_fade = 0
+
+        # ========== REDE (host envia estado; cliente envia input e aplica estado) ==========
+        if cliente:
+            if host_autoritativo:
+                for acao in cliente.get_minigame_actions():
+                    j = jogadores_por_pid.get(acao.get('player_id'))
+                    if j is None or j is jogador_humano:
+                        continue
+                    act = acao.get('action', '')
+                    if act == 'duel_input':
+                        if j.vivo:
+                            j.x = acao.get('x', j.x)
+                            j.y = acao.get('y', j.y)
+                            j.mira_x = acao.get('mx', j.mira_x)
+                            j.mira_y = acao.get('my', j.mira_y)
+                            j.x = max(ARENA_X + 4, min(j.x, ARENA_X + ARENA_W - TAM_JOGADOR - 4))
+                            j.y = max(ARENA_Y + 4, min(j.y, ARENA_Y + ARENA_H - TAM_JOGADOR - 4))
+                    elif act == 'duel_shot':
+                        if j.vivo and estado == "FIGHT" and j in (duelista1, duelista2):
+                            _disparar(j, acao.get('mx', 0), acao.get('my', 0),
+                                      tiros, particulas, flashes)
+                    elif act == 'duel_dash':
+                        # Concede a invulnerabilidade do dash (a posição vem do input)
+                        j.invulneravel_ate = tempo + 350
+                # Host transmite o estado autoritativo
+                cliente.send_minigame_action(_construir_snapshot())
+            else:
+                # Cliente envia o input do próprio duelista, se estiver duelando
+                if (estado == "FIGHT" and jogador_humano in (duelista1, duelista2)
+                        and jogador_humano.vivo):
+                    cliente.send_minigame_action({
+                        'action': 'duel_input',
+                        'x': jogador_humano.x, 'y': jogador_humano.y,
+                        'mx': jogador_humano.mira_x, 'my': jogador_humano.mira_y,
+                    })
+                ultimo_snap = None
+                for acao in cliente.get_minigame_actions():
+                    if acao.get('action') == 'duel_state':
+                        ultimo_snap = acao
+                if ultimo_snap:
+                    _aplicar_snapshot(ultimo_snap)
 
         # ========== INTERPOLACAO DE POSICAO (fila) ==========
         for j in jogadores:
@@ -1511,9 +1686,12 @@ def executar_minigame_duals(tela, relogio, gradiente_jogo, fonte_titulo, fonte_n
                     if d and d.vivo and d.arma:
                         _desenhar_arma_jogador(tela, d, tempo)
 
-        # Tiros
+        # Tiros (host: objetos reais; cliente: balas recebidas no snapshot)
         for tiro in tiros:
             tiro.desenhar(tela)
+        for bx, by in tiros_render:
+            pygame.draw.circle(tela, (0, 0, 0), (int(bx), int(by)), 5)
+            pygame.draw.circle(tela, (255, 240, 150), (int(bx), int(by)), 3)
 
         # Particulas
         for p in particulas:
