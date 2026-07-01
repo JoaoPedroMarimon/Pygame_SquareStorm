@@ -17,6 +17,7 @@ from src.entities.misterioso_cutscene import InimigoMisterioso
 from src.weapons.desert_eagle import desenhar_desert_eagle, criar_efeito_disparo_desert_eagle
 from src.utils.visual import criar_gradiente, criar_estrelas, desenhar_estrelas, criar_mira, desenhar_mira
 from src.utils.display_manager import present_frame, convert_mouse_position
+from src.network.multiplayer_utils import ordenar_humanos, sou_host
 
 # ============================================================
 #  CONSTANTES
@@ -140,6 +141,7 @@ class JogadorAim:
         self.cor = cor
         self.is_bot = is_bot
         self.is_remote = is_remote  # Jogador humano remoto (controlado via rede)
+        self.player_id = None  # id de rede (None em bots/single-player)
         self.acertos = 0
         self.tiros_restantes = 5
         self.alvo_atual = 0
@@ -322,26 +324,24 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
     pygame.mouse.set_visible(False)
     mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
 
-    # --- Criar jogadores (sempre 8) ---
+    # --- Host-autoritativo: só o host simula (turnos, alvos, bots, acertos) e
+    # transmite o estado; os clientes renderizam e mandam só o próprio tiro. ---
+    host_autoritativo = sou_host(cliente)
+
+    # --- Criar jogadores (sempre 8) em ordem DETERMINÍSTICA (por player_id),
+    # idêntica em todos os clientes, para que o sorteio de turnos com seed dê o
+    # mesmo resultado em todas as máquinas. ---
     jogadores = []
     cor_local = customizacao.get('cor', AZUL)
 
-    # Jogador humano local
-    jogador_humano = JogadorAim(nome_jogador, cor_local, is_bot=False)
-    jogadores.append(jogador_humano)
-
-    # Jogadores remotos (se houver)
-    remotos = {}
-    if cliente:
-        remotos = cliente.get_remote_players()
-    n_humanos = 1 + len(remotos)
-
-    # Adicionar jogadores remotos (humanos controlados via rede)
-    pid_idx = 1
-    for pid, rp in remotos.items():
-        ci = (pid - 1) % len(PALETA_CORES)
-        jogadores.append(JogadorAim(rp.name, PALETA_CORES[ci], is_bot=False, is_remote=True))
-        pid_idx += 1
+    jogador_humano = None
+    for pid, nome, is_local in ordenar_humanos(cliente, nome_jogador):
+        cor = cor_local if is_local else PALETA_CORES[(pid - 1) % len(PALETA_CORES)]
+        j = JogadorAim(nome, cor, is_bot=False, is_remote=not is_local)
+        j.player_id = pid
+        jogadores.append(j)
+        if is_local:
+            jogador_humano = j
 
     # Preencher com bots ate 8
     nomes_bots = ["Bot Alpha", "Bot Bravo", "Bot Charlie", "Bot Delta",
@@ -349,8 +349,16 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
     bot_idx = 0
     while len(jogadores) < 8:
         ci = len(jogadores) % len(PALETA_CORES)
-        jogadores.append(JogadorAim(nomes_bots[bot_idx], PALETA_CORES[ci], is_bot=True))
+        b = JogadorAim(nomes_bots[bot_idx], PALETA_CORES[ci], is_bot=True)
+        b.player_id = None
+        jogadores.append(b)
         bot_idx += 1
+
+    # Mapa player_id -> jogador, para rotear ações de rede ao jogador certo
+    jogadores_por_pid = {
+        j.player_id: j for j in jogadores
+        if not j.is_bot and j.player_id is not None
+    }
 
     # Ordem aleatoria dos turnos - embaralhar a lista de jogadores diretamente
     # assim a fila ja reflete a ordem de jogo
@@ -417,6 +425,92 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
     # Scoreboard timer
     scoreboard_start = 0
 
+    # Balas recebidas do host (cliente usa só para desenhar)
+    tiros_render = []
+
+    def _construir_snapshot():
+        """Estado autoritativo do jogo (só o host monta e envia)."""
+        vez_idx = jogadores.index(jogador_vez) if jogador_vez in jogadores else -1
+        pl = []
+        for j in jogadores:
+            pl.append({
+                'tx': round(j.target_x, 1), 'ty': round(j.target_y, 1),
+                'ac': j.acertos, 'tr': j.tiros_restantes, 'aa': j.alvo_atual,
+                'bx': round(j.bot_mouse_x, 1), 'by': round(j.bot_mouse_y, 1),
+            })
+        al = [{'x': round(a.x, 1), 'at': a.ativo, 'ac': a.acertado} for a in alvos]
+        bul = [[round(t.x, 1), round(t.y, 1)] for t in tiros]
+        return {
+            'action': 'aim_state',
+            'st': estado, 'ti': turno_idx, 'vez': vez_idx, 'mt': misterioso_turno,
+            'np': len(jogadores), 'ep': round(entrega_progresso, 3),
+            'eax': round(entrega_arma_pos[0], 1), 'eay': round(entrega_arma_pos[1], 1),
+            'js': 1 if jogador_sim else 0,
+            'pl': pl, 'al': al, 'bul': bul,
+        }
+
+    def _aplicar_snapshot(snap):
+        """Aplica o estado recebido do host (só no cliente)."""
+        nonlocal estado, tempo_estado, turno_idx, jogador_vez, misterioso_turno
+        nonlocal entrega_progresso, entrega_arma_pos, jogador_sim
+
+        novo_estado = snap.get('st', estado)
+        if novo_estado != estado:
+            estado = novo_estado
+            tempo_estado = pygame.time.get_ticks()
+        turno_idx = snap.get('ti', turno_idx)
+        misterioso_turno = snap.get('mt', misterioso_turno)
+        entrega_progresso = snap.get('ep', entrega_progresso)
+        entrega_arma_pos = (snap.get('eax', 0), snap.get('eay', 0))
+
+        # Misterioso entrou na jogada -> criar a 9ª entidade também no cliente
+        np = snap.get('np', len(jogadores))
+        while len(jogadores) < np:
+            mist = JogadorAim("???", (20, 20, 20), is_bot=True)
+            mist.player_id = None
+            mist.x = float(MISTERIOSO_X)
+            mist.y = float(MISTERIOSO_Y)
+            mist.target_x = float(MISTERIOSO_X)
+            mist.target_y = float(MISTERIOSO_Y)
+            jogadores.append(mist)
+
+        pl = snap.get('pl', [])
+        for idx, j in enumerate(jogadores):
+            if idx >= len(pl):
+                break
+            pj = pl[idx]
+            j.target_x = pj['tx']
+            j.target_y = pj['ty']
+            j.acertos = pj['ac']
+            j.tiros_restantes = pj['tr']
+            j.alvo_atual = pj['aa']
+            j.bot_mouse_x = pj['bx']
+            j.bot_mouse_y = pj['by']
+
+        al = snap.get('al', [])
+        for idx, a in enumerate(alvos):
+            if idx >= len(al):
+                break
+            a.x = al[idx]['x']
+            a.ativo = al[idx]['at']
+            a.acertado = al[idx]['ac']
+            a.rect.x = int(a.x)
+            a.rect.y = int(a.y)
+
+        vez = snap.get('vez', -1)
+        jogador_vez = jogadores[vez] if 0 <= vez < len(jogadores) else None
+
+        # Jogador simulado para desenhar a Desert Eagle no atirador da vez
+        if snap.get('js') and jogador_vez is not None:
+            jogador_sim = _JogadorSimulado(jogador_vez.target_x, jogador_vez.target_y,
+                                           jogador_vez.cor)
+        else:
+            jogador_sim = None
+
+        tiros_render.clear()
+        for b in snap.get('bul', []):
+            tiros_render.append((b[0], b[1]))
+
     while True:
         tempo = pygame.time.get_ticks()
         dt = 1.0 / 60.0
@@ -432,15 +526,19 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
                     pygame.mouse.set_visible(True)
                     return None
 
-            # Tiro do jogador humano local
+            # Tiro do jogador humano local (só na sua vez)
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-                if estado == "AIMING" and jogador_vez and not jogador_vez.is_bot and not jogador_vez.is_remote:
+                if estado == "AIMING" and jogador_vez is jogador_humano:
                     if jogador_vez.tiros_restantes > 0 and tempo - ultimo_tiro_humano > COOLDOWN_TIRO:
                         ultimo_tiro_humano = tempo
                         mx, my = convert_mouse_position(pygame.mouse.get_pos())
-                        _disparar_tiro(jogador_vez, mx, my, tiros, particulas, flashes)
-                        # Enviar tiro para os outros jogadores via rede
-                        if cliente:
+                        if host_autoritativo:
+                            # Host cria a bala e faz a detecção de acerto
+                            _disparar_tiro(jogador_vez, mx, my, tiros, particulas, flashes)
+                            jogador_vez.bot_mouse_x = mx
+                            jogador_vez.bot_mouse_y = my
+                        elif cliente:
+                            # Cliente avisa o host, que cria a bala e devolve no snapshot
                             cliente.send_minigame_action({
                                 'action': 'aim_shot',
                                 'mx': mx, 'my': my,
@@ -451,213 +549,238 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
             ultimo_pulso = tempo
             pulsacao = (pulsacao + 1) % 12
 
-        # ========== MAQUINA DE ESTADOS ==========
+        # ========== MAQUINA DE ESTADOS (só o host simula; cliente segue o snapshot) ==========
 
-        if estado == "INTRO":
-            # Fade in
-            if tempo_no_estado < 500:
-                alpha_fade = int(255 * (1 - tempo_no_estado / 500))
-            else:
-                alpha_fade = 0
+        if host_autoritativo:
+            if estado == "INTRO":
+                # Fade in
+                if tempo_no_estado < 500:
+                    alpha_fade = int(255 * (1 - tempo_no_estado / 500))
+                else:
+                    alpha_fade = 0
 
-            if tempo_no_estado >= TEMPO_INTRO:
-                estado = "TURN_START"
-                tempo_estado = tempo
-                turno_idx = 0
-                jogador_vez = jogadores[ordem[turno_idx]]
-                jogador_vez.reset_turno()
+                if tempo_no_estado >= TEMPO_INTRO:
+                    estado = "TURN_START"
+                    tempo_estado = tempo
+                    turno_idx = 0
+                    jogador_vez = jogadores[ordem[turno_idx]]
+                    jogador_vez.reset_turno()
 
-        elif estado == "TURN_START":
-            # Mover jogador da vez para posicao de tiro
-            jogador_vez.target_x = float(POS_TIRO_X - TAM_JOGADOR // 2)
-            jogador_vez.target_y = float(POS_TIRO_Y)
+            elif estado == "TURN_START":
+                # Mover jogador da vez para posicao de tiro
+                jogador_vez.target_x = float(POS_TIRO_X - TAM_JOGADOR // 2)
+                jogador_vez.target_y = float(POS_TIRO_Y)
 
-            if tempo_no_estado >= TEMPO_TURN_START:
-                if misterioso_turno and jogador_vez.nome == "???":
-                    # Misterioso pula delivery - ja tem a arma
+                if tempo_no_estado >= TEMPO_TURN_START:
+                    if misterioso_turno and jogador_vez.nome == "???":
+                        # Misterioso pula delivery - ja tem a arma
+                        estado = "AIMING"
+                        tempo_estado = tempo
+                        for a in alvos:
+                            a.reset()
+                        alvos[0].ativo = True
+                        jogador_vez.alvo_atual = 0
+                        jogador_vez.tiros_restantes = 5
+                        jogador_vez.tempo_inicio_turno = tempo
+                        jogador_sim = _JogadorSimulado(
+                            jogador_vez.target_x, jogador_vez.target_y, jogador_vez.cor
+                        )
+                        jogador_vez.bot_next_shot = tempo + random.randint(jogador_vez.bot_delay_min, jogador_vez.bot_delay_max)
+                    else:
+                        estado = "DELIVERY"
+                        tempo_estado = tempo
+                        entrega_progresso = 0.0
+
+            elif estado == "DELIVERY":
+                # Animacao de entrega da Desert Eagle via telecinese
+                t = min(1.0, tempo_no_estado / TEMPO_DELIVERY)
+                # Ease in-out
+                entrega_progresso = t * t * (3 - 2 * t)
+
+                p0 = (MISTERIOSO_X + TAM_MISTERIOSO // 2, MISTERIOSO_Y)
+                p2 = (jogador_vez.target_x + TAM_JOGADOR // 2, jogador_vez.target_y)
+                p1 = ((p0[0] + p2[0]) / 2, min(p0[1], p2[1]) - 120)  # Ponto de controle acima
+                entrega_arma_pos = _bezier_quadratico(p0, p1, p2, entrega_progresso)
+
+                # Particulas roxas de telecinese
+                if random.random() < 0.6:
+                    px, py = entrega_arma_pos
+                    part = Particula(px + random.uniform(-8, 8), py + random.uniform(-8, 8), (180, 50, 230))
+                    part.velocidade_x = random.uniform(-1, 1)
+                    part.velocidade_y = random.uniform(-2, 0)
+                    part.vida = random.randint(15, 30)
+                    part.tamanho = random.uniform(2, 5)
+                    particulas.append(part)
+
+                if tempo_no_estado >= TEMPO_DELIVERY:
                     estado = "AIMING"
                     tempo_estado = tempo
+                    # Ativar primeiro alvo
                     for a in alvos:
                         a.reset()
                     alvos[0].ativo = True
                     jogador_vez.alvo_atual = 0
                     jogador_vez.tiros_restantes = 5
                     jogador_vez.tempo_inicio_turno = tempo
+
+                    # Criar jogador simulado para desenhar a arma
                     jogador_sim = _JogadorSimulado(
                         jogador_vez.target_x, jogador_vez.target_y, jogador_vez.cor
                     )
-                    jogador_vez.bot_next_shot = tempo + random.randint(jogador_vez.bot_delay_min, jogador_vez.bot_delay_max)
-                else:
-                    estado = "DELIVERY"
-                    tempo_estado = tempo
-                    entrega_progresso = 0.0
 
-        elif estado == "DELIVERY":
-            # Animacao de entrega da Desert Eagle via telecinese
-            t = min(1.0, tempo_no_estado / TEMPO_DELIVERY)
-            # Ease in-out
-            entrega_progresso = t * t * (3 - 2 * t)
+                    if jogador_vez.is_bot:
+                        jogador_vez.bot_next_shot = tempo + random.randint(jogador_vez.bot_delay_min, jogador_vez.bot_delay_max)
 
-            p0 = (MISTERIOSO_X + TAM_MISTERIOSO // 2, MISTERIOSO_Y)
-            p2 = (jogador_vez.target_x + TAM_JOGADOR // 2, jogador_vez.target_y)
-            p1 = ((p0[0] + p2[0]) / 2, min(p0[1], p2[1]) - 120)  # Ponto de controle acima
-            entrega_arma_pos = _bezier_quadratico(p0, p1, p2, entrega_progresso)
+            elif estado == "AIMING":
+                # Atualizar alvo atual
+                alvo_idx = jogador_vez.alvo_atual
+                if alvo_idx < len(alvos):
+                    alvos[alvo_idx].atualizar()
 
-            # Particulas roxas de telecinese
-            if random.random() < 0.6:
-                px, py = entrega_arma_pos
-                part = Particula(px + random.uniform(-8, 8), py + random.uniform(-8, 8), (180, 50, 230))
-                part.velocidade_x = random.uniform(-1, 1)
-                part.velocidade_y = random.uniform(-2, 0)
-                part.vida = random.randint(15, 30)
-                part.tamanho = random.uniform(2, 5)
-                particulas.append(part)
+                # Atualizar jogador simulado para desert eagle (usar target pos para estabilidade)
+                if jogador_sim:
+                    jogador_sim.x = jogador_vez.target_x
+                    jogador_sim.y = jogador_vez.target_y
+                    jogador_sim.cor = jogador_vez.cor
+                    jogador_sim.tiros_desert_eagle = jogador_vez.tiros_restantes
 
-            if tempo_no_estado >= TEMPO_DELIVERY:
-                estado = "AIMING"
-                tempo_estado = tempo
-                # Ativar primeiro alvo
-                for a in alvos:
-                    a.reset()
-                alvos[0].ativo = True
-                jogador_vez.alvo_atual = 0
-                jogador_vez.tiros_restantes = 5
-                jogador_vez.tempo_inicio_turno = tempo
-
-                # Criar jogador simulado para desenhar a arma
-                jogador_sim = _JogadorSimulado(
-                    jogador_vez.target_x, jogador_vez.target_y, jogador_vez.cor
-                )
-
-                if jogador_vez.is_bot:
-                    jogador_vez.bot_next_shot = tempo + random.randint(jogador_vez.bot_delay_min, jogador_vez.bot_delay_max)
-
-        elif estado == "AIMING":
-            # Atualizar alvo atual
-            alvo_idx = jogador_vez.alvo_atual
-            if alvo_idx < len(alvos):
-                alvos[alvo_idx].atualizar()
-
-            # Atualizar jogador simulado para desert eagle (usar target pos para estabilidade)
-            if jogador_sim:
-                jogador_sim.x = jogador_vez.target_x
-                jogador_sim.y = jogador_vez.target_y
-                jogador_sim.cor = jogador_vez.cor
-                jogador_sim.tiros_desert_eagle = jogador_vez.tiros_restantes
-
-            # Processar tiros de jogadores remotos via rede
-            if jogador_vez.is_remote and jogador_vez.tiros_restantes > 0 and cliente:
-                for action in cliente.get_minigame_actions():
-                    if action.get('action') == 'aim_shot':
-                        rmx = action.get('mx', 0)
-                        rmy = action.get('my', 0)
-                        _disparar_tiro(jogador_vez, rmx, rmy, tiros, particulas, flashes)
-
-            # Bot AI
-            if jogador_vez.is_bot and jogador_vez.tiros_restantes > 0:
-                # Misterioso so atira quando nao tem bala voando (espera acertar pra atirar de novo)
-                misterioso_pode = jogador_vez.nome != "???" or len(tiros) == 0
-                if misterioso_pode and tempo >= jogador_vez.bot_next_shot:
-                    _bot_atirar(jogador_vez, alvos, tiros, particulas, flashes, tempo)
-                    jogador_vez.bot_next_shot = tempo + random.randint(jogador_vez.bot_delay_min, jogador_vez.bot_delay_max)
-                else:
-                    # Bot jitter de mira
-                    if alvo_idx < len(alvos) and alvos[alvo_idx].ativo:
-                        a = alvos[alvo_idx]
-                        jogador_vez.bot_mouse_x = a.x + a.tamanho // 2 + random.uniform(-30, 30)
-                        jogador_vez.bot_mouse_y = a.y + a.tamanho // 2 + random.uniform(-20, 20)
-
-            # Atualizar tiros
-            for tiro in tiros[:]:
-                tiro.atualizar()
-                if tiro.fora_da_tela():
-                    tiros.remove(tiro)
-                    continue
-
-                # Checar colisao com alvo atual
-                if alvo_idx < len(alvos) and alvos[alvo_idx].checar_colisao(tiro):
-                    # Acertou!
-                    a = alvos[alvo_idx]
-                    a.acertado = True
-                    jogador_vez.acertos += 1
-
-                    # Efeito de explosao
-                    flash = criar_explosao(a.x + a.tamanho // 2, a.y + a.tamanho // 2,
-                                          a.cor, particulas, 20)
-                    flashes.append(flash)
-
-                    tiros.remove(tiro)
-
-                    # Proximo alvo
-                    jogador_vez.alvo_atual += 1
-                    if jogador_vez.alvo_atual < len(alvos):
-                        alvos[jogador_vez.alvo_atual].ativo = True
-                    continue
-
-            # Checar fim do turno (so quando nao tem mais balas E nenhum tiro voando)
-            turno_acabou = False
-            if jogador_vez.alvo_atual >= len(alvos):
-                turno_acabou = True
-            elif jogador_vez.tiros_restantes <= 0 and len(tiros) == 0:
-                turno_acabou = True
-
-            if turno_acabou:
-                jogador_vez.tempo_turno = tempo - jogador_vez.tempo_inicio_turno
-                estado = "TURN_END"
-                tempo_estado = tempo
-                tiros.clear()
-
-        elif estado == "TURN_END":
-            # Mover jogador de volta pra fila (ou misterioso de volta pro canto)
-            if misterioso_turno and jogador_vez.nome == "???":
-                jogador_vez.target_x = float(MISTERIOSO_X)
-                jogador_vez.target_y = float(MISTERIOSO_Y)
-            else:
-                fila_idx = ordem[turno_idx]
-                jogador_vez.target_x = float(FILA_X_INICIO + fila_idx * FILA_ESPACO)
-                jogador_vez.target_y = float(FILA_Y)
-            jogador_sim = None
-
-            if tempo_no_estado >= TEMPO_TURN_END:
-                turno_idx += 1
-                if turno_idx >= 8 and not misterioso_turno:
-                    if misterioso_joga:
-                        # Misterioso entra na jogada!
-                        misterioso_turno = True
-                        misterioso_aim = JogadorAim("???", (20, 20, 20), is_bot=True)
-                        misterioso_aim.bot_alvos_acertar = 5
-                        misterioso_aim.bot_delay_min = 300
-                        misterioso_aim.bot_delay_max = 400
-                        misterioso_aim.x = float(MISTERIOSO_X)
-                        misterioso_aim.y = float(MISTERIOSO_Y)
-                        misterioso_aim.target_x = float(MISTERIOSO_X)
-                        misterioso_aim.target_y = float(MISTERIOSO_Y)
-                        jogadores.append(misterioso_aim)
-                        jogador_vez = misterioso_aim
-                        jogador_vez.reset_turno()
-                        jogador_vez.bot_alvos_acertar = 5
-                        estado = "TURN_START"
-                        tempo_estado = tempo
+                # Bot AI
+                if jogador_vez.is_bot and jogador_vez.tiros_restantes > 0:
+                    # Misterioso so atira quando nao tem bala voando (espera acertar pra atirar de novo)
+                    misterioso_pode = jogador_vez.nome != "???" or len(tiros) == 0
+                    if misterioso_pode and tempo >= jogador_vez.bot_next_shot:
+                        _bot_atirar(jogador_vez, alvos, tiros, particulas, flashes, tempo)
+                        jogador_vez.bot_next_shot = tempo + random.randint(jogador_vez.bot_delay_min, jogador_vez.bot_delay_max)
                     else:
+                        # Bot jitter de mira
+                        if alvo_idx < len(alvos) and alvos[alvo_idx].ativo:
+                            a = alvos[alvo_idx]
+                            jogador_vez.bot_mouse_x = a.x + a.tamanho // 2 + random.uniform(-30, 30)
+                            jogador_vez.bot_mouse_y = a.y + a.tamanho // 2 + random.uniform(-20, 20)
+
+                # Atualizar tiros
+                for tiro in tiros[:]:
+                    tiro.atualizar()
+                    if tiro.fora_da_tela():
+                        tiros.remove(tiro)
+                        continue
+
+                    # Checar colisao com alvo atual
+                    if alvo_idx < len(alvos) and alvos[alvo_idx].checar_colisao(tiro):
+                        # Acertou!
+                        a = alvos[alvo_idx]
+                        a.acertado = True
+                        jogador_vez.acertos += 1
+
+                        # Efeito de explosao
+                        flash = criar_explosao(a.x + a.tamanho // 2, a.y + a.tamanho // 2,
+                                              a.cor, particulas, 20)
+                        flashes.append(flash)
+
+                        tiros.remove(tiro)
+
+                        # Proximo alvo
+                        jogador_vez.alvo_atual += 1
+                        if jogador_vez.alvo_atual < len(alvos):
+                            alvos[jogador_vez.alvo_atual].ativo = True
+                        continue
+
+                # Checar fim do turno (so quando nao tem mais balas E nenhum tiro voando)
+                turno_acabou = False
+                if jogador_vez.alvo_atual >= len(alvos):
+                    turno_acabou = True
+                elif jogador_vez.tiros_restantes <= 0 and len(tiros) == 0:
+                    turno_acabou = True
+
+                if turno_acabou:
+                    jogador_vez.tempo_turno = tempo - jogador_vez.tempo_inicio_turno
+                    estado = "TURN_END"
+                    tempo_estado = tempo
+                    tiros.clear()
+
+            elif estado == "TURN_END":
+                # Mover jogador de volta pra fila (ou misterioso de volta pro canto)
+                if misterioso_turno and jogador_vez.nome == "???":
+                    jogador_vez.target_x = float(MISTERIOSO_X)
+                    jogador_vez.target_y = float(MISTERIOSO_Y)
+                else:
+                    fila_idx = ordem[turno_idx]
+                    jogador_vez.target_x = float(FILA_X_INICIO + fila_idx * FILA_ESPACO)
+                    jogador_vez.target_y = float(FILA_Y)
+                jogador_sim = None
+
+                if tempo_no_estado >= TEMPO_TURN_END:
+                    turno_idx += 1
+                    if turno_idx >= 8 and not misterioso_turno:
+                        if misterioso_joga:
+                            # Misterioso entra na jogada!
+                            misterioso_turno = True
+                            misterioso_aim = JogadorAim("???", (20, 20, 20), is_bot=True)
+                            misterioso_aim.bot_alvos_acertar = 5
+                            misterioso_aim.bot_delay_min = 300
+                            misterioso_aim.bot_delay_max = 400
+                            misterioso_aim.x = float(MISTERIOSO_X)
+                            misterioso_aim.y = float(MISTERIOSO_Y)
+                            misterioso_aim.target_x = float(MISTERIOSO_X)
+                            misterioso_aim.target_y = float(MISTERIOSO_Y)
+                            jogadores.append(misterioso_aim)
+                            jogador_vez = misterioso_aim
+                            jogador_vez.reset_turno()
+                            jogador_vez.bot_alvos_acertar = 5
+                            estado = "TURN_START"
+                            tempo_estado = tempo
+                        else:
+                            estado = "SCOREBOARD"
+                            tempo_estado = tempo
+                            scoreboard_start = tempo
+                    elif misterioso_turno:
+                        # Misterioso terminou - agora scoreboard
                         estado = "SCOREBOARD"
                         tempo_estado = tempo
                         scoreboard_start = tempo
-                elif misterioso_turno:
-                    # Misterioso terminou - agora scoreboard
-                    estado = "SCOREBOARD"
-                    tempo_estado = tempo
-                    scoreboard_start = tempo
-                else:
-                    estado = "TURN_START"
-                    tempo_estado = tempo
-                    jogador_vez = jogadores[ordem[turno_idx]]
-                    jogador_vez.reset_turno()
+                    else:
+                        estado = "TURN_START"
+                        tempo_estado = tempo
+                        jogador_vez = jogadores[ordem[turno_idx]]
+                        jogador_vez.reset_turno()
 
-        elif estado == "SCOREBOARD":
-            if tempo_no_estado >= TEMPO_SCOREBOARD:
-                estado = "FIM"
-                pygame.mouse.set_visible(True)
-                return None
+        # SCOREBOARD: ambos (host e cliente) saem quando o tempo do placar acaba
+        if estado == "SCOREBOARD" and tempo_no_estado >= TEMPO_SCOREBOARD:
+            estado = "FIM"
+            pygame.mouse.set_visible(True)
+            return None
+
+        # ========== REDE (host envia estado; cliente envia tiro e aplica estado) ==========
+        if cliente:
+            if host_autoritativo:
+                # Host processa os tiros recebidos do jogador remoto da vez
+                for acao in cliente.get_minigame_actions():
+                    if acao.get('action') != 'aim_shot':
+                        continue
+                    j = jogadores_por_pid.get(acao.get('player_id'))
+                    if (j is not None and j is jogador_vez and estado == "AIMING"
+                            and j.tiros_restantes > 0):
+                        rmx = acao.get('mx', 0)
+                        rmy = acao.get('my', 0)
+                        j.bot_mouse_x = rmx
+                        j.bot_mouse_y = rmy
+                        _disparar_tiro(j, rmx, rmy, tiros, particulas, flashes)
+                # Host transmite o estado autoritativo
+                cliente.send_minigame_action(_construir_snapshot())
+            else:
+                # Cliente aplica o último snapshot do host
+                ultimo_snap = None
+                for acao in cliente.get_minigame_actions():
+                    if acao.get('action') == 'aim_state':
+                        ultimo_snap = acao
+                if ultimo_snap:
+                    _aplicar_snapshot(ultimo_snap)
+
+        # Fade-in do INTRO (vale para host e cliente, usa o estado já atualizado)
+        if estado == "INTRO" and tempo_no_estado < 500:
+            alpha_fade = int(255 * (1 - tempo_no_estado / 500))
+        else:
+            alpha_fade = 0
 
         # ========== INTERPOLACAO DE POSICAO ==========
         for j in jogadores:
@@ -740,16 +863,22 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
 
         # Desert Eagle no jogador durante AIMING
         if estado == "AIMING" and jogador_sim:
-            if jogador_vez.is_bot:
-                pos_mouse = (int(jogador_vez.bot_mouse_x), int(jogador_vez.bot_mouse_y))
-            else:
+            # Só o atirador LOCAL usa a mira do próprio mouse; para bots e
+            # jogadores remotos usamos a mira que vem do host (bot_mouse).
+            if jogador_vez is jogador_humano:
                 pos_mouse = convert_mouse_position(pygame.mouse.get_pos())
-            jogador_sim.tempo_ultimo_tiro = ultimo_tiro_humano if not jogador_vez.is_bot else jogador_vez.bot_timer
+                jogador_sim.tempo_ultimo_tiro = ultimo_tiro_humano
+            else:
+                pos_mouse = (int(jogador_vez.bot_mouse_x), int(jogador_vez.bot_mouse_y))
+                jogador_sim.tempo_ultimo_tiro = jogador_vez.bot_timer
             desenhar_desert_eagle(tela, jogador_sim, pos_mouse)
 
-        # Tiros
+        # Tiros (host: objetos reais; cliente: balas recebidas no snapshot)
         for tiro in tiros:
             tiro.desenhar(tela)
+        for bx, by in tiros_render:
+            pygame.draw.circle(tela, (0, 0, 0), (int(bx), int(by)), 5)
+            pygame.draw.circle(tela, (255, 230, 120), (int(bx), int(by)), 3)
 
         # Particulas
         for p in particulas:
@@ -803,8 +932,8 @@ def executar_minigame_aim(tela, relogio, gradiente_jogo, fonte_titulo, fonte_nor
             acerto_s = fonte_peq.render(f"Acertos: {jogador_vez.acertos}/5", True, VERDE)
             tela.blit(acerto_s, (LARGURA - 140, 28))
 
-        # Instrucoes
-        if estado == "AIMING" and jogador_vez and not jogador_vez.is_bot:
+        # Instrucoes (só na vez do jogador local)
+        if estado == "AIMING" and jogador_vez is jogador_humano:
             inst_s = fonte_peq.render("CLICK para atirar", True, (150, 150, 170))
             tela.blit(inst_s, (LARGURA // 2 - inst_s.get_width() // 2, ALTURA_JOGO - 20))
 

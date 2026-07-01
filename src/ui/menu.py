@@ -995,6 +995,29 @@ def obter_ip_local_simples():
         return "127.0.0.1"
 
 
+def _ler_area_transferencia():
+    """
+    Retorna o texto da área de transferência (clipboard), ou '' se não conseguir.
+    Tenta pyperclip e, se falhar, usa o tkinter da biblioteca padrão.
+    """
+    try:
+        import pyperclip
+        texto = pyperclip.paste()
+        if texto:
+            return texto
+    except Exception:
+        pass
+    try:
+        import tkinter
+        raiz = tkinter.Tk()
+        raiz.withdraw()
+        texto = raiz.clipboard_get()
+        raiz.destroy()
+        return texto or ""
+    except Exception:
+        return ""
+
+
 def tela_criar_servidor_simples(tela, relogio, gradiente):
     """Tela de configuração completa para criar servidor multiplayer."""
     print("[CRIAR SERVIDOR] Tela aberta")
@@ -1043,6 +1066,14 @@ def tela_criar_servidor_simples(tela, relogio, gradiente):
                         nome = nome[:-1]
                     elif campo_ativo == "porta":
                         porta = porta[:-1]
+
+                elif evento.key == pygame.K_v and (evento.mod & pygame.KMOD_CTRL):
+                    # Colar (Ctrl+V) no campo ativo
+                    colado = "".join(_ler_area_transferencia().split())
+                    if campo_ativo == "nome":
+                        nome = (nome + colado)[:20]
+                    elif campo_ativo == "porta":
+                        porta = (porta + "".join(c for c in colado if c.isdigit()))[:5]
 
                 elif campo_ativo and evento.unicode:
                     if campo_ativo == "nome" and len(nome) < 20:
@@ -1206,6 +1237,13 @@ def tela_conectar_servidor_simples(tela, relogio, gradiente):
                         ip = ip[:-1]
                     elif campo_ativo == "porta":
                         porta = porta[:-1]
+                elif evento.key == pygame.K_v and (evento.mod & pygame.KMOD_CTRL):
+                    # Colar (Ctrl+V) no campo ativo
+                    colado = "".join(_ler_area_transferencia().split())  # remove espaços/quebras
+                    if campo_ativo == "ip":
+                        ip = (ip + colado)[:50]
+                    elif campo_ativo == "porta":
+                        porta = (porta + "".join(c for c in colado if c.isdigit()))[:5]
                 else:
                     if campo_ativo == "ip" and len(ip) < 50:
                         ip += evento.unicode
@@ -1251,7 +1289,7 @@ def tela_conectar_servidor_simples(tela, relogio, gradiente):
         inst = fonte_normal.render("Clique nos campos para editar", True, (150, 150, 150))
         tela.blit(inst, (LARGURA // 2 - inst.get_width() // 2, ALTURA - 100))
 
-        inst2 = fonte_normal.render("ENTER para conectar | ESC para cancelar", True, (150, 150, 150))
+        inst2 = fonte_normal.render("ENTER conectar | Ctrl+V colar IP | ESC cancelar", True, (150, 150, 150))
         tela.blit(inst2, (LARGURA // 2 - inst2.get_width() // 2, ALTURA - 60))
 
         present_frame()

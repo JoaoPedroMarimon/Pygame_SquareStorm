@@ -340,7 +340,7 @@ class GameClient:
             for player_data in data.get('players', []):
                 player_id = player_data['id']
 
-                # Ignorar jogador local
+                # Ignorar jogador local (cliente-autoritativo: nós já sabemos nossa posição)
                 if player_id == self.local_player_id:
                     continue
 
@@ -537,15 +537,23 @@ class GameClient:
         """Retorna o status atual de seleção de times."""
         return self.team_status
 
-    def send_player_input(self, keys: Dict[str, bool], mouse_x: int, mouse_y: int, shooting: bool):
+    def send_player_input(self, keys: Dict[str, bool], mouse_x: int, mouse_y: int, shooting: bool,
+                          x: Optional[float] = None, y: Optional[float] = None):
         """
         Envia input do jogador para o servidor.
+
+        Modelo cliente-autoritativo: além das teclas, enviamos a posição real
+        (x, y) calculada localmente. O servidor apenas repassa essa posição aos
+        outros jogadores, sem re-simular o movimento. Assim a posição que cada
+        jogador vê de si mesmo é exatamente a que os outros recebem.
 
         Args:
             keys: Estado das teclas
             mouse_x: Posição X do mouse
             mouse_y: Posição Y do mouse
             shooting: Se está atirando
+            x: Posição X autoritativa do jogador (opcional)
+            y: Posição Y autoritativa do jogador (opcional)
         """
         if not self.connected or not self.local_player_id:
             return
@@ -556,7 +564,9 @@ class GameClient:
                 keys,
                 mouse_x,
                 mouse_y,
-                shooting
+                shooting,
+                x,
+                y
             )
             self.socket.sendall(packet)
         except Exception as e:

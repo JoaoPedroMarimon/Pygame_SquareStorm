@@ -169,15 +169,26 @@ class NetworkProtocol:
     @staticmethod
     def create_player_input_packet(player_id: int, keys: Dict[str, bool],
                                    mouse_x: int, mouse_y: int,
-                                   shooting: bool) -> bytes:
-        """Cria um pacote de input do jogador."""
-        return NetworkProtocol.create_packet(PacketType.PLAYER_INPUT, {
+                                   shooting: bool,
+                                   x: Optional[float] = None,
+                                   y: Optional[float] = None) -> bytes:
+        """Cria um pacote de input do jogador.
+
+        Se x e y forem informados, o cliente é autoritativo sobre a própria
+        posição e o servidor apenas repassa esses valores (não re-simula o
+        movimento). Isso mantém todos os clientes vendo a mesma posição.
+        """
+        payload = {
             'player_id': player_id,
             'keys': keys,
             'mouse_x': mouse_x,
             'mouse_y': mouse_y,
             'shooting': shooting
-        })
+        }
+        if x is not None and y is not None:
+            payload['x'] = x
+            payload['y'] = y
+        return NetworkProtocol.create_packet(PacketType.PLAYER_INPUT, payload)
 
     @staticmethod
     def create_game_state_packet(state: Dict[str, Any]) -> bytes:

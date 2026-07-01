@@ -28,9 +28,14 @@ def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
     """
     print(f"[MULTIPLAYER] Iniciando fase multiplayer como {nome_jogador}")
 
-    # Criar jogador local (apenas visual inicial)
-    jogador_x = LARGURA // 2
-    jogador_y = ALTURA_JOGO // 2
+    # Jogador local (cliente-autoritativo): nós calculamos a posição localmente
+    # e a enviamos ao servidor, que apenas a repassa aos outros jogadores.
+    # Começamos na posição inicial que o servidor atribuiu (mesma para todos).
+    if cliente.local_player_pos:
+        jogador_x, jogador_y = cliente.local_player_pos
+    else:
+        jogador_x = LARGURA // 2
+        jogador_y = ALTURA_JOGO // 2
     jogador_cor = VERDE
 
     # Fonte para texto
@@ -74,7 +79,7 @@ def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
         mouse_x, mouse_y = convert_mouse_position(pygame.mouse.get_pos())
         shooting = pygame.mouse.get_pressed()[0]
 
-        # Movimento local (predição do cliente)
+        # Movimento local (cliente-autoritativo)
         if keys[pygame.K_w] or keys[pygame.K_UP]:
             jogador_y -= VELOCIDADE_JOGADOR
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
@@ -88,7 +93,7 @@ def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
         jogador_x = max(TAMANHO_QUADRADO // 2, min(LARGURA - TAMANHO_QUADRADO // 2, jogador_x))
         jogador_y = max(TAMANHO_QUADRADO // 2, min(ALTURA_JOGO - TAMANHO_QUADRADO // 2, jogador_y))
 
-        # 3. ENVIAR INPUT PARA SERVIDOR
+        # 3. ENVIAR INPUT + POSIÇÃO PARA O SERVIDOR
         if cliente.is_connected():
             keys_dict = {
                 'w': keys[pygame.K_w] or keys[pygame.K_UP],
@@ -97,7 +102,8 @@ def jogar_fase_multiplayer_simples(tela, relogio, cliente, nome_jogador):
                 'd': keys[pygame.K_d] or keys[pygame.K_RIGHT]
             }
             try:
-                cliente.send_player_input(keys_dict, mouse_x, mouse_y, shooting)
+                cliente.send_player_input(keys_dict, mouse_x, mouse_y, shooting,
+                                          float(jogador_x), float(jogador_y))
             except Exception as e:
                 print(f" Erro ao enviar input: {e}")
                 return "menu"

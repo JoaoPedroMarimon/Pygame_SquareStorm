@@ -16,6 +16,7 @@ from src.entities.particula import Particula, criar_explosao
 from src.utils.visual import criar_estrelas, desenhar_estrelas, criar_mira, desenhar_mira
 from src.utils.display_manager import present_frame, convert_mouse_position
 from src.weapons.desert_eagle import desenhar_desert_eagle
+from src.network.multiplayer_utils import ordenar_humanos, sou_host
 
 # ============================================================
 #  CONSTANTES
@@ -117,6 +118,7 @@ class JogadorDeadeye:
         self.cor = cor
         self.is_bot = is_bot
         self.is_remote = is_remote
+        self.player_id = None  # id de rede (None em bots/single-player)
         self.hp = HP_MAX
         self.vivo = True
         self.kills = 0
@@ -226,6 +228,7 @@ class JogadorDeadeye:
         self.dano_arma = 1
         self.velocidade_arma = 7
         self.raio_arma = 3
+        self.tempo_ultimo_tiro = 0  # pode atirar imediatamente ao entrar na zona
         self.vx = 0.0
         self.vy = 0.0
         self.dash_ativo = False
@@ -279,32 +282,18 @@ class JogadorDeadeye:
     def _clampar_posicao(self):
         """Mantem jogador dentro dos limites corretos."""
         if self.morto_zona:
-            # Pode andar no corredor ao redor da arena
-            self.x = max(AREA_TOTAL.left + 2, min(self.x, AREA_TOTAL.right - TAM_JOGADOR - 2))
-            self.y = max(AREA_TOTAL.top + 2, min(self.y, AREA_TOTAL.bottom - TAM_JOGADOR - 2))
-            # Nao pode entrar na arena principal
-            jrect = pygame.Rect(int(self.x), int(self.y), TAM_JOGADOR, TAM_JOGADOR)
-            arena_inner = pygame.Rect(ARENA_X + 2, ARENA_Y + 2, ARENA_W - 4, ARENA_H - 4)
-            if jrect.colliderect(arena_inner):
-                # Empurrar pra fora da arena
-                cx = self.x + TAM_JOGADOR // 2
-                cy = self.y + TAM_JOGADOR // 2
-                acx = ARENA_X + ARENA_W // 2
-                acy = ARENA_Y + ARENA_H // 2
-                # Determinar lado mais proximo para empurrar
-                dist_left = abs(cx - ARENA_X)
-                dist_right = abs(cx - (ARENA_X + ARENA_W))
-                dist_top = abs(cy - ARENA_Y)
-                dist_bottom = abs(cy - (ARENA_Y + ARENA_H))
-                menor = min(dist_left, dist_right, dist_top, dist_bottom)
-                if menor == dist_left:
-                    self.x = ARENA_X - TAM_JOGADOR - 2
-                elif menor == dist_right:
-                    self.x = ARENA_X + ARENA_W + 2
-                elif menor == dist_top:
-                    self.y = ARENA_Y - TAM_JOGADOR - 2
-                else:
-                    self.y = ARENA_Y + ARENA_H + 2
+            # Na zona de mortos o jogador fica CONFINADO ao corredor atrás do
+            # time inimigo (o mesmo lado do seu spawn de morto), nunca no anel
+            # inteiro. Assim ele sempre fica posicionado para atirar no inimigo.
+            self.y = max(ARENA_Y + 2, min(self.y, ARENA_Y + ARENA_H - TAM_JOGADOR - 2))
+            if self.equipe == 0:
+                # Time A morre -> corredor DIREITO (atras do time B)
+                self.x = max(ARENA_X + ARENA_W + 2,
+                             min(self.x, AREA_TOTAL.right - TAM_JOGADOR - 2))
+            else:
+                # Time B morre -> corredor ESQUERDO (atras do time A)
+                self.x = max(AREA_TOTAL.left + 2,
+                             min(self.x, ARENA_X - TAM_JOGADOR - 2))
         else:
             # Na arena: ficar dentro da arena, respeitar linha vermelha
             self.y = max(ARENA_Y + 4, min(self.y, ARENA_Y + ARENA_H - TAM_JOGADOR - 4))
@@ -904,38 +893,62 @@ def executar_minigame_deadeye(tela, relogio, gradiente_jogo, fonte_titulo, fonte
     mira_surface, mira_rect = criar_mira(12, BRANCO, AMARELO)
 
     # Criar jogadores (sempre 8)
+    # Ordem DETERMINÍSTICA (por player_id) -> igual em todos os clientes, para que
+    # o sorteio de times com seed produza o mesmo resultado em todas as máquinas.
     jogadores = []
     cor_local = customizacao.get('cor', AZUL)
 
-    jogador_humano = JogadorDeadeye(nome_jogador, cor_local, is_bot=False)
-    jogadores.append(jogador_humano)
-
-    remotos = {}
-    if cliente:
-        remotos = cliente.get_remote_players()
-
-    for pid, rp in remotos.items():
-        ci = (pid - 1) % len(PALETA_CORES)
-        jogadores.append(JogadorDeadeye(rp.name, PALETA_CORES[ci], is_bot=False, is_remote=True))
+    jogador_humano = None
+    for pid, nome, is_local in ordenar_humanos(cliente, nome_jogador):
+        cor = cor_local if is_local else PALETA_CORES[(pid - 1) % len(PALETA_CORES)]
+        j = JogadorDeadeye(nome, cor, is_bot=False, is_remote=not is_local)
+        j.player_id = pid  # identifica o jogador na rede (mesmo em todos os clientes)
+        jogadores.append(j)
+        if is_local:
+            jogador_humano = j
 
     nomes_bots = ["Bot Alpha", "Bot Bravo", "Bot Charlie", "Bot Delta",
                   "Bot Echo", "Bot Foxtrot", "Bot Golf", "Bot Hotel"]
     bot_idx = 0
     while len(jogadores) < 8:
         ci = len(jogadores) % len(PALETA_CORES)
-        jogadores.append(JogadorDeadeye(nomes_bots[bot_idx], PALETA_CORES[ci], is_bot=True))
+        b = JogadorDeadeye(nomes_bots[bot_idx], PALETA_CORES[ci], is_bot=True)
+        b.player_id = None  # bots não têm id de rede
+        jogadores.append(b)
         bot_idx += 1
 
-    # Distribuir equipes aleatoriamente
-    indices = list(range(8))
-    random.shuffle(indices)
-    for i, idx in enumerate(indices):
-        jogadores[idx].equipe = 0 if i < 4 else 1
-        # Cor do jogador = cor da equipe
-        cor_eq = COR_EQUIPE_A if jogadores[idx].equipe == 0 else COR_EQUIPE_B
-        jogadores[idx].cor = cor_eq
-        jogadores[idx].cor_escura = tuple(max(0, c - 60) for c in cor_eq)
-        jogadores[idx].cor_brilhante = tuple(min(255, c + 80) for c in cor_eq)
+    # Mapa player_id -> jogador remoto, para rotear as ações de rede ao jogador certo
+    jogadores_por_pid = {
+        j.player_id: j for j in jogadores
+        if not j.is_bot and j.player_id is not None
+    }
+
+    # Distribuir equipes (4 x 4).
+    # Os jogadores HUMANOS são distribuídos alternadamente entre as duas equipes,
+    # para que dois humanos nunca caiam no mesmo time (assim, ao morrer, cada um
+    # vai para o corredor atrás do time inimigo - lados opostos). Os bots
+    # preenchem o restante mantendo 4 por equipe. É tudo determinístico (mesma
+    # ordem + mesmo seed) -> idêntico em todos os clientes.
+    humanos_idx = [i for i, j in enumerate(jogadores) if not j.is_bot]
+    bots_idx = [i for i, j in enumerate(jogadores) if j.is_bot]
+    random.shuffle(bots_idx)
+
+    vagas = {0: [], 1: []}
+    for k, idx in enumerate(humanos_idx):
+        vagas[k % 2].append(idx)
+    for idx in bots_idx:
+        eq = 0 if len(vagas[0]) <= len(vagas[1]) else 1
+        if len(vagas[eq]) >= 4:
+            eq = 1 - eq
+        vagas[eq].append(idx)
+
+    for eq in (0, 1):
+        cor_eq = COR_EQUIPE_A if eq == 0 else COR_EQUIPE_B
+        for idx in vagas[eq]:
+            jogadores[idx].equipe = eq
+            jogadores[idx].cor = cor_eq
+            jogadores[idx].cor_escura = tuple(max(0, c - 60) for c in cor_eq)
+            jogadores[idx].cor_brilhante = tuple(min(255, c + 80) for c in cor_eq)
 
     # Estado
     estado = "INTRO"
@@ -1003,6 +1016,83 @@ def executar_minigame_deadeye(tela, relogio, gradiente_jogo, fonte_titulo, fonte
 
     _iniciar_rodada()
 
+    # ============================================================
+    #  HOST-AUTORITATIVO
+    #  Só o host simula bots/dano/mortes/deagle/placar. Ele transmite um
+    #  "snapshot" do estado a cada frame; os clientes apenas renderizam esse
+    #  estado e enviam o próprio input. Isso impede que cada máquina simule de
+    #  forma independente e divirja.
+    # ============================================================
+    host_autoritativo = sou_host(cliente)
+    tiros_render = []  # balas recebidas do host (cliente usa só para desenhar)
+
+    def _construir_snapshot():
+        """Monta o estado autoritativo do jogo (chamado só no host)."""
+        pl = []
+        for j in jogadores:
+            pl.append({
+                'x': round(j.x, 1), 'y': round(j.y, 1),
+                'mx': round(j.mira_x, 1), 'my': round(j.mira_y, 1),
+                'hp': j.hp, 'v': j.vivo, 'mz': j.morto_zona,
+                'dg': j.tem_deagle, 'k': j.kills, 'eq': j.equipe,
+            })
+        b = [[round(t.x, 1), round(t.y, 1), t.cor[0], t.cor[1], t.cor[2]] for t in tiros]
+        return {
+            'action': 'deadeye_state',
+            'st': estado, 'rd': rodada_atual,
+            'ra': equipe_a_rodadas, 'rb': equipe_b_rodadas,
+            'rv': round_vencedor, 'pt': portador_idx, 'es': esperando_resultado,
+            'pl': pl, 'b': b,
+        }
+
+    def _aplicar_snapshot(snap):
+        """Aplica o estado recebido do host (chamado só no cliente)."""
+        nonlocal estado, tempo_estado, rodada_atual, equipe_a_rodadas
+        nonlocal equipe_b_rodadas, round_vencedor, portador_idx, esperando_resultado
+
+        novo_estado = snap.get('st', estado)
+        if novo_estado != estado:
+            estado = novo_estado
+            tempo_estado = pygame.time.get_ticks()
+        rodada_atual = snap.get('rd', rodada_atual)
+        equipe_a_rodadas = snap.get('ra', equipe_a_rodadas)
+        equipe_b_rodadas = snap.get('rb', equipe_b_rodadas)
+        round_vencedor = snap.get('rv', round_vencedor)
+        portador_idx = snap.get('pt', portador_idx)
+        esperando_resultado = snap.get('es', esperando_resultado)
+
+        pl = snap.get('pl', [])
+        for idx, j in enumerate(jogadores):
+            if idx >= len(pl):
+                break
+            pj = pl[idx]
+            eh_local = (j is jogador_humano)
+            # Mantemos a predição local da posição do jogador local enquanto ele
+            # está vivo (na arena OU na zona de mortos) para um movimento suave,
+            # sem rubber-banding. O próprio _clampar_posicao confina o morto ao
+            # corredor do time inimigo, então não precisamos forçar a posição do
+            # host aqui. O status (vida, morto_zona, etc.) sempre vem do host.
+            manter_pos_local = (eh_local and estado == "FIGHT" and pj['v'])
+            if not manter_pos_local:
+                j.x = pj['x']
+                j.y = pj['y']
+                j.mira_x = pj['mx']
+                j.mira_y = pj['my']
+            j.hp = pj['hp']
+            j.vivo = pj['v']
+            j.morto_zona = pj['mz']
+            j.tem_deagle = pj['dg']
+            j.kills = pj['k']
+            j.equipe = pj['eq']
+            cor_eq = COR_EQUIPE_A if j.equipe == 0 else COR_EQUIPE_B
+            j.cor = cor_eq
+            j.cor_escura = tuple(max(0, c - 60) for c in cor_eq)
+            j.cor_brilhante = tuple(min(255, c + 80) for c in cor_eq)
+
+        tiros_render.clear()
+        for bb in snap.get('b', []):
+            tiros_render.append({'x': bb[0], 'y': bb[1], 'cor': (bb[2], bb[3], bb[4])})
+
     while True:
         tempo = pygame.time.get_ticks()
         tempo_no_estado = tempo - tempo_estado
@@ -1039,36 +1129,44 @@ def executar_minigame_deadeye(tela, relogio, gradiente_jogo, fonte_titulo, fonte
             if ev.type == pygame.MOUSEBUTTONDOWN:
                 if ev.button == 1 and estado == "FIGHT" and jogador_humano.vivo:
                     if jogador_humano.tem_deagle and not esperando_resultado:
-                        # Jogador humano tem a deagle e pode atirar
-                        _disparar_deadeye(jogador_humano, jogador_humano.mira_x,
-                                          jogador_humano.mira_y, tiros, particulas, flashes)
-                        # Marcar a bala como deagle bullet
-                        if tiros:
-                            bala_deagle = tiros[-1]
-                            bala_deagle.is_deagle = True
-                            esperando_resultado = True
+                        # No host: cria a bala já. No cliente: só avisa o host,
+                        # que cria a bala e a devolve no snapshot.
+                        if host_autoritativo:
+                            _disparar_deadeye(jogador_humano, jogador_humano.mira_x,
+                                              jogador_humano.mira_y, tiros, particulas, flashes)
+                            if tiros:
+                                bala_deagle = tiros[-1]
+                                bala_deagle.is_deagle = True
+                                esperando_resultado = True
+                        elif cliente:
+                            cliente.send_minigame_action({'action': 'deadeye_shot'})
                     elif jogador_humano.morto_zona:
                         # Na zona de mortos, tiro normal livre
-                        _disparar_deadeye(jogador_humano, jogador_humano.mira_x,
-                                          jogador_humano.mira_y, tiros, particulas, flashes)
+                        if host_autoritativo:
+                            _disparar_deadeye(jogador_humano, jogador_humano.mira_x,
+                                              jogador_humano.mira_y, tiros, particulas, flashes)
+                        elif cliente:
+                            cliente.send_minigame_action({'action': 'deadeye_shot_zona'})
 
         # ========== LOGICA DE ESTADO ==========
+        # As transições de fase só acontecem no host; o cliente adota o estado
+        # via snapshot (_aplicar_snapshot).
         if estado == "INTRO":
             if tempo_no_estado < 500:
                 alpha_fade = int(255 * (1 - tempo_no_estado / 500))
             else:
                 alpha_fade = 0
-            if tempo_no_estado >= TEMPO_INTRO:
+            if host_autoritativo and tempo_no_estado >= TEMPO_INTRO:
                 estado = "TEAM_SHOW"
                 tempo_estado = tempo
 
         elif estado == "TEAM_SHOW":
-            if tempo_no_estado >= TEMPO_TEAM_SHOW:
+            if host_autoritativo and tempo_no_estado >= TEMPO_TEAM_SHOW:
                 estado = "COUNTDOWN"
                 tempo_estado = tempo
 
         elif estado == "COUNTDOWN":
-            if tempo_no_estado >= TEMPO_COUNTDOWN:
+            if host_autoritativo and tempo_no_estado >= TEMPO_COUNTDOWN:
                 estado = "FIGHT"
                 tempo_estado = tempo
 
@@ -1104,211 +1202,186 @@ def executar_minigame_deadeye(tela, relogio, gradiente_jogo, fonte_titulo, fonte
                     j._clampar_posicao()
                 j.atualizar_dash()
 
-            # Bot AI
-            for j in jogadores:
-                if j.is_bot and j.vivo:
-                    _bot_ai_deadeye(j, jogadores, tiros, particulas, flashes, tempo,
-                                    esperando_resultado)
-
-            # Bot com deagle: atirar apos delay
-            if portador_idx >= 0 and not esperando_resultado:
-                portador = jogadores[portador_idx]
-                if portador.is_bot and portador.vivo and portador.tem_deagle:
-                    if tempo >= portador.bot_next_shot:
-                        _disparar_deadeye(portador, portador.mira_x, portador.mira_y,
-                                          tiros, particulas, flashes)
-                        if tiros:
-                            bala_deagle = tiros[-1]
-                            bala_deagle.is_deagle = True
-                            esperando_resultado = True
-
-            # Bots na zona de mortos: atiram livremente com tiro normal
-            for j in jogadores:
-                if j.is_bot and j.morto_zona and j.vivo:
-                    if tempo >= j.bot_next_shot:
-                        _disparar_deadeye(j, j.mira_x, j.mira_y, tiros, particulas, flashes)
-                        j.bot_next_shot = tempo + random.randint(500, 800)
-
-            # Rede
-            if cliente and jogador_humano.vivo:
-                cliente.send_minigame_action({
-                    'action': 'deadeye_input',
-                    'x': jogador_humano.x, 'y': jogador_humano.y,
-                    'mx': jogador_humano.mira_x, 'my': jogador_humano.mira_y,
-                })
-
-            # Processar acoes remotas
-            if cliente:
-                acoes = cliente.get_minigame_actions()
-                for acao in acoes:
-                    act = acao.get('action', '')
-                    if act == 'deadeye_input':
-                        for j in jogadores:
-                            if j.is_remote and j.vivo:
-                                j.x = acao.get('x', j.x)
-                                j.y = acao.get('y', j.y)
-                                j.mira_x = acao.get('mx', j.mira_x)
-                                j.mira_y = acao.get('my', j.mira_y)
-                    elif act == 'deadeye_shot':
-                        for j in jogadores:
-                            if j.is_remote and j.vivo and j.tem_deagle:
-                                _disparar_deadeye(j, j.mira_x, j.mira_y,
-                                                  tiros, particulas, flashes)
-                                if tiros:
-                                    bala_deagle = tiros[-1]
-                                    bala_deagle.is_deagle = True
-                                    esperando_resultado = True
-
-            # Atualizar tiros
-            tiros_remover = []
-            deagle_acertou = False
-            deagle_errou = False
-
-            for tiro in tiros:
-                tiro.atualizar()
-                is_deagle_bullet = getattr(tiro, 'is_deagle', False)
-
-                # Remover se fora da area total
-                if (tiro.x < AREA_TOTAL.left - 20 or tiro.x > AREA_TOTAL.right + 20 or
-                        tiro.y < AREA_TOTAL.top - 20 or tiro.y > AREA_TOTAL.bottom + 20):
-                    tiros_remover.append(tiro)
-                    if is_deagle_bullet and tiro is bala_deagle:
-                        deagle_errou = True
-                    continue
-
-                # Tiros de jogadores eliminados desaparecem na area da propria equipe
-                if hasattr(tiro, 'dono') and tiro.dono and tiro.dono.morto_zona:
-                    if tiro.dono.equipe == 0 and tiro.x < LINHA_X:
-                        tiros_remover.append(tiro)
-                        continue
-                    elif tiro.dono.equipe == 1 and tiro.x > LINHA_X:
-                        tiros_remover.append(tiro)
-                        continue
-
-                # Colisao com jogadores
+            # --- Simulação dos bots: SÓ no host ---
+            if host_autoritativo:
+                # Bot AI
                 for j in jogadores:
-                    if not j.vivo:
-                        continue
-                    if hasattr(tiro, 'dono') and tiro.dono is j:
-                        continue
-                    if hasattr(tiro, 'dono') and tiro.dono and tiro.dono.equipe == j.equipe:
-                        continue
-                    if j.morto_zona:
-                        continue
-                    if tempo < j.invulneravel_ate:
-                        continue
+                    if j.is_bot and j.vivo:
+                        _bot_ai_deadeye(j, jogadores, tiros, particulas, flashes, tempo,
+                                        esperando_resultado)
 
-                    jrect = j.get_rect()
-                    if jrect.collidepoint(int(tiro.x), int(tiro.y)):
-                        j.hp -= tiro.dano
-                        j.invulneravel_ate = tempo + 300
+                # Bot com deagle: atirar apos delay
+                if portador_idx >= 0 and not esperando_resultado:
+                    portador = jogadores[portador_idx]
+                    if portador.is_bot and portador.vivo and portador.tem_deagle:
+                        if tempo >= portador.bot_next_shot:
+                            _disparar_deadeye(portador, portador.mira_x, portador.mira_y,
+                                              tiros, particulas, flashes)
+                            if tiros:
+                                bala_deagle = tiros[-1]
+                                bala_deagle.is_deagle = True
+                                esperando_resultado = True
+
+                # Bots na zona de mortos: atiram livremente com tiro normal
+                for j in jogadores:
+                    if j.is_bot and j.morto_zona and j.vivo:
+                        if tempo >= j.bot_next_shot:
+                            _disparar_deadeye(j, j.mira_x, j.mira_y, tiros, particulas, flashes)
+                            j.bot_next_shot = tempo + random.randint(500, 800)
+
+            # === Física, dano, mortes e deagle: SÓ no host ===
+            # No cliente isso tudo vem pronto pelo snapshot (_aplicar_snapshot).
+            if host_autoritativo:
+                # Atualizar tiros
+                tiros_remover = []
+                deagle_acertou = False
+                deagle_errou = False
+
+                for tiro in tiros:
+                    tiro.atualizar()
+                    is_deagle_bullet = getattr(tiro, 'is_deagle', False)
+
+                    # Remover se fora da area total
+                    if (tiro.x < AREA_TOTAL.left - 20 or tiro.x > AREA_TOTAL.right + 20 or
+                            tiro.y < AREA_TOTAL.top - 20 or tiro.y > AREA_TOTAL.bottom + 20):
                         tiros_remover.append(tiro)
-
-                        # Atribuir kill
-                        if hasattr(tiro, 'dono') and tiro.dono:
-                            if j.hp <= 0:
-                                tiro.dono.kills += 1
-
-                        # Se era a bala da deagle: acertou!
                         if is_deagle_bullet and tiro is bala_deagle:
-                            deagle_acertou = True
+                            deagle_errou = True
+                        continue
 
-                        # Efeito de dano
-                        cx, cy = j.get_centro()
-                        for _ in range(8):
-                            p = Particula(cx + random.uniform(-8, 8),
-                                          cy + random.uniform(-8, 8),
-                                          (255, random.randint(100, 200), 0))
-                            p.velocidade_x = random.uniform(-4, 4)
-                            p.velocidade_y = random.uniform(-4, 4)
-                            p.vida = random.randint(8, 15)
-                            p.tamanho = random.uniform(2, 4)
-                            particulas.append(p)
+                    # Tiros de jogadores eliminados desaparecem na area da propria equipe
+                    if hasattr(tiro, 'dono') and tiro.dono and tiro.dono.morto_zona:
+                        if tiro.dono.equipe == 0 and tiro.x < LINHA_X:
+                            tiros_remover.append(tiro)
+                            continue
+                        elif tiro.dono.equipe == 1 and tiro.x > LINHA_X:
+                            tiros_remover.append(tiro)
+                            continue
 
-                        if j.hp <= 0:
-                            for _ in range(20):
-                                p = Particula(cx + random.uniform(-12, 12),
-                                              cy + random.uniform(-12, 12),
-                                              j.cor)
-                                p.velocidade_x = random.uniform(-5, 5)
-                                p.velocidade_y = random.uniform(-5, 5)
-                                p.vida = random.randint(15, 30)
-                                p.tamanho = random.uniform(3, 6)
+                    # Colisao com jogadores
+                    for j in jogadores:
+                        if not j.vivo:
+                            continue
+                        if hasattr(tiro, 'dono') and tiro.dono is j:
+                            continue
+                        if hasattr(tiro, 'dono') and tiro.dono and tiro.dono.equipe == j.equipe:
+                            continue
+                        if j.morto_zona:
+                            continue
+                        if tempo < j.invulneravel_ate:
+                            continue
+
+                        jrect = j.get_rect()
+                        if jrect.collidepoint(int(tiro.x), int(tiro.y)):
+                            j.hp -= tiro.dano
+                            j.invulneravel_ate = tempo + 300
+                            tiros_remover.append(tiro)
+
+                            # Atribuir kill
+                            if hasattr(tiro, 'dono') and tiro.dono:
+                                if j.hp <= 0:
+                                    tiro.dono.kills += 1
+
+                            # Se era a bala da deagle: acertou!
+                            if is_deagle_bullet and tiro is bala_deagle:
+                                deagle_acertou = True
+
+                            # Efeito de dano
+                            cx, cy = j.get_centro()
+                            for _ in range(8):
+                                p = Particula(cx + random.uniform(-8, 8),
+                                              cy + random.uniform(-8, 8),
+                                              (255, random.randint(100, 200), 0))
+                                p.velocidade_x = random.uniform(-4, 4)
+                                p.velocidade_y = random.uniform(-4, 4)
+                                p.vida = random.randint(8, 15)
+                                p.tamanho = random.uniform(2, 4)
                                 particulas.append(p)
-                            flashes.append({
-                                'x': cx, 'y': cy,
-                                'raio': 25, 'vida': 10,
-                                'cor': (255, 200, 100)
-                            })
-                            j.ir_zona_mortos()
-                        break
 
-            for t in tiros_remover:
-                if t in tiros:
-                    tiros.remove(t)
+                            if j.hp <= 0:
+                                for _ in range(20):
+                                    p = Particula(cx + random.uniform(-12, 12),
+                                                  cy + random.uniform(-12, 12),
+                                                  j.cor)
+                                    p.velocidade_x = random.uniform(-5, 5)
+                                    p.velocidade_y = random.uniform(-5, 5)
+                                    p.vida = random.randint(15, 30)
+                                    p.tamanho = random.uniform(3, 6)
+                                    particulas.append(p)
+                                flashes.append({
+                                    'x': cx, 'y': cy,
+                                    'raio': 25, 'vida': 10,
+                                    'cor': (255, 200, 100)
+                                })
+                                j.ir_zona_mortos()
+                            break
 
-            # === TURNO DA DEAGLE ===
-            if deagle_acertou:
-                # Acertou! Portador atual mantem a deagle
-                bala_deagle = None
-                esperando_resultado = False
-                # Se o portador morreu (foi pra zona), passa pro outro time
-                if portador_idx >= 0 and jogadores[portador_idx].morto_zona:
-                    outra_equipe = 1 - jogadores[portador_idx].equipe
-                    novo = _proximo_portador(outra_equipe)
-                    if novo is not None:
-                        _dar_deagle_para(novo)
-                        jogadores[novo].bot_next_shot = tempo + random.randint(800, 1500)
-                else:
-                    # Portador continua, reseta cooldown do bot
-                    if portador_idx >= 0 and jogadores[portador_idx].is_bot:
-                        jogadores[portador_idx].bot_next_shot = tempo + random.randint(800, 1500)
+                for t in tiros_remover:
+                    if t in tiros:
+                        tiros.remove(t)
 
-            elif deagle_errou:
-                # Errou! Passa a deagle para alguem da outra equipe
-                bala_deagle = None
-                esperando_resultado = False
-                if portador_idx >= 0:
-                    equipe_atual = jogadores[portador_idx].equipe
+                # === TURNO DA DEAGLE ===
+                if deagle_acertou:
+                    # Acertou! Portador atual mantem a deagle
+                    bala_deagle = None
+                    esperando_resultado = False
+                    # Se o portador morreu (foi pra zona), passa pro outro time
+                    if portador_idx >= 0 and jogadores[portador_idx].morto_zona:
+                        outra_equipe = 1 - jogadores[portador_idx].equipe
+                        novo = _proximo_portador(outra_equipe)
+                        if novo is not None:
+                            _dar_deagle_para(novo)
+                            jogadores[novo].bot_next_shot = tempo + random.randint(800, 1500)
+                    else:
+                        # Portador continua, reseta cooldown do bot
+                        if portador_idx >= 0 and jogadores[portador_idx].is_bot:
+                            jogadores[portador_idx].bot_next_shot = tempo + random.randint(800, 1500)
+
+                elif deagle_errou:
+                    # Errou! Passa a deagle para alguem da outra equipe
+                    bala_deagle = None
+                    esperando_resultado = False
+                    if portador_idx >= 0:
+                        equipe_atual = jogadores[portador_idx].equipe
+                        jogadores[portador_idx].tirar_deagle()
+                        outra_equipe = 1 - equipe_atual
+                        novo = _proximo_portador(outra_equipe)
+                        if novo is None:
+                            # Outro time nao tem ninguem na arena, tenta o mesmo time
+                            novo = _proximo_portador(equipe_atual)
+                        if novo is not None:
+                            _dar_deagle_para(novo)
+                            jogadores[novo].bot_next_shot = tempo + random.randint(800, 1500)
+
+                # Se o portador morreu (levou tiro normal de morto), passar deagle
+                if portador_idx >= 0 and jogadores[portador_idx].morto_zona and not esperando_resultado:
+                    equipe_portador = jogadores[portador_idx].equipe
                     jogadores[portador_idx].tirar_deagle()
-                    outra_equipe = 1 - equipe_atual
+                    outra_equipe = 1 - equipe_portador
                     novo = _proximo_portador(outra_equipe)
                     if novo is None:
-                        # Outro time nao tem ninguem na arena, tenta o mesmo time
-                        novo = _proximo_portador(equipe_atual)
+                        novo = _proximo_portador(equipe_portador)
                     if novo is not None:
                         _dar_deagle_para(novo)
                         jogadores[novo].bot_next_shot = tempo + random.randint(800, 1500)
 
-            # Se o portador morreu (levou tiro normal de morto), passar deagle
-            if portador_idx >= 0 and jogadores[portador_idx].morto_zona and not esperando_resultado:
-                equipe_portador = jogadores[portador_idx].equipe
-                jogadores[portador_idx].tirar_deagle()
-                outra_equipe = 1 - equipe_portador
-                novo = _proximo_portador(outra_equipe)
-                if novo is None:
-                    novo = _proximo_portador(equipe_portador)
-                if novo is not None:
-                    _dar_deagle_para(novo)
-                    jogadores[novo].bot_next_shot = tempo + random.randint(800, 1500)
+                # Verificar condicao de vitoria
+                vivos_a = sum(1 for j in jogadores if j.equipe == 0 and j.na_arena())
+                vivos_b = sum(1 for j in jogadores if j.equipe == 1 and j.na_arena())
 
-            # Verificar condicao de vitoria
-            vivos_a = sum(1 for j in jogadores if j.equipe == 0 and j.na_arena())
-            vivos_b = sum(1 for j in jogadores if j.equipe == 1 and j.na_arena())
-
-            if vivos_a == 0 or vivos_b == 0:
-                estado = "ROUND_END"
-                tempo_estado = tempo
-                rodada_atual += 1
-                if vivos_a == 0:
-                    round_vencedor = 1
-                    equipe_b_rodadas += 1
-                else:
-                    round_vencedor = 0
-                    equipe_a_rodadas += 1
+                if vivos_a == 0 or vivos_b == 0:
+                    estado = "ROUND_END"
+                    tempo_estado = tempo
+                    rodada_atual += 1
+                    if vivos_a == 0:
+                        round_vencedor = 1
+                        equipe_b_rodadas += 1
+                    else:
+                        round_vencedor = 0
+                        equipe_a_rodadas += 1
 
         elif estado == "ROUND_END":
-            if tempo_no_estado >= TEMPO_ROUND_END:
+            if host_autoritativo and tempo_no_estado >= TEMPO_ROUND_END:
                 # Verificar se alguem venceu o jogo
                 if equipe_a_rodadas >= 2 or equipe_b_rodadas >= 2 or rodada_atual >= NUM_RODADAS:
                     estado = "SCOREBOARD"
@@ -1320,9 +1393,58 @@ def executar_minigame_deadeye(tela, relogio, gradiente_jogo, fonte_titulo, fonte
                     _iniciar_rodada()
 
         elif estado == "SCOREBOARD":
+            # Sai quando o tempo do placar acaba (vale para host e cliente)
             if tempo_no_estado >= TEMPO_SCOREBOARD:
                 pygame.mouse.set_visible(True)
                 return None
+
+        # ========== REDE (host envia estado; cliente envia input e aplica estado) ==========
+        if cliente:
+            if host_autoritativo:
+                # Host consome os inputs/tiros dos clientes (roteados por player_id)
+                for acao in cliente.get_minigame_actions():
+                    j = jogadores_por_pid.get(acao.get('player_id'))
+                    if j is None or j is jogador_humano:
+                        continue
+                    act = acao.get('action', '')
+                    if act == 'deadeye_input':
+                        if j.vivo:
+                            j.x = acao.get('x', j.x)
+                            j.y = acao.get('y', j.y)
+                            j.mira_x = acao.get('mx', j.mira_x)
+                            j.mira_y = acao.get('my', j.mira_y)
+                            # Reclampa: garante que a posição autoritativa respeite
+                            # os limites (corredor do time se estiver morto, meia
+                            # arena se vivo) mesmo com input antigo do cliente.
+                            j._clampar_posicao()
+                    elif act == 'deadeye_shot':
+                        if j.vivo and j.tem_deagle and not esperando_resultado:
+                            _disparar_deadeye(j, j.mira_x, j.mira_y,
+                                              tiros, particulas, flashes)
+                            if tiros:
+                                bala_deagle = tiros[-1]
+                                bala_deagle.is_deagle = True
+                                esperando_resultado = True
+                    elif act == 'deadeye_shot_zona':
+                        if j.vivo and j.morto_zona:
+                            _disparar_deadeye(j, j.mira_x, j.mira_y,
+                                              tiros, particulas, flashes)
+                # Host transmite o estado autoritativo do jogo
+                cliente.send_minigame_action(_construir_snapshot())
+            else:
+                # Cliente: envia o próprio input e aplica o último snapshot do host
+                if jogador_humano.vivo:
+                    cliente.send_minigame_action({
+                        'action': 'deadeye_input',
+                        'x': jogador_humano.x, 'y': jogador_humano.y,
+                        'mx': jogador_humano.mira_x, 'my': jogador_humano.mira_y,
+                    })
+                ultimo_snap = None
+                for acao in cliente.get_minigame_actions():
+                    if acao.get('action') == 'deadeye_state':
+                        ultimo_snap = acao
+                if ultimo_snap:
+                    _aplicar_snapshot(ultimo_snap)
 
         # ========== ATUALIZAR PARTICULAS E FLASHES ==========
         for p in particulas[:]:
@@ -1354,9 +1476,12 @@ def executar_minigame_deadeye(tela, relogio, gradiente_jogo, fonte_titulo, fonte
                     _desenhar_arma_jogador(tela, j, tempo)
                     _desenhar_portador_indicador(tela, j, fonte_peq, tempo)
 
-        # Tiros
+        # Tiros (host: objetos reais; cliente: balas recebidas no snapshot)
         for tiro in tiros:
             tiro.desenhar(tela)
+        for b in tiros_render:
+            pygame.draw.circle(tela, (0, 0, 0), (int(b['x']), int(b['y'])), 5)
+            pygame.draw.circle(tela, b['cor'], (int(b['x']), int(b['y'])), 4)
 
         # Particulas
         for p in particulas:

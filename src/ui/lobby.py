@@ -522,7 +522,9 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
             'a': bool(teclas[pygame.K_a] or teclas[pygame.K_LEFT]),
             'd': bool(teclas[pygame.K_d] or teclas[pygame.K_RIGHT]),
         }
-        cliente.send_player_input(keys_net, 0, 0, False)
+        # Cliente-autoritativo: enviamos a posição real (jx, jy) para o servidor
+        # repassar aos outros. Assim todos veem o jogador na mesma posição.
+        cliente.send_player_input(keys_net, 0, 0, False, float(jx), float(jy))
         cliente.update_interpolation(dt)
 
         # Pulsação (ciclo 0-11)

@@ -436,12 +436,16 @@ class FaseMultiplayer(FaseBase):
                 'd': teclas_pygame[pygame.K_d]
             }
 
-            # Enviar input para o servidor
+            # Enviar input + posição real para o servidor (cliente-autoritativo).
+            # Mandamos self.jogador.x/y para que os outros jogadores nos vejam
+            # exatamente na mesma posição que vemos a nós mesmos.
             self.cliente.send_player_input(
                 keys,
                 int(pos_mouse[0]),
                 int(pos_mouse[1]),
-                pygame.mouse.get_pressed()[0]
+                pygame.mouse.get_pressed()[0],
+                float(self.jogador.x),
+                float(self.jogador.y)
             )
         except Exception as e:
             pass  # Silenciar erros de rede

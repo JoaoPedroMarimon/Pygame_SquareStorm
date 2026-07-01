@@ -356,6 +356,14 @@ class GameServer:
             player.mouse_y = data.get('mouse_y', 0)
             player.shooting = data.get('shooting', False)
 
+            # Cliente-autoritativo: se o cliente enviou sua posição real,
+            # usamos ela diretamente (o servidor não re-simula o movimento).
+            # Isso garante que os outros jogadores vejam a MESMA posição que
+            # o dono do jogador vê na própria tela.
+            if 'x' in data and 'y' in data:
+                player.x = data['x']
+                player.y = data['y']
+
     def _disconnect_player(self, player_id: int):
         """
         Desconecta um jogador.
@@ -466,42 +474,15 @@ class GameServer:
         Args:
             delta_time: Tempo desde a última atualização
         """
-        # Atualizar movimento dos jogadores baseado no input
-        with self.players_lock:
-            for player in self.players.values():
-                if not player.alive:
-                    continue
-
-                # Velocidade de movimento (igual a VEL_LOBBY do lobby)
-                velocidade = 4.0
-
-                # Processar teclas de movimento (WASD)
-                dx = 0
-                dy = 0
-
-                if player.keys.get('w', False):
-                    dy -= velocidade
-                if player.keys.get('s', False):
-                    dy += velocidade
-                if player.keys.get('a', False):
-                    dx -= velocidade
-                if player.keys.get('d', False):
-                    dx += velocidade
-
-                # Normalizar movimento diagonal
-                if dx != 0 and dy != 0:
-                    import math
-                    fator = velocidade / math.sqrt(dx**2 + dy**2)
-                    dx *= fator
-                    dy *= fator
-
-                # Atualizar posição
-                player.x += dx
-                player.y += dy
-
-                # Limitar às bordas do lobby (sala.x+8 até sala.right-TAM_PLAYER-8)
-                player.x = max(33, min(1417, player.x))
-                player.y = max(73, min(682, player.y))
+        # Modelo cliente-autoritativo: o servidor NÃO simula o movimento dos
+        # jogadores. Cada cliente calcula a própria posição (com colisão, dash,
+        # mapa, etc.) e a envia em _update_player_input. Aqui o servidor só
+        # mantém o que recebeu e repassa em _sync_game_state.
+        #
+        # (A simulação de movimento por teclas foi removida porque o servidor
+        # não conhece o mapa/colisões do cliente — re-simular causava o desync
+        # de posição entre as telas.)
+        pass
 
     def _sync_game_state(self):
         """Sincroniza o estado do jogo com todos os clientes."""
