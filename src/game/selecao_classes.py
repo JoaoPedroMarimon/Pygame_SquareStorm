@@ -123,7 +123,8 @@ CLASSES_TIME_Q = {
 class SelecaoClasses:
     """Tela de seleção de classes para os times."""
 
-    def __init__(self, tela, relogio, fonte_titulo, fonte_normal, time='Q'):
+    def __init__(self, tela, relogio, fonte_titulo, fonte_normal, time='Q',
+                 cliente=None, local_pid=None):
         self.tela = tela
         self.relogio = relogio
         self.fonte_titulo = fonte_titulo
@@ -131,6 +132,10 @@ class SelecaoClasses:
         self.time = time
         self.classe_selecionada = None
         self.hover_classe = None
+        # Multiplayer: para mostrar/bloquear classes já escolhidas por outros
+        self.cliente = cliente
+        self.local_pid = local_pid
+        self._ocupadas = set()  # classes já escolhidas por outros do mesmo time
 
         # Tempo para animações
         self.tempo_inicio = pygame.time.get_ticks()
@@ -234,6 +239,32 @@ class SelecaoClasses:
                 "dados": self.classes_disponiveis[classe_id]
             })
 
+    def _classes_ocupadas(self):
+        """Retorna o conjunto de classes já escolhidas por OUTROS jogadores do
+        mesmo time (via status de times do servidor)."""
+        ocupadas = set()
+        if self.cliente is None:
+            return ocupadas
+        try:
+            status = self.cliente.get_team_status() or {}
+        except Exception:
+            return ocupadas
+        for pid, info in status.items():
+            if str(pid) == str(self.local_pid):
+                continue  # eu mesmo
+            if info.get('team') != self.time:
+                continue
+            cl = info.get('classe')
+            if cl:
+                ocupadas.add(cl)
+        return ocupadas
+
+    def _selecionar(self, classe_id):
+        """Retorna a classe se estiver livre; senão None (bloqueia ocupadas)."""
+        if classe_id in self._ocupadas:
+            return None
+        return classe_id
+
     def executar(self):
         """
         Executa a tela de seleção de classes.
@@ -247,6 +278,9 @@ class SelecaoClasses:
         while rodando:
             tempo_atual = pygame.time.get_ticks()
 
+            # Atualizar classes ocupadas por outros (tempo real)
+            self._ocupadas = self._classes_ocupadas()
+
             # Processar eventos
             for evento in pygame.event.get():
                 if evento.type == pygame.QUIT:
@@ -255,27 +289,23 @@ class SelecaoClasses:
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_ESCAPE:
                         return None
-                    # Atalhos numéricos
+                    # Atalhos numéricos (bloqueia classe ocupada)
+                    idx_tecla = None
                     if evento.key == pygame.K_1:
-                        self._criar_particula(self.cards[0]["rect"].centerx,
-                                            self.cards[0]["rect"].centery,
-                                            self.cards[0]["dados"]["cor"])
-                        return self.ordem_classes[0]
-                    if evento.key == pygame.K_2:
-                        self._criar_particula(self.cards[1]["rect"].centerx,
-                                            self.cards[1]["rect"].centery,
-                                            self.cards[1]["dados"]["cor"])
-                        return self.ordem_classes[1]
-                    if evento.key == pygame.K_3:
-                        self._criar_particula(self.cards[2]["rect"].centerx,
-                                            self.cards[2]["rect"].centery,
-                                            self.cards[2]["dados"]["cor"])
-                        return self.ordem_classes[2]
-                    if evento.key == pygame.K_4:
-                        self._criar_particula(self.cards[3]["rect"].centerx,
-                                            self.cards[3]["rect"].centery,
-                                            self.cards[3]["dados"]["cor"])
-                        return self.ordem_classes[3]
+                        idx_tecla = 0
+                    elif evento.key == pygame.K_2:
+                        idx_tecla = 1
+                    elif evento.key == pygame.K_3:
+                        idx_tecla = 2
+                    elif evento.key == pygame.K_4:
+                        idx_tecla = 3
+                    if idx_tecla is not None:
+                        escolha = self._selecionar(self.ordem_classes[idx_tecla])
+                        if escolha is not None:
+                            self._criar_particula(self.cards[idx_tecla]["rect"].centerx,
+                                                self.cards[idx_tecla]["rect"].centery,
+                                                self.cards[idx_tecla]["dados"]["cor"])
+                            return escolha
 
                 if evento.type == pygame.MOUSEMOTION:
                     mouse_pos = convert_mouse_position(evento.pos)
@@ -290,10 +320,12 @@ class SelecaoClasses:
                         mouse_pos = convert_mouse_position(evento.pos)
                         for card in self.cards:
                             if card["rect"].collidepoint(mouse_pos):
-                                self._criar_particula(card["rect"].centerx,
-                                                    card["rect"].centery,
-                                                    card["dados"]["cor"])
-                                return card["id"]
+                                escolha = self._selecionar(card["id"])
+                                if escolha is not None:
+                                    self._criar_particula(card["rect"].centerx,
+                                                        card["rect"].centery,
+                                                        card["dados"]["cor"])
+                                    return escolha
 
             # Atualizar animações
             self._atualizar_quadrados_fundo()
@@ -520,6 +552,15 @@ class SelecaoClasses:
             x = start_x + i * 12 + 6
             # Mini quadrado representando vida
             pygame.draw.rect(self.tela, cor_vidas, (x - 4, vidas_y - 4, 8, 8), 0, 2)
+
+        # Classe já escolhida por outro jogador: escurece e marca "OCUPADO"
+        if card["id"] in self._ocupadas:
+            overlay = pygame.Surface((rect_desenho.width, rect_desenho.height), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            self.tela.blit(overlay, rect_desenho.topleft)
+            pygame.draw.rect(self.tela, (200, 60, 60), rect_desenho, 3, 12)
+            desenhar_texto(self.tela, "OCUPADO", 22, (255, 90, 90),
+                          rect_desenho.centerx, rect_desenho.centery)
 
     def _desenhar_particulas(self):
         """Desenha as partículas."""

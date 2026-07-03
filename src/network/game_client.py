@@ -510,13 +510,14 @@ class GameClient:
             self.minigame_actions.clear()
             return actions
 
-    def send_team_selection(self, team: str, player_name: str):
+    def send_team_selection(self, team: str, player_name: str, classe=None):
         """
-        Envia a seleção de time para o servidor.
+        Envia a seleção de time (e classe) para o servidor.
 
         Args:
             team: Time escolhido ('T' ou 'Q')
             player_name: Nome do jogador
+            classe: Classe escolhida (para os bots não repetirem)
         """
         if not self.connected or not self.local_player_id:
             return
@@ -525,7 +526,8 @@ class GameClient:
             packet = NetworkProtocol.create_team_select_packet(
                 self.local_player_id,
                 team,
-                player_name
+                player_name,
+                classe
             )
             self.socket.sendall(packet)
             print(f"[CLIENT] Enviado seleção de time: {team}")

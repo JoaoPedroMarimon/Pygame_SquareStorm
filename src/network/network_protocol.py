@@ -223,12 +223,14 @@ class NetworkProtocol:
         })
 
     @staticmethod
-    def create_team_select_packet(player_id: int, team: str, player_name: str) -> bytes:
-        """Cria um pacote de seleção de time."""
+    def create_team_select_packet(player_id: int, team: str, player_name: str,
+                                  classe=None) -> bytes:
+        """Cria um pacote de seleção de time (com classe opcional)."""
         return NetworkProtocol.create_packet(PacketType.TEAM_SELECT, {
             'player_id': player_id,
             'team': team,
-            'player_name': player_name
+            'player_name': player_name,
+            'classe': classe
         })
 
     @staticmethod

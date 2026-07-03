@@ -576,6 +576,7 @@ class GameServer:
         """
         team = data.get('team')
         player_name = data.get('player_name', f'Player{player_id}')
+        classe = data.get('classe')
 
         if team not in ['T', 'Q']:
             return
@@ -583,7 +584,8 @@ class GameServer:
         with self.team_selections_lock:
             self.team_selections[player_id] = {
                 'team': team,
-                'name': player_name
+                'name': player_name,
+                'classe': classe
             }
             print(f"[SERVER] Jogador {player_name} (ID:{player_id}) escolheu Time {team}")
 
@@ -600,7 +602,8 @@ class GameServer:
             for pid, selection in self.team_selections.items():
                 players_status[str(pid)] = {
                     'team': selection['team'],
-                    'name': selection['name']
+                    'name': selection['name'],
+                    'classe': selection.get('classe')
                 }
 
         packet = NetworkProtocol.create_team_status_packet(players_status)

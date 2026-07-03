@@ -22,6 +22,7 @@ from src.weapons.desert_eagle import desenhar_desert_eagle
 from src.weapons.spas12 import desenhar_spas12
 from src.weapons.metralhadora import desenhar_metralhadora
 from src.weapons.sniper import desenhar_sniper
+from src.network.multiplayer_utils import sou_host
 
 
 class FaseMultiplayer(FaseBase):
@@ -34,7 +35,7 @@ class FaseMultiplayer(FaseBase):
     COR_TIME_T = (255, 100, 100)  # Vermelho claro
     COR_TIME_Q = (100, 150, 255)  # Azul claro
 
-    def __init__(self, tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal, cliente, nome_jogador, bots=None):
+    def __init__(self, tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal, cliente, nome_jogador, bots=None, seed=None):
         """
         Inicializa a fase multiplayer.
 
@@ -52,6 +53,23 @@ class FaseMultiplayer(FaseBase):
         self.cliente = cliente
         self.nome_jogador = nome_jogador
         self.bots_info = bots or []
+        self.seed_partida = seed  # seed compartilhado para o mesmo elenco em todas as máquinas
+
+        # Host-autoritativo: só o host simula bots e combate (dano/mortes) e
+        # transmite o estado; os clientes renderizam esse estado e mandam só o
+        # próprio input (posição já vai por send_player_input; tiros por evento).
+        self.host_autoritativo = sou_host(cliente)
+        # Balas recebidas do host (cliente usa para desenhar e para dano local)
+        self._tiros_jogador_render = []
+        self._tiros_inimigo_render = []
+        # Vida dos jogadores HUMANOS remotos (host calcula; cliente recebe no snapshot)
+        self.hp_por_pid = {}
+        # Fase 3 (bomba host-autoritativa):
+        self.bomber_pid = None      # pid do humano que é o bomber (ou None)
+        self.bomber_bot_idx = -1    # índice do bot bomber (ou -1)
+        self.f_por_pid = {}         # tecla F segurada por cada humano remoto
+        self.estado_por_pid = {}    # {pid: {mira, arma, cor}} enviado pelos clientes
+        self._round_terminado_ant = False  # (cliente) detecta transição de fim de round
 
         # Sistema de times - seleção acontece ANTES de carregar o resto
         self.time_jogador = None  # 'T' ou 'Q'
@@ -125,6 +143,13 @@ class FaseMultiplayer(FaseBase):
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 return "sair"
+
+            # Atualiza a mira virtual com o movimento real do mouse (senão o
+            # cursor/mira fica congelado no centro da tela).
+            if evento.type == pygame.MOUSEMOTION:
+                mx, my = convert_mouse_position(evento.pos)
+                self.mira_virtual_x = float(mx)
+                self.mira_virtual_y = float(my)
 
             # Controles durante o jogo
             if not self.mostrando_inicio and not self.pausado:
@@ -224,48 +249,330 @@ class FaseMultiplayer(FaseBase):
             return
         self.jogador.tempo_ultimo_tiro = tempo_atual
 
-        # Criar tiros baseado na arma
-        if self.arma_equipada == 'spas12':
-            # SPAS-12: múltiplos tiros em dispersão
+        # Host cria as balas direto; cliente avisa o host (que cria e devolve no
+        # snapshot). Assim as balas e o dano são autoritativos do host.
+        if self.host_autoritativo:
+            self._criar_tiros_para(centro_x, centro_y, dx, dy, self.jogador.cor,
+                                   self.time_jogador, self.arma_equipada, self.classe_jogador)
+        elif self.cliente:
+            self.cliente.send_minigame_action({
+                'action': 'mp_tiro',
+                'mx': pos_mouse_mundo[0], 'my': pos_mouse_mundo[1],
+                'arma': self.arma_equipada, 'classe': self.classe_jogador,
+            })
+
+        # Som de tiro
+        pygame.mixer.Channel(1).play(pygame.mixer.Sound(gerar_som_tiro()))
+
+    def _criar_tiros_para(self, cx, cy, dx, dy, cor, time_origem, arma, classe):
+        """Cria bala(s) na lista tiros_jogador conforme a arma (usado pelo host)."""
+        import math
+        import random
+        from src.entities.tiro import Tiro
+
+        if arma and arma in self.armas_disponiveis:
+            dano = self.armas_disponiveis[arma]['dano']
+            velocidade = self.armas_disponiveis[arma]['velocidade']
+        else:
+            dano = 1
+            velocidade = 8
+
+        if arma == 'spas12':
             angulo_base = math.atan2(dy, dx)
             dispersao = 0.25
             num_tiros = 5
             for i in range(num_tiros):
-                angulo_variacao = dispersao * (i / (num_tiros - 1) - 0.5) * 2
-                angulo_atual = angulo_base + angulo_variacao
-                tiro_dx = math.cos(angulo_atual)
-                tiro_dy = math.sin(angulo_atual)
-                tiro = Tiro(centro_x, centro_y, tiro_dx, tiro_dy, self.jogador.cor, velocidade)
+                a = angulo_base + dispersao * (i / (num_tiros - 1) - 0.5) * 2
+                tiro = Tiro(cx, cy, math.cos(a), math.sin(a), cor, velocidade)
                 tiro.dano = dano
-                tiro.time_origem = self.time_jogador
+                tiro.time_origem = time_origem
                 self.tiros_jogador.append(tiro)
-        elif self.arma_equipada == 'metralhadora':
-            # Metralhadora: tiro com pequena imprecisão
-            import random
-            imprecisao = 0.08
-            dx += random.uniform(-imprecisao, imprecisao)
-            dy += random.uniform(-imprecisao, imprecisao)
-            dist_nova = math.sqrt(dx * dx + dy * dy)
-            if dist_nova > 0:
-                dx /= dist_nova
-                dy /= dist_nova
-            tiro = Tiro(centro_x, centro_y, dx, dy, self.jogador.cor, velocidade)
-            # Classe Metralhadora: dano dobrado (2 ao invés de 1)
-            if self.classe_jogador == 'metralhadora':
-                tiro.dano = 2
-            else:
-                tiro.dano = dano
-            tiro.time_origem = self.time_jogador
+        elif arma == 'metralhadora':
+            imp = 0.08
+            ddx = dx + random.uniform(-imp, imp)
+            ddy = dy + random.uniform(-imp, imp)
+            d = math.sqrt(ddx * ddx + ddy * ddy)
+            if d > 0:
+                ddx /= d
+                ddy /= d
+            tiro = Tiro(cx, cy, ddx, ddy, cor, velocidade)
+            tiro.dano = 2 if classe == 'metralhadora' else dano
+            tiro.time_origem = time_origem
             self.tiros_jogador.append(tiro)
         else:
-            # Pistola padrão, Desert Eagle ou Sniper
-            tiro = Tiro(centro_x, centro_y, dx, dy, self.jogador.cor, velocidade)
+            tiro = Tiro(cx, cy, dx, dy, cor, velocidade)
             tiro.dano = dano
-            tiro.time_origem = self.time_jogador
+            tiro.time_origem = time_origem
             self.tiros_jogador.append(tiro)
 
-        # Som de tiro
-        pygame.mixer.Channel(1).play(pygame.mixer.Sound(gerar_som_tiro()))
+    def _time_do_pid(self, pid):
+        """Retorna o time ('T'/'Q') de um jogador remoto pelo player_id."""
+        st = self.status_times or {}
+        info = st.get(pid) or st.get(str(pid)) or {}
+        return info.get('team')
+
+    def _enviar_estado_cliente(self, pos_mouse):
+        """(Cliente) Envia ao host: tecla F (bomba), mira (mundo), arma e cor."""
+        if not self.cliente:
+            return
+        try:
+            from src.utils.display_manager import convert_mouse_position
+            aim = self._converter_mouse_para_mundo(
+                convert_mouse_position(pygame.mouse.get_pos()))
+            self.cliente.send_minigame_action({
+                'action': 'mp_estado',
+                'f': bool(pygame.key.get_pressed()[pygame.K_f]),
+                'mx': aim[0], 'my': aim[1],
+                'arma': self.arma_equipada,
+                'cor': list(self.jogador.cor),
+            })
+        except Exception:
+            pass
+
+    def _processar_tiros_remotos(self):
+        """(Host) Processa os eventos dos clientes: tiros e estado (F/mira/arma/cor)."""
+        if not self.cliente:
+            return
+        import math
+        for acao in self.cliente.get_minigame_actions():
+            act = acao.get('action')
+            pid = acao.get('player_id')
+
+            if act == 'mp_estado':
+                self.f_por_pid[pid] = bool(acao.get('f', False))
+                self.estado_por_pid[pid] = {
+                    'mx': acao.get('mx', 0.0), 'my': acao.get('my', 0.0),
+                    'arma': acao.get('arma'),
+                    'cor': tuple(acao.get('cor', [255, 255, 255])),
+                }
+                continue
+
+            if act != 'mp_tiro':
+                continue
+            remoto = self.jogadores_remotos.get(pid)
+            if remoto is None:
+                continue
+            cx = remoto.x + TAMANHO_MULTIPLAYER / 2
+            cy = remoto.y + TAMANHO_MULTIPLAYER / 2
+            dx = acao.get('mx', cx) - cx
+            dy = acao.get('my', cy) - cy
+            d = math.sqrt(dx * dx + dy * dy)
+            if d > 0:
+                dx /= d
+                dy /= d
+            cor_r = getattr(remoto, 'cor', BRANCO)
+            self._criar_tiros_para(cx, cy, dx, dy, cor_r, self._time_do_pid(pid),
+                                   acao.get('arma'), acao.get('classe'))
+
+    def _enviar_snapshot_combate(self):
+        """(Host) Transmite bots e balas para os clientes."""
+        if not self.cliente:
+            return
+        bots = []
+        for b in self.bots_locais:
+            if getattr(b, 'alvo_inimigo', None) is not None and getattr(b.alvo_inimigo, 'vidas', 0) > 0:
+                ax = b.alvo_inimigo.x + TAMANHO_MULTIPLAYER // 2
+                ay = b.alvo_inimigo.y + TAMANHO_MULTIPLAYER // 2
+            else:
+                ax, ay = getattr(b, 'alvo_x', b.x), getattr(b, 'alvo_y', b.y)
+            bots.append({
+                'x': round(b.x, 1), 'y': round(b.y, 1), 'v': b.vidas,
+                'ax': round(ax, 1), 'ay': round(ay, 1),
+                'arma': getattr(b, 'arma', None),
+                'inv': getattr(b, 'invisivel', False),
+            })
+
+        def _tiro_dados(t):
+            return [round(t.x, 1), round(t.y, 1), round(t.dx, 3), round(t.dy, 3),
+                    t.cor[0], t.cor[1], t.cor[2], round(t.velocidade, 1),
+                    getattr(t, 'dano', 1)]
+
+        tj = [_tiro_dados(t) for t in self.tiros_jogador]
+        ti = [_tiro_dados(t) for t in self.tiros_inimigo]
+
+        # Vida/morte + mira/arma/cor dos HUMANOS (jogador local do host + remotos)
+        from src.utils.display_manager import convert_mouse_position
+        jog = {}
+        meu_pid = getattr(self.cliente, 'local_player_id', None)
+        if meu_pid is not None:
+            aim = self._converter_mouse_para_mundo(convert_mouse_position(pygame.mouse.get_pos()))
+            jog[str(meu_pid)] = {
+                'hp': self.jogador.vidas, 'v': 1 if self.jogador.vidas > 0 else 0,
+                'mx': round(aim[0], 1), 'my': round(aim[1], 1),
+                'arma': self.arma_equipada, 'cor': list(self.jogador.cor),
+            }
+        for pid, hp in self.hp_por_pid.items():
+            est = self.estado_por_pid.get(pid, {})
+            jog[str(pid)] = {
+                'hp': hp, 'v': 1 if hp > 0 else 0,
+                'mx': round(est.get('mx', 0.0), 1), 'my': round(est.get('my', 0.0), 1),
+                'arma': est.get('arma'), 'cor': list(est.get('cor', (200, 200, 200))),
+            }
+
+        # Estado da bomba (autoritativo do host)
+        if self.bomba_plantada:
+            bt = max(0, self.bomba_tempo_explosao - (pygame.time.get_ticks() - self.bomba_tempo_plantio))
+        else:
+            bt = 0
+        bomba = {
+            'pl': self.bomba_plantada, 'df': self.bomba_defusada,
+            'ex': self.bomba_explodiu, 'dr': self.bomba_dropada,
+            'pos': list(self.bomba_posicao) if self.bomba_posicao else None,
+            'drpos': list(self.bomba_drop_posicao) if self.bomba_drop_posicao else None,
+            'bt': bt,
+            'bpid': self.bomber_pid if self.bomber_pid is not None else -1,
+            'bidx': self.bomber_bot_idx,
+        }
+
+        # Estado de round/placar (autoritativo do host)
+        rd = {
+            'rt': self.round_terminado, 'ra': self.round_atual,
+            'tt': self.rounds_time_t, 'tq': self.rounds_time_q,
+            'pt': self.partida_terminada,
+            'tv': getattr(self, 'time_vencedor', None) or '',
+        }
+
+        try:
+            self.cliente.send_minigame_action({
+                'action': 'mp_combate', 'bots': bots, 'tj': tj, 'ti': ti,
+                'jog': jog, 'bomba': bomba, 'rd': rd,
+            })
+        except Exception:
+            pass
+
+    def _aplicar_snapshot_combate(self):
+        """(Cliente) Aplica bots e balas recebidos do host."""
+        if not self.cliente:
+            return
+        from src.entities.tiro import Tiro
+
+        snap = None
+        for acao in self.cliente.get_minigame_actions():
+            if acao.get('action') == 'mp_combate':
+                snap = acao
+        if snap is None:
+            return
+
+        bots_snap = snap.get('bots', [])
+        for idx, b in enumerate(self.bots_locais):
+            if idx >= len(bots_snap):
+                break
+            bd = bots_snap[idx]
+            b.x = bd['x']
+            b.y = bd['y']
+            b.rect.x = int(b.x)
+            b.rect.y = int(b.y)
+            b.vidas = bd['v']
+            b.alvo_x = bd['ax']
+            b.alvo_y = bd['ay']
+            b.alvo_inimigo = None
+            b.arma = bd.get('arma')
+            if hasattr(b, 'invisivel'):
+                b.invisivel = bd.get('inv', False)
+
+        def _rebuild(lista):
+            out = []
+            for d in lista:
+                t = Tiro(d[0], d[1], d[2], d[3], (d[4], d[5], d[6]), d[7])
+                t.dano = d[8]
+                out.append(t)
+            return out
+
+        self.tiros_jogador = _rebuild(snap.get('tj', []))
+        self.tiros_inimigo = _rebuild(snap.get('ti', []))
+
+        # Vida/morte + mira/arma/cor dos humanos (autoritativo do host)
+        meu_pid = getattr(self.cliente, 'local_player_id', None)
+        for pid_str, dados in snap.get('jog', {}).items():
+            hp = dados.get('hp', 0)
+            if meu_pid is not None and pid_str == str(meu_pid):
+                # A minha própria vida vem do host
+                self.jogador.vidas = hp
+            else:
+                # Vida + aparência/mira dos outros humanos (fantasmas)
+                try:
+                    pid_int = int(pid_str)
+                except ValueError:
+                    pid_int = pid_str
+                self.hp_por_pid[pid_int] = hp
+                g = self.jogadores_remotos.get(pid_int)
+                if g is not None:
+                    g.vida = hp
+                    g.vivo = hp > 0
+                    g.mira_x = dados.get('mx', getattr(g, 'mira_x', g.x))
+                    g.mira_y = dados.get('my', getattr(g, 'mira_y', g.y))
+                    g.arma = dados.get('arma')
+                    cor = dados.get('cor')
+                    if cor:
+                        g.cor = tuple(cor)
+
+        # Estado da bomba (autoritativo do host)
+        b = snap.get('bomba')
+        if b is not None:
+            self.bomba_plantada = b['pl']
+            self.bomba_defusada = b['df']
+            self.bomba_explodiu = b['ex']
+            self.bomba_dropada = b['dr']
+            self.bomba_posicao = tuple(b['pos']) if b['pos'] else None
+            self.bomba_drop_posicao = tuple(b['drpos']) if b['drpos'] else None
+            if b['pl']:
+                # Reconstrói o tempo de plantio para o cronômetro local bater
+                self.bomba_tempo_plantio = pygame.time.get_ticks() - (self.bomba_tempo_explosao - b['bt'])
+            bpid = b['bpid'] if b['bpid'] != -1 else None
+            self._aplicar_bomber_do_snapshot(bpid, b['bidx'])
+
+        # Estado de round/placar (autoritativo do host)
+        r = snap.get('rd')
+        if r is not None:
+            novo_round = r['ra']
+            if novo_round != self.round_atual and novo_round > 0:
+                # Novo round começou no host -> resetar meu jogador localmente
+                self._resetar_jogador_para_round()
+            self.round_atual = novo_round
+            self.rounds_time_t = r['tt']
+            self.rounds_time_q = r['tq']
+            self.partida_terminada = r['pt']
+            self.time_vencedor = r['tv'] or None
+            if self.partida_terminada:
+                self.jogo_terminado = True
+                if self.rounds_time_t >= self.rounds_para_vencer:
+                    self.vencedor = "Time T"
+                elif self.rounds_time_q >= self.rounds_para_vencer:
+                    self.vencedor = "Time Q"
+
+            # Recompensa de round para o cliente (uma vez, na virada p/ round-end)
+            rt_novo = r['rt']
+            if rt_novo and not self._round_terminado_ant:
+                if self.time_vencedor == self.time_jogador:
+                    self.moedas += 3000
+                else:
+                    self.moedas += 1000
+            self._round_terminado_ant = rt_novo
+            self.round_terminado = rt_novo
+
+    def _dano_bot_no_jogador_local(self):
+        """(Cliente) Aplica dano das balas inimigas (do host) no jogador local.
+
+        Cada bala do host que encosta no jogador causa dano, com uma janela de
+        invulnerabilidade curta para não bater várias vezes na mesma bala.
+        """
+        if self.jogador.vidas <= 0:
+            return
+        if getattr(self.jogador, 'invulneravel', False):
+            return
+        tempo = pygame.time.get_ticks()
+        if tempo < getattr(self, '_invuln_hit_ate', 0):
+            return
+
+        jogador_rect = pygame.Rect(self.jogador.x, self.jogador.y,
+                                   TAMANHO_MULTIPLAYER, TAMANHO_MULTIPLAYER)
+        for tiro in self.tiros_inimigo:
+            if tiro.rect.colliderect(jogador_rect):
+                criar_explosao(tiro.x, tiro.y, tiro.cor, self.particulas)
+                dano = getattr(tiro, 'dano', 1)
+                self.jogador.vidas = max(0, self.jogador.vidas - dano)
+                self._invuln_hit_ate = tempo + 300
+                break
 
     def _obter_cooldown_arma(self):
         """Retorna o cooldown da arma equipada em milissegundos."""
@@ -353,6 +660,15 @@ class FaseMultiplayer(FaseBase):
             if self.round_terminado and not self.partida_terminada:
                 self._atualizar_camera()
                 self.atualizar_efeitos_visuais()
+                # O cliente precisa continuar recebendo o snapshot para detectar
+                # o início do próximo round (senão trava no round-end).
+                if not self.host_autoritativo:
+                    self._receber_estados_remotos()
+                    self._aplicar_snapshot_combate()
+                else:
+                    # Host continua transmitindo (inclui o novo round quando começar)
+                    self._receber_estados_remotos()
+                    self._enviar_snapshot_combate()
             else:
                 # Atualizar jogador localmente (predição) com colisões do mapa
                 self._atualizar_jogador_com_colisao(pos_mouse, tempo_atual)
@@ -381,11 +697,17 @@ class FaseMultiplayer(FaseBase):
                 # Receber estados de outros jogadores
                 self._receber_estados_remotos()
 
+                # Combate host-autoritativo: o host processa os tiros que os
+                # clientes enviaram; o cliente aplica os bots/balas do host.
+                if self.host_autoritativo:
+                    self._processar_tiros_remotos()
+                else:
+                    # Enviar meu estado (tecla F p/ bomba, mira, arma e cor) ao host
+                    self._enviar_estado_cliente(pos_mouse)
+                    self._aplicar_snapshot_combate()
+
                 # Atualizar moedas (usa sistema existente)
                 self.atualizar_moedas()
-
-                # Atualizar tiros (sistema próprio para o mapa grande)
-                self._atualizar_tiros_multiplayer()
 
                 # Processar sabre de luz (usa sistema existente)
                 self.processar_sabre_luz([])
@@ -396,15 +718,16 @@ class FaseMultiplayer(FaseBase):
                 # Atualizar efeitos visuais (usa sistema existente)
                 self.atualizar_efeitos_visuais()
 
-                # Atualizar bots com colisões
-                self._atualizar_bots()
-
-                # Atualizar habilidades de classe dos bots
                 tempo_atual = pygame.time.get_ticks()
-                self._atualizar_habilidades_bots(tempo_atual)
 
-                # Processar colisões de tiros com jogadores (PvP)
-                self._processar_pvp()
+                if self.host_autoritativo:
+                    # Só o host simula balas, bots e o dano (bots e humanos)
+                    self._atualizar_tiros_multiplayer()
+                    self._atualizar_bots()
+                    self._atualizar_habilidades_bots(tempo_atual)
+                    self._processar_pvp()
+                    self._processar_dano_humanos()
+                # (No cliente, vida/morte de todos vem do snapshot do host.)
 
                 # Processar sistema de bomba
                 self._processar_bomba(tempo_atual)
@@ -414,6 +737,10 @@ class FaseMultiplayer(FaseBase):
 
                 # Verificar condições de vitória
                 self._verificar_vitoria()
+
+                # Host transmite bots e balas para os clientes
+                if self.host_autoritativo:
+                    self._enviar_snapshot_combate()
 
             # Desenhar tudo
             self._desenhar_tudo(tempo_atual, pos_mouse)
@@ -475,17 +802,35 @@ class FaseMultiplayer(FaseBase):
                     jogador_remoto.cor = cor
                     jogador_remoto.x = remote_player.x
                     jogador_remoto.y = remote_player.y
-                    jogador_remoto.vida = remote_player.health
-                    jogador_remoto.vivo = remote_player.alive
 
                     print(f"[MULTIPLAYER] Novo jogador conectado: {jogador_remoto.nome}")
                 else:
-                    # Atualizar jogador existente
+                    # Atualizar jogador existente (posição vem do relay)
                     jogador_remoto = self.jogadores_remotos[player_id]
                     jogador_remoto.x = remote_player.x
                     jogador_remoto.y = remote_player.y
-                    jogador_remoto.vida = remote_player.health
-                    jogador_remoto.vivo = remote_player.alive
+
+                # Time (para regras de dano e vitória) e vida host-autoritativa.
+                # A vida vem de hp_por_pid (o host calcula; o cliente recebe no
+                # snapshot). Padrão 5 até haver um valor.
+                jogador_remoto.time = self._time_do_pid(player_id)
+                jogador_remoto.vida = self.hp_por_pid.setdefault(player_id, 5)
+                jogador_remoto.vivo = jogador_remoto.vida > 0
+
+                # Mira/arma/cor: no host vêm do estado enviado pelo cliente; no
+                # cliente são preenchidos depois pelo snapshot (_aplicar_snapshot_combate).
+                if not hasattr(jogador_remoto, 'mira_x'):
+                    jogador_remoto.mira_x = jogador_remoto.x
+                    jogador_remoto.mira_y = jogador_remoto.y
+                if not hasattr(jogador_remoto, 'arma'):
+                    jogador_remoto.arma = None
+                est = self.estado_por_pid.get(player_id)
+                if est is not None:
+                    jogador_remoto.mira_x = est.get('mx', jogador_remoto.mira_x)
+                    jogador_remoto.mira_y = est.get('my', jogador_remoto.mira_y)
+                    jogador_remoto.arma = est.get('arma')
+                    if est.get('cor'):
+                        jogador_remoto.cor = tuple(est['cor'])
 
                 novos_jogadores[player_id] = jogador_remoto
 
@@ -575,8 +920,8 @@ class FaseMultiplayer(FaseBase):
         self.selecionando_time = True  # Voltar para tela de seleção (mostra "aguardando")
         self.aguardando_jogadores = True
 
-        # Enviar seleção para o servidor
-        self.cliente.send_team_selection(self.time_jogador, self.nome_jogador)
+        # Enviar seleção para o servidor (com a classe, para os bots não repetirem)
+        self.cliente.send_team_selection(self.time_jogador, self.nome_jogador, classe_id)
 
         print(f"[MULTIPLAYER] Classe '{classe_id}' selecionada! Aguardando outros jogadores...")
 
@@ -584,8 +929,13 @@ class FaseMultiplayer(FaseBase):
         """Mostra a tela de seleção de classe para o time selecionado."""
         from src.game.selecao_classes import SelecaoClasses
 
-        # Passar o time para mostrar as classes corretas
-        selecao = SelecaoClasses(self.tela, self.relogio, self.fonte_titulo, self.fonte_normal, self.time_jogador)
+        # Passar o time + cliente para mostrar/bloquear classes já escolhidas
+        selecao = SelecaoClasses(
+            self.tela, self.relogio, self.fonte_titulo, self.fonte_normal,
+            self.time_jogador,
+            cliente=self.cliente,
+            local_pid=getattr(self.cliente, 'local_player_id', None),
+        )
         classe_escolhida = selecao.executar()
 
         if classe_escolhida is None:
@@ -1681,74 +2031,97 @@ class FaseMultiplayer(FaseBase):
 
         print(f"[MULTIPLAYER] Jogo carregado! Modo: VERSUS - {len(self.bots_locais)} bots (4v4)")
 
+    def _contar_humanos_por_time(self):
+        """Conta quantos jogadores HUMANOS estão em cada time (T, Q).
+
+        Usa as seleções de time sincronizadas pelo servidor (status_times), que
+        são iguais em todas as máquinas. Garante que o jogador local esteja
+        contado mesmo que o status ainda não tenha chegado.
+        """
+        ht = hq = 0
+        vistos_local = False
+        local_pid = getattr(self.cliente, 'local_player_id', None)
+        for pid, info in (self.status_times or {}).items():
+            time_p = info.get('team')
+            if time_p == 'T':
+                ht += 1
+            elif time_p == 'Q':
+                hq += 1
+            if str(pid) == str(local_pid):
+                vistos_local = True
+
+        # Se o local ainda não apareceu no status, contá-lo pelo seu time
+        if not vistos_local:
+            if self.time_jogador == 'T':
+                ht += 1
+            elif self.time_jogador == 'Q':
+                hq += 1
+
+        return ht, hq
+
     def _criar_bots_distribuidos(self):
         """
-        Cria bots distribuídos entre os dois times.
-        Cada time SEMPRE tem 4 quadrados:
-        - Time do jogador: 1 jogador + 3 bots = 4
-        - Time inimigo: 4 bots = 4
+        Cria bots preenchendo cada time até 4 quadrados. Elenco UNIFICADO e
+        DETERMINÍSTICO (mesmo seed + mesmas seleções de time) -> os dois PCs
+        criam EXATAMENTE os mesmos bots, na mesma ordem. Os humanos (local +
+        remotos) ocupam suas vagas reais; os bots preenchem o restante.
 
-        Cada bot recebe uma classe única (sem repetir no mesmo time).
-        A classe do jogador é excluída dos bots do mesmo time.
+        Isso é o que permite o host sincronizar os bots por índice.
         """
         from src.game.selecao_classes import CLASSES_TIME_T, CLASSES_TIME_Q
 
         self.bots_locais = []
 
+        # RNG dedicado com o seed compartilhado (não interfere no random global)
+        rng = random.Random(self.seed_partida) if self.seed_partida is not None else random
+
         # Nomes para os bots
         nomes_time_t = ["Bernado", "Borba", "Melina", "Felipe"]
         nomes_time_q = ["Duda", "Marcelo", "João", "Emy"]
 
-        # Classes disponíveis para cada time
-        classes_t = list(CLASSES_TIME_T.keys())  # ["mago", "ghost", "granada", "metralhadora"]
-        classes_q = list(CLASSES_TIME_Q.keys())  # ["cyan", "explosive", "normal", "purple"]
+        # Classes embaralhadas com o seed compartilhado (iguais em todas as máquinas)
+        classes_t = list(CLASSES_TIME_T.keys())
+        classes_q = list(CLASSES_TIME_Q.keys())
+        rng.shuffle(classes_t)
+        rng.shuffle(classes_q)
 
-        # Embaralhar classes para variedade
-        random.shuffle(classes_t)
-        random.shuffle(classes_q)
+        # Classes já escolhidas pelos HUMANOS -> os bots NÃO podem repetir.
+        # (a classe de cada jogador é sincronizada em status_times)
+        usadas_t, usadas_q = set(), set()
+        for pid, info in (self.status_times or {}).items():
+            cl = info.get('classe')
+            if not cl:
+                continue
+            if info.get('team') == 'T':
+                usadas_t.add(cl)
+            elif info.get('team') == 'Q':
+                usadas_q.add(cl)
+        # Garantir que a classe do jogador local esteja excluída
+        if self.classe_jogador:
+            (usadas_t if self.time_jogador == 'T' else usadas_q).add(self.classe_jogador)
+        classes_t = [c for c in classes_t if c not in usadas_t]
+        classes_q = [c for c in classes_q if c not in usadas_q]
 
-        # Remover a classe do jogador da lista do seu time
-        if self.time_jogador == 'T' and self.classe_jogador in classes_t:
-            classes_t.remove(self.classe_jogador)
-        elif self.time_jogador == 'Q' and self.classe_jogador in classes_q:
-            classes_q.remove(self.classe_jogador)
+        # Quantos humanos há em cada time -> bots preenchem até 4
+        humanos_t, humanos_q = self._contar_humanos_por_time()
+        bots_t = max(0, 4 - humanos_t)
+        bots_q = max(0, 4 - humanos_q)
 
-        # Criar bots para cada time
-        # Time do jogador: 3 bots (jogador é o 4º)
-        # Time inimigo: 4 bots
+        for i in range(bots_t):
+            classe_bot = classes_t[i % len(classes_t)]
+            bot_info = {'nome': nomes_time_t[i], 'classe': classe_bot}
+            bot = self._criar_bot_com_time(bot_info, 'T')
+            self.bots_locais.append(bot)
+            print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time T")
 
-        if self.time_jogador == 'T':
-            # Jogador está no Time T -> criar 3 bots no T e 4 no Q
-            for i in range(3):
-                classe_bot = classes_t[i] if i < len(classes_t) else classes_t[0]
-                bot_info = {'nome': nomes_time_t[i], 'classe': classe_bot}
-                bot = self._criar_bot_com_time(bot_info, 'T')
-                self.bots_locais.append(bot)
-                print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time T (aliado)")
+        for i in range(bots_q):
+            classe_bot = classes_q[i % len(classes_q)]
+            bot_info = {'nome': nomes_time_q[i], 'classe': classe_bot}
+            bot = self._criar_bot_com_time(bot_info, 'Q')
+            self.bots_locais.append(bot)
+            print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time Q")
 
-            for i in range(4):
-                classe_bot = classes_q[i] if i < len(classes_q) else classes_q[0]
-                bot_info = {'nome': nomes_time_q[i], 'classe': classe_bot}
-                bot = self._criar_bot_com_time(bot_info, 'Q')
-                self.bots_locais.append(bot)
-                print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time Q (inimigo)")
-        else:
-            # Jogador está no Time Q -> criar 4 bots no T e 3 no Q
-            for i in range(4):
-                classe_bot = classes_t[i] if i < len(classes_t) else classes_t[0]
-                bot_info = {'nome': nomes_time_t[i], 'classe': classe_bot}
-                bot = self._criar_bot_com_time(bot_info, 'T')
-                self.bots_locais.append(bot)
-                print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time T (inimigo)")
-
-            for i in range(3):
-                classe_bot = classes_q[i] if i < len(classes_q) else classes_q[0]
-                bot_info = {'nome': nomes_time_q[i], 'classe': classe_bot}
-                bot = self._criar_bot_com_time(bot_info, 'Q')
-                self.bots_locais.append(bot)
-                print(f"[MULTIPLAYER] Bot criado: {bot.nome} ({bot.classe}) - Time Q (aliado)")
-
-        print(f"[MULTIPLAYER] Times configurados: 4v4 com classes únicas")
+        print(f"[MULTIPLAYER] Elenco unificado: {humanos_t}+{bots_t} (T) x {humanos_q}+{bots_q} (Q)")
 
     def _criar_bot_com_time(self, bot_info, time_bot):
         """Cria um bot para um time específico com classe."""
@@ -4001,8 +4374,67 @@ class FaseMultiplayer(FaseBase):
                                 self._dropar_bomba(bot.x, bot.y)
                         break
 
+    def _processar_dano_humanos(self):
+        """(Host) Aplica dano das balas nos jogadores HUMANOS (local + remotos).
+
+        Só aqui o dano em humanos é decidido, tornando vida/morte iguais em todas
+        as telas. Complementa _processar_pvp (que trata bots e o jogador local vs
+        balas de bots). Balas só ferem quem é de time OPOSTO.
+        """
+        tam = TAMANHO_MULTIPLAYER
+
+        def _dano_no_local(tiro):
+            """Jogador local do host levando dano de uma bala de time oposto."""
+            if self.jogador.vidas <= 0 or getattr(self.jogador, 'invulneravel', False):
+                return False
+            if getattr(tiro, 'time_origem', None) == self.time_jogador:
+                return False
+            rect = pygame.Rect(self.jogador.x, self.jogador.y, tam, tam)
+            if tiro.rect.colliderect(rect):
+                criar_explosao(tiro.x, tiro.y, tiro.cor, self.particulas)
+                vida_antes = self.jogador.vidas
+                self.jogador.vidas = max(0, self.jogador.vidas - getattr(tiro, 'dano', 1))
+                if vida_antes > 0 and self.jogador.vidas <= 0 and self.bomber_é_jogador:
+                    self._dropar_bomba(self.jogador.x, self.jogador.y)
+                return True
+            return False
+
+        def _dano_nos_remotos(tiro):
+            """Jogadores remotos levando dano; hp vive em hp_por_pid."""
+            t_time = getattr(tiro, 'time_origem', None)
+            for pid, g in self.jogadores_remotos.items():
+                if t_time is not None and t_time == getattr(g, 'time', None):
+                    continue  # mesmo time
+                hp = self.hp_por_pid.get(pid, 5)
+                if hp <= 0:
+                    continue
+                rect = pygame.Rect(g.x, g.y, tam, tam)
+                if tiro.rect.colliderect(rect):
+                    criar_explosao(tiro.x, tiro.y, tiro.cor, self.particulas)
+                    self.hp_por_pid[pid] = max(0, hp - getattr(tiro, 'dano', 1))
+                    if self.hp_por_pid[pid] <= 0 and self.bomber_pid == pid:
+                        self._dropar_bomba(g.x, g.y)
+                    return True
+            return False
+
+        # Balas de jogadores (host + clientes): ferem o jogador local (se de time
+        # oposto) e os remotos.
+        for tiro in self.tiros_jogador[:]:
+            if _dano_no_local(tiro) or _dano_nos_remotos(tiro):
+                if tiro in self.tiros_jogador:
+                    self.tiros_jogador.remove(tiro)
+
+        # Balas de bots: ferem os remotos (o jogador local já é tratado em _processar_pvp)
+        for tiro in self.tiros_inimigo[:]:
+            if _dano_nos_remotos(tiro):
+                if tiro in self.tiros_inimigo:
+                    self.tiros_inimigo.remove(tiro)
+
     def _verificar_vitoria(self):
-        """Verifica se um time venceu o round (todos do time oposto eliminados)."""
+        """(Host) Verifica se um time venceu o round. O cliente recebe o
+        resultado (round/placar) pelo snapshot."""
+        if not self.host_autoritativo:
+            return
         if self.partida_terminada or self.round_terminado:
             return
 
@@ -4024,6 +4456,14 @@ class FaseMultiplayer(FaseBase):
                 if bot_time == 'T':
                     time_t_vivos += 1
                 elif bot_time == 'Q':
+                    time_q_vivos += 1
+
+        # Jogadores humanos remotos (vida host-autoritativa via hp_por_pid/snapshot)
+        for pid, g in self.jogadores_remotos.items():
+            if getattr(g, 'vida', 0) > 0:
+                if getattr(g, 'time', None) == 'T':
+                    time_t_vivos += 1
+                elif getattr(g, 'time', None) == 'Q':
                     time_q_vivos += 1
 
         # Verificar se algum time foi eliminado neste round
@@ -4074,22 +4514,10 @@ class FaseMultiplayer(FaseBase):
             # Preparar próximo round
             self.tempo_proximo_round = pygame.time.get_ticks() + 3000  # 3 segundos até próximo round
 
-    def _verificar_proximo_round(self):
-        """Verifica se é hora de iniciar o próximo round."""
-        if not self.round_terminado or self.partida_terminada:
-            return
-
-        tempo_atual = pygame.time.get_ticks()
-        if tempo_atual >= self.tempo_proximo_round:
-            self._iniciar_novo_round()
-
-    def _iniciar_novo_round(self):
-        """Inicia um novo round, resetando posições e vidas."""
-        self.round_atual += 1
-        self.round_terminado = False
-        print(f"[ROUND] Iniciando round {self.round_atual}!")
-
-        # Resetar jogador
+    def _resetar_jogador_para_round(self):
+        """Reseta posição/atributos do jogador LOCAL para um novo round.
+        Usado pelo host (em _iniciar_novo_round) e pelo cliente (ao detectar novo
+        round no snapshot). A vida final vem do snapshot no cliente."""
         self.jogador.vidas = self.jogador.vidas_max
         spawn_name = f"Start_{self.time_jogador}"
         spawn_pos = self.tilemap.get_spawn_point(spawn_name)
@@ -4099,7 +4527,6 @@ class FaseMultiplayer(FaseBase):
             self.jogador.rect.x = spawn_pos[0]
             self.jogador.rect.y = spawn_pos[1]
 
-        # Resetar atributos de classe do jogador
         self.jogador.invulneravel = False
         self.habilidade_ativa = False
         self.habilidade_cooldown = 0
@@ -4116,6 +4543,33 @@ class FaseMultiplayer(FaseBase):
             self.jogador.velocidade = self.velocidade_original
             if hasattr(self.jogador, 'posicoes_turbo'):
                 self.jogador.posicoes_turbo.clear()
+
+        self.plantando_bomba = False
+        self.defusando_bomba = False
+
+    def _verificar_proximo_round(self):
+        """(Host) Inicia o próximo round após o intervalo. O cliente segue pelo
+        snapshot (detecta a mudança de round_atual)."""
+        if not self.host_autoritativo:
+            return
+        if not self.round_terminado or self.partida_terminada:
+            return
+
+        tempo_atual = pygame.time.get_ticks()
+        if tempo_atual >= self.tempo_proximo_round:
+            self._iniciar_novo_round()
+
+    def _iniciar_novo_round(self):
+        """(Host) Inicia um novo round, resetando posições e vidas."""
+        self.round_atual += 1
+        self.round_terminado = False
+        print(f"[ROUND] Iniciando round {self.round_atual}!")
+
+        # Resetar jogador local
+        self._resetar_jogador_para_round()
+        # Resetar vida dos humanos remotos
+        for pid in self.hp_por_pid:
+            self.hp_por_pid[pid] = 5
 
         # Resetar bots
         for bot in self.bots_locais:
@@ -4201,39 +4655,62 @@ class FaseMultiplayer(FaseBase):
         self._selecionar_bomber()
 
     def _selecionar_bomber(self):
-        """Seleciona aleatoriamente um membro do time T para ser o bomber."""
-        # Resetar flag de bomber de todos os bots
+        """(Host) Seleciona o bomber do time T. O cliente recebe pelo snapshot.
+
+        Considera o jogador local do host, os HUMANOS remotos do time T e os bots
+        do time T.
+        """
+        # No cliente, o bomber vem do snapshot (_aplicar_bomber_do_snapshot).
+        if not self.host_autoritativo:
+            return
+
         for bot in self.bots_locais:
             bot.é_bomber = False
+        self.bomber_pid = None
+        self.bomber_bot_idx = -1
 
-        candidatos = []
-
-        # Adicionar jogador se for do time T
-        if self.time_jogador == 'T':
-            candidatos.append({'tipo': 'jogador', 'id': 'local'})
-
-        # Adicionar bots do time T
+        candidatos = []  # ('local', None) | ('remoto', pid) | ('bot', idx)
+        meu_pid = getattr(self.cliente, 'local_player_id', None)
+        if self.time_jogador == 'T' and self.jogador.vidas > 0:
+            candidatos.append(('local', meu_pid))
+        for pid, g in self.jogadores_remotos.items():
+            if getattr(g, 'time', None) == 'T' and getattr(g, 'vida', 0) > 0:
+                candidatos.append(('remoto', pid))
         for i, bot in enumerate(self.bots_locais):
             if getattr(bot, 'time', None) == 'T' and bot.vidas > 0:
-                candidatos.append({'tipo': 'bot', 'id': i, 'nome': bot.nome, 'bot': bot})
+                candidatos.append(('bot', i))
 
-        if candidatos:
-            escolhido = random.choice(candidatos)
-            if escolhido['tipo'] == 'jogador':
-                self.bomber_id = 'local'
-                self.bomber_é_jogador = True
-                print(f"[BOMBA] Você é o BOMBER! Plante a bomba no local marcado (tile 322)")
-            else:
-                self.bomber_id = escolhido['id']
-                self.bomber_é_jogador = False
-                # Marcar o bot como bomber
-                escolhido['bot'].é_bomber = True
-                bot_nome = escolhido.get('nome', f'Bot {escolhido["id"]}')
-                print(f"[BOMBA] {bot_nome} é o BOMBER!")
-        else:
+        if not candidatos:
             self.bomber_id = None
             self.bomber_é_jogador = False
-            print("[BOMBA] Nenhum membro do time T disponível para ser bomber")
+            return
+
+        tipo, ref = random.choice(candidatos)
+        if tipo == 'local':
+            self.bomber_id = 'local'
+            self.bomber_é_jogador = True
+            self.bomber_pid = meu_pid
+            print("[BOMBA] Você é o BOMBER!")
+        elif tipo == 'remoto':
+            self.bomber_id = ref
+            self.bomber_é_jogador = False
+            self.bomber_pid = ref
+            print(f"[BOMBA] Jogador remoto {ref} é o BOMBER!")
+        else:
+            self.bomber_id = ref
+            self.bomber_é_jogador = False
+            self.bomber_bot_idx = ref
+            self.bots_locais[ref].é_bomber = True
+            print(f"[BOMBA] {self.bots_locais[ref].nome} é o BOMBER!")
+
+    def _aplicar_bomber_do_snapshot(self, bomber_pid, bomber_bot_idx):
+        """(Cliente) Ajusta quem é o bomber a partir do snapshot do host."""
+        meu_pid = getattr(self.cliente, 'local_player_id', None)
+        self.bomber_pid = bomber_pid
+        self.bomber_bot_idx = bomber_bot_idx
+        self.bomber_é_jogador = (bomber_pid is not None and bomber_pid == meu_pid)
+        for i, bot in enumerate(self.bots_locais):
+            bot.é_bomber = (i == bomber_bot_idx)
 
     def _verificar_no_bombsite(self, x, y):
         """Verifica se a posição está no tile 322 (bombsite)."""
@@ -4242,88 +4719,89 @@ class FaseMultiplayer(FaseBase):
         tile_id_base = tile_id & 0x1FFFFFFF
         return tile_id_base == 322
 
+    def _bomber_humano_estado(self, tecla_f_local):
+        """Retorna (x, y, f_segurando, vivo) do bomber humano (local ou remoto)."""
+        if self.bomber_é_jogador:
+            return (self.jogador.x, self.jogador.y, tecla_f_local, self.jogador.vidas > 0)
+        if self.bomber_pid is not None:
+            g = self.jogadores_remotos.get(self.bomber_pid)
+            if g is not None:
+                return (g.x, g.y, self.f_por_pid.get(self.bomber_pid, False),
+                        getattr(g, 'vida', 0) > 0)
+        return (None, None, False, False)
+
     def _processar_bomba(self, tempo_atual):
-        """Processa toda a lógica da bomba (plantar, defusar, explodir)."""
+        """(Host) Processa a bomba (plantar, defusar, explodir). O cliente recebe
+        o estado pelo snapshot."""
+        if not self.host_autoritativo:
+            return
+
         teclas = pygame.key.get_pressed()
-        tecla_f = teclas[pygame.K_f]
+        tecla_f = bool(teclas[pygame.K_f])
 
-        # Se bomba não foi plantada ainda
+        # Se bomba não foi plantada ainda -> bomber HUMANO (local ou remoto) planta
         if not self.bomba_plantada and not self.bomba_explodiu:
-            # Verificar se o bomber (jogador) está tentando plantar
-            if self.bomber_é_jogador and self.jogador.vidas > 0:
-                no_bombsite = self._verificar_no_bombsite(self.jogador.x, self.jogador.y)
-
-                if tecla_f and no_bombsite:
+            bx, by, bf, bvivo = self._bomber_humano_estado(tecla_f)
+            if bx is not None and bvivo:
+                no_bombsite = self._verificar_no_bombsite(bx, by)
+                if bf and no_bombsite:
                     if not self.plantando_bomba:
                         self.plantando_bomba = True
                         self.tempo_inicio_plantar = tempo_atual
-                        print("[BOMBA] Plantando bomba...")
-                    else:
-                        # Verificar se completou o plantio
-                        tempo_plantando = tempo_atual - self.tempo_inicio_plantar
-                        if tempo_plantando >= self.tempo_para_plantar:
-                            self._plantar_bomba(self.jogador.x, self.jogador.y)
+                    elif tempo_atual - self.tempo_inicio_plantar >= self.tempo_para_plantar:
+                        self._plantar_bomba(bx, by)
                 else:
-                    if self.plantando_bomba:
-                        print("[BOMBA] Plantio cancelado!")
                     self.plantando_bomba = False
 
         # Se bomba foi plantada
         elif self.bomba_plantada and not self.bomba_defusada and not self.bomba_explodiu:
-            # Verificar explosão por tempo
             tempo_desde_plantio = tempo_atual - self.bomba_tempo_plantio
             if tempo_desde_plantio >= self.bomba_tempo_explosao:
                 self._explodir_bomba()
                 return
 
-            # Verificar se jogador do time Q está tentando defusar
+            if not self.bomba_posicao:
+                return
+
+            bomba_x, bomba_y = self.bomba_posicao
+
+            def _perto(x, y):
+                return abs(x - bomba_x) < 30 and abs(y - bomba_y) < 30
+
+            # Humanos do time Q defusando (local do host + remotos)
+            algum_defusando = False
             if self.time_jogador == 'Q' and self.jogador.vidas > 0:
-                # Verificar se está perto da bomba
-                if self.bomba_posicao:
-                    dist_x = abs(self.jogador.x - self.bomba_posicao[0])
-                    dist_y = abs(self.jogador.y - self.bomba_posicao[1])
-                    perto_bomba = dist_x < 30 and dist_y < 30
+                if tecla_f and _perto(self.jogador.x, self.jogador.y):
+                    algum_defusando = True
+            for pid, g in self.jogadores_remotos.items():
+                if getattr(g, 'time', None) == 'Q' and getattr(g, 'vida', 0) > 0:
+                    if self.f_por_pid.get(pid, False) and _perto(g.x, g.y):
+                        algum_defusando = True
 
-                    if tecla_f and perto_bomba:
-                        if not self.defusando_bomba:
-                            self.defusando_bomba = True
-                            self.tempo_inicio_defusar = tempo_atual
-                            print("[BOMBA] Defusando bomba...")
-                        else:
-                            # Verificar se completou o defuse
-                            tempo_defusando = tempo_atual - self.tempo_inicio_defusar
-                            if tempo_defusando >= self.tempo_para_defusar:
-                                self._defusar_bomba()
-                    else:
-                        if self.defusando_bomba:
-                            print("[BOMBA] Defuse cancelado!")
-                        self.defusando_bomba = False
+            if algum_defusando:
+                if not self.defusando_bomba:
+                    self.defusando_bomba = True
+                    self.tempo_inicio_defusar = tempo_atual
+                elif tempo_atual - self.tempo_inicio_defusar >= self.tempo_para_defusar:
+                    self._defusar_bomba()
+                    return
+            else:
+                self.defusando_bomba = False
 
-            # === BOTS DO TIME Q DEFUSANDO ===
+            # Bots do time Q defusando
             for bot in self.bots_locais:
                 if bot.vidas <= 0 or getattr(bot, 'time', '') != 'Q':
                     continue
-
-                if self.bomba_posicao:
-                    dist_x = abs(bot.x - self.bomba_posicao[0])
-                    dist_y = abs(bot.y - self.bomba_posicao[1])
-                    perto_bomba = dist_x < 30 and dist_y < 30
-
-                    if perto_bomba and getattr(bot, 'bot_defusando', False):
-                        # Iniciar ou continuar defuse
-                        if not hasattr(bot, 'bot_tempo_inicio_defusar'):
-                            bot.bot_tempo_inicio_defusar = tempo_atual
-                            print(f"[BOMBA] {bot.nome} começou a defusar!")
-
-                        tempo_defusando = tempo_atual - bot.bot_tempo_inicio_defusar
-                        if tempo_defusando >= self.tempo_para_defusar:
-                            print(f"[BOMBA] {bot.nome} defusou a bomba!")
-                            self._defusar_bomba()
-                            break
-                    else:
-                        # Resetar tempo de defuse se saiu de perto
-                        if hasattr(bot, 'bot_tempo_inicio_defusar'):
-                            del bot.bot_tempo_inicio_defusar
+                if _perto(bot.x, bot.y) and getattr(bot, 'bot_defusando', False):
+                    if not hasattr(bot, 'bot_tempo_inicio_defusar'):
+                        bot.bot_tempo_inicio_defusar = tempo_atual
+                    if tempo_atual - bot.bot_tempo_inicio_defusar >= self.tempo_para_defusar:
+                        print(f"[BOMBA] {bot.nome} defusou a bomba!")
+                        self._defusar_bomba()
+                        break
+                else:
+                    if hasattr(bot, 'bot_tempo_inicio_defusar'):
+                        del bot.bot_tempo_inicio_defusar
 
     def _plantar_bomba(self, x, y):
         """Planta a bomba na posição especificada."""
@@ -4383,6 +4861,8 @@ class FaseMultiplayer(FaseBase):
         self.bomba_dropada = True
         self.bomba_drop_posicao = (x, y)
         self.bomber_é_jogador = False
+        self.bomber_pid = None
+        self.bomber_bot_idx = -1
 
         # Remover status de bomber de todos
         for bot in self.bots_locais:
@@ -4406,18 +4886,34 @@ class FaseMultiplayer(FaseBase):
             print(f"[BOMBA] {entidade.nome} pegou a bomba! Agora é o bomber!")
 
     def _verificar_pickup_bomba(self):
-        """Verifica se alguém do time T pegou a bomba dropada."""
+        """(Host) Verifica se alguém do time T pegou a bomba dropada."""
+        if not self.host_autoritativo:
+            return
         if not self.bomba_dropada or not self.bomba_drop_posicao:
             return
 
         bomba_x, bomba_y = self.bomba_drop_posicao
         raio_pickup = 30  # Distância para pegar a bomba
 
-        # Verificar jogador (se for do time T)
+        # Verificar jogador local do host (se for do time T)
         if self.time_jogador == 'T' and self.jogador.vidas > 0:
             dist = ((self.jogador.x - bomba_x)**2 + (self.jogador.y - bomba_y)**2)**0.5
             if dist < raio_pickup:
                 self._pegar_bomba_dropada(self.jogador, é_jogador=True)
+                self.bomber_pid = getattr(self.cliente, 'local_player_id', None)
+                return
+
+        # Verificar humanos remotos do time T
+        for pid, g in self.jogadores_remotos.items():
+            if getattr(g, 'time', None) != 'T' or getattr(g, 'vida', 0) <= 0:
+                continue
+            dist = ((g.x - bomba_x)**2 + (g.y - bomba_y)**2)**0.5
+            if dist < raio_pickup:
+                self.bomba_dropada = False
+                self.bomba_drop_posicao = None
+                self.bomber_pid = pid
+                self.bomber_é_jogador = False
+                print(f"[BOMBA] Jogador remoto {pid} pegou a bomba!")
                 return
 
         # Verificar bots do time T
@@ -5341,6 +5837,72 @@ class FaseMultiplayer(FaseBase):
                     (nome_surface.get_width() // 2, nome_surface.get_height() // 2))
                 nome_rect = nome_surface.get_rect(center=(tela_x + tamanho // 2, tela_y - 14))
                 surface.blit(nome_surface, nome_rect)
+
+                # Arma do jogador remoto, apontando para a mira dele
+                self._desenhar_arma_remoto(surface, jogador_remoto, tempo_atual)
+
+    def _desenhar_arma_remoto(self, surface, g, tempo_atual):
+        """Desenha a arma de um jogador remoto apontando para a mira sincronizada."""
+        import math
+        arma = getattr(g, 'arma', None)
+        if not arma:
+            return
+
+        escala_arma = 0.35
+        tamanho_temp = 150
+        tela_x = g.x - self.camera_x
+        tela_y = g.y - self.camera_y
+        centro_x = tela_x + TAMANHO_MULTIPLAYER // 2
+        centro_y = tela_y + TAMANHO_MULTIPLAYER // 2
+
+        alvo_x = getattr(g, 'mira_x', g.x) - self.camera_x
+        alvo_y = getattr(g, 'mira_y', g.y) - self.camera_y
+        dx = alvo_x - centro_x
+        dy = alvo_y - centro_y
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0:
+            dx /= dist
+            dy /= dist
+        else:
+            dx, dy = 1.0, 0.0
+
+        temp = pygame.Surface((tamanho_temp, tamanho_temp), pygame.SRCALPHA)
+
+        class _T:
+            pass
+
+        jt = _T()
+        jt.x = tamanho_temp // 2 - TAMANHO_MULTIPLAYER // 2
+        jt.y = tamanho_temp // 2 - TAMANHO_MULTIPLAYER // 2
+        jt.tamanho = TAMANHO_MULTIPLAYER
+        jt.cor = getattr(g, 'cor', (200, 200, 200))
+        jt.tempo_ultimo_tiro = 0
+        jt.tempo_cooldown = 500
+        pmt = (tamanho_temp // 2 + dx * 60, tamanho_temp // 2 + dy * 60)
+
+        if arma == 'desert_eagle':
+            jt.desert_eagle_ativa = True
+            desenhar_desert_eagle(temp, jt, pmt)
+        elif arma == 'spas12':
+            jt.spas12_ativa = True
+            jt.recuo_spas12 = 0
+            jt.tempo_recuo = 0
+            desenhar_spas12(temp, jt, tempo_atual, pmt)
+        elif arma == 'metralhadora':
+            jt.metralhadora_ativa = False
+            jt.tiros_metralhadora = 100
+            desenhar_metralhadora(temp, jt, tempo_atual, pmt)
+        elif arma == 'sniper':
+            jt.sniper_ativa = False
+            jt.sniper_mirando = False
+            jt.recuo_sniper = 0
+            desenhar_sniper(temp, jt, tempo_atual, pmt)
+        else:
+            return
+
+        novo = int(tamanho_temp * escala_arma)
+        arma_red = pygame.transform.scale(temp, (novo, novo))
+        surface.blit(arma_red, (int(centro_x) - novo // 2, int(centro_y) - novo // 2))
 
     def _desenhar_bots(self, surface, tempo_atual):
         """Desenha todos os bots com visual estilizado."""
@@ -6309,6 +6871,7 @@ def jogar_fase_multiplayer(tela, relogio, gradiente_jogo, fonte_titulo, fonte_no
 
     # Extrair bots da customização
     bots = customizacao.get('bots', []) if customizacao else []
+    seed = customizacao.get('seed') if customizacao else None
 
     fase = FaseMultiplayer(
         tela=tela,
@@ -6318,7 +6881,8 @@ def jogar_fase_multiplayer(tela, relogio, gradiente_jogo, fonte_titulo, fonte_no
         fonte_normal=fonte_normal,
         cliente=cliente,
         nome_jogador=nome_jogador,
-        bots=bots
+        bots=bots,
+        seed=seed
     )
 
     # A cor do jogador é determinada pelo time escolhido na tela de seleção
