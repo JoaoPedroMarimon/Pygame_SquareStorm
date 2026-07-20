@@ -977,9 +977,11 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
     # full_sync, que pode chegar DEPOIS do lobby abrir. Por isso o id é lido
     # dinamicamente (_meu_id) e a cor padrão é derivada dele; a cor/chapéu só
     # ficam "fixos" quando o jogador personaliza.
-    cor_customizada = None   # índice escolhido no portal COR (None = padrão do id)
-    cabeca_local = 0         # índice em COSMETICOS_CABECA
-    corpo_local = 0          # índice em COSMETICOS_CORPO
+    # Persistimos a escolha no objeto cliente para que ela sobreviva ao voltar
+    # do minigame para o lobby.
+    cor_customizada = getattr(cliente, 'lobby_cor_customizada', None)
+    cabeca_local = getattr(cliente, 'lobby_cabeca', 0)
+    corpo_local = getattr(cliente, 'lobby_corpo', 0)
 
     def _meu_id():
         return cliente.local_player_id or 1
@@ -1069,6 +1071,11 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
         game_start_data[0] = data
 
     cliente.set_callback('on_game_start', on_game_start)
+    # Desativa callback de ações de minigame (podia ter sobrado do jogo anterior);
+    # no lobby as ações são lidas via get_minigame_actions().
+    cliente.set_callback('on_minigame_action', None)
+    # Descarta ações de minigame pendentes da partida anterior
+    cliente.get_minigame_actions()
 
     # Partículas de tempestade (caem do topo)
     particulas = []
@@ -1092,6 +1099,15 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
     while True:
         tempo = pygame.time.get_ticks()
         dt = 1.0 / 60.0
+
+        # Se a conexão caiu (ex.: host fechou a sala), sai do lobby.
+        if not cliente.is_connected():
+            return ("cancel", None)
+
+        # Persiste a aparência escolhida no cliente (sobrevive ao voltar do minigame)
+        cliente.lobby_cor_customizada = cor_customizada
+        cliente.lobby_cabeca = cabeca_local
+        cliente.lobby_corpo = corpo_local
 
         # Converte a posição do mouse (janela real) para coordenadas do jogo,
         # senão o hover/clique fica desalinhado em tela cheia.

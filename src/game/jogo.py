@@ -233,13 +233,86 @@ def main_game(game_surface=None):
                             cliente = GameClient()
                             if cliente.connect('127.0.0.1', config['port'], config['player_name']):
 
-                                # NOVO: Mostrar tela de lobby aguardando jogadores
-                                resultado_lobby, customizacao = tela_lobby_servidor(tela, relogio, gradiente_menu, servidor, cliente, config)
+                                # Loop lobby -> minigame -> lobby: mantém o servidor e
+                                # os jogadores conectados. Só encerra ao sair do lobby.
+                                sair_da_sala = False
+                                while not sair_da_sala:
+                                    resultado_lobby, customizacao = tela_lobby_servidor(
+                                        tela, relogio, gradiente_menu, servidor, cliente, config)
+
+                                    if resultado_lobby == "start":
+                                        # Aplicar customização ao jogador
+                                        config['cor_personagem'] = customizacao['cor']
+
+                                        modo = customizacao.get('modo', 'Bomb')
+                                        if modo == 'Aim':
+                                            resultado = executar_minigame_aim(
+                                                tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                                cliente, config['player_name'], customizacao
+                                            )
+                                        elif modo == 'Duel':
+                                            resultado = executar_minigame_duals(
+                                                tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                                cliente, config['player_name'], customizacao
+                                            )
+                                        elif modo == 'Sabers':
+                                            resultado = executar_minigame_sabers(
+                                                tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                                cliente, config['player_name'], customizacao
+                                            )
+                                        elif modo == 'Deadeye':
+                                            resultado = executar_minigame_deadeye(
+                                                tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                                cliente, config['player_name'], customizacao
+                                            )
+                                        elif modo == 'BoxFight':
+                                            resultado = executar_minigame_boxfight(
+                                                tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                                cliente, config['player_name'], customizacao
+                                            )
+                                        else:
+                                            resultado = jogar_fase_multiplayer(
+                                                tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
+                                                cliente, config['player_name'], customizacao
+                                            )
+                                        # Minigame terminou: volta ao lobby (não desconecta)
+                                    else:
+                                        # Saiu do lobby (ESC): encerra a sala
+                                        sair_da_sala = True
+
+                                # Limpar somente ao sair do lobby
+                                cliente.disconnect()
+                                servidor.stop()
+                                estado_atual = "menu"
+                            else:
+                                servidor.stop()
+                                estado_atual = "menu"
+                        else:
+                            estado_atual = "menu"
+                    except Exception as e:
+                        import traceback
+                        traceback.print_exc()
+                        estado_atual = "menu"
+                else:
+                    estado_atual = "menu"
+
+            elif estado_atual == 'multiplayer_join':
+                config = tela_conectar_servidor_simples(tela, relogio, gradiente_menu)
+
+                if config:
+                    try:
+                        cliente = GameClient()
+                        if cliente.connect(config['host'], config['port'], config['player_name']):
+
+                            # Loop lobby -> minigame -> lobby: mantém a conexão viva.
+                            # Só desconecta ao sair do lobby (ESC) ou se cair a conexão.
+                            from src.ui.lobby import tela_lobby_cliente
+                            sair_da_sala = False
+                            while not sair_da_sala:
+                                resultado_lobby, customizacao = tela_lobby_cliente(
+                                    tela, relogio, gradiente_menu, cliente, config)
 
                                 if resultado_lobby == "start":
-                                    # Aplicar customização ao jogador
-                                    config['cor_personagem'] = customizacao['cor']
-
                                     modo = customizacao.get('modo', 'Bomb')
                                     if modo == 'Aim':
                                         resultado = executar_minigame_aim(
@@ -271,80 +344,18 @@ def main_game(game_surface=None):
                                             tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
                                             cliente, config['player_name'], customizacao
                                         )
+                                    # Minigame terminou: volta ao lobby (não desconecta)
 
-                                    # Limpar
-                                    cliente.disconnect()
-                                    servidor.stop()
-                                    estado_atual = "menu"
+                                    # Se a conexão caiu durante o minigame, volta ao menu
+                                    if not cliente.is_connected():
+                                        sair_da_sala = True
                                 else:
-                                    # Cancelou o lobby
-                                    cliente.disconnect()
-                                    servidor.stop()
-                                    estado_atual = "menu"
-                            else:
-                                servidor.stop()
-                                estado_atual = "menu"
-                        else:
+                                    # Saiu do lobby (ESC): desconecta
+                                    sair_da_sala = True
+
+                            # Limpar somente ao sair do lobby
+                            cliente.disconnect()
                             estado_atual = "menu"
-                    except Exception as e:
-                        import traceback
-                        traceback.print_exc()
-                        estado_atual = "menu"
-                else:
-                    estado_atual = "menu"
-
-            elif estado_atual == 'multiplayer_join':
-                config = tela_conectar_servidor_simples(tela, relogio, gradiente_menu)
-
-                if config:
-                    try:
-                        cliente = GameClient()
-                        if cliente.connect(config['host'], config['port'], config['player_name']):
-
-                            # Ir para o lobby de espera
-                            from src.ui.lobby import tela_lobby_cliente
-                            resultado_lobby, customizacao = tela_lobby_cliente(tela, relogio, gradiente_menu, cliente, config)
-
-                            if resultado_lobby == "start":
-                                modo = customizacao.get('modo', 'Bomb')
-                                if modo == 'Aim':
-                                    resultado = executar_minigame_aim(
-                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
-                                        cliente, config['player_name'], customizacao
-                                    )
-                                elif modo == 'Duel':
-                                    resultado = executar_minigame_duals(
-                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
-                                        cliente, config['player_name'], customizacao
-                                    )
-                                elif modo == 'Sabers':
-                                    resultado = executar_minigame_sabers(
-                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
-                                        cliente, config['player_name'], customizacao
-                                    )
-                                elif modo == 'Deadeye':
-                                    resultado = executar_minigame_deadeye(
-                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
-                                        cliente, config['player_name'], customizacao
-                                    )
-                                elif modo == 'BoxFight':
-                                    resultado = executar_minigame_boxfight(
-                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
-                                        cliente, config['player_name'], customizacao
-                                    )
-                                else:
-                                    resultado = jogar_fase_multiplayer(
-                                        tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
-                                        cliente, config['player_name'], customizacao
-                                    )
-
-                                # Limpar
-                                cliente.disconnect()
-                                estado_atual = "menu"
-                            else:
-                                # Cancelou o lobby
-                                cliente.disconnect()
-                                estado_atual = "menu"
                         else:
                             estado_atual = "menu"
                     except Exception as e:
