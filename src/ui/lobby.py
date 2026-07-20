@@ -157,6 +157,13 @@ MINIGAMES = [
         'disponivel': True,
         'desc': 'Constroi & Atira',
     },
+    {
+        'nome': 'Classes',
+        'cor_base': (150, 60, 190),
+        'cor_glow': (210, 130, 255),
+        'disponivel': True,
+        'desc': 'Classes 1v1',
+    },
 ]
 
 # Cosméticos divididos em duas categorias combináveis: CABEÇA e CORPO.
@@ -588,36 +595,64 @@ def _desenhar_barra_timer(tela, jx, jy, progresso, fonte):
 #  TELA DE SELEÇÃO DE MINIGAME (overlay do portal PLAY)
 # ============================================================
 
+MINIGAME_COLS = 3            # colunas na grade de seleção de minigame
+SEL_CARD_W = 200
+SEL_CARD_H = 132
+SEL_GAP_Y = 20
+SEL_LINHAS_VISIVEIS = 3      # linhas visíveis (o resto acessa por scroll)
+SEL_TOPO = 82               # espaço do topo do painel até a grade (título)
+SEL_RODAPE = 44            # espaço reservado no rodapé (dica)
+
+
+def _sel_altura_visivel():
+    """Altura da área visível (viewport) da grade de cards."""
+    return SEL_LINHAS_VISIVEIS * SEL_CARD_H + (SEL_LINHAS_VISIVEIS - 1) * SEL_GAP_Y
+
+
 def _calcular_painel_selecao():
     """Retorna o Rect do painel central da tela de seleção."""
-    pw, ph = 720, 470
+    pw = 720
+    ph = SEL_TOPO + _sel_altura_visivel() + SEL_RODAPE
     px = LARGURA // 2 - pw // 2
     py = ALTURA_JOGO // 2 - ph // 2
     return pygame.Rect(px, py, pw, ph)
 
 
+def _sel_viewport(painel):
+    """Retorna o Rect da área visível (viewport) onde a grade rola."""
+    return pygame.Rect(painel.x, painel.y + SEL_TOPO, painel.width, _sel_altura_visivel())
+
+
 def _calcular_cards_selecao(painel):
-    """Retorna a lista de Rects dos cards de minigame dentro do painel (grid 3x2)."""
+    """
+    Retorna os Rects BASE dos cards (posição com scroll=0). Ao desenhar/clicar,
+    aplica-se o deslocamento de scroll. Grade de MINIGAME_COLS colunas.
+    """
     cards = []
-    card_w, card_h = 200, 150
-    cols, rows = 3, 2
+    card_w, card_h = SEL_CARD_W, SEL_CARD_H
+    cols = MINIGAME_COLS
     gap_x = (painel.width - card_w * cols) // (cols + 1)
-    gap_y = 28
-    y0 = painel.y + 92
-    for r in range(rows):
-        for c in range(cols):
-            idx = r * cols + c
-            if idx >= len(MINIGAMES):
-                break
-            x = painel.x + gap_x + c * (card_w + gap_x)
-            y = y0 + r * (card_h + gap_y)
-            cards.append(pygame.Rect(x, y, card_w, card_h))
+    y0 = painel.y + SEL_TOPO
+    for i in range(len(MINIGAMES)):
+        c = i % cols
+        r = i // cols
+        x = painel.x + gap_x + c * (card_w + gap_x)
+        y = y0 + r * (card_h + SEL_GAP_Y)
+        cards.append(pygame.Rect(x, y, card_w, card_h))
     return cards
 
 
+def _sel_scroll_maximo(cards, viewport):
+    """Deslocamento máximo de scroll (0 se tudo cabe na viewport)."""
+    if not cards:
+        return 0
+    conteudo_h = cards[-1].bottom - cards[0].top
+    return max(0, conteudo_h - viewport.height)
+
+
 def _desenhar_selecao_minigames(tela, painel, cards, sel_idx, mouse_pos, tempo,
-                                fonte_titulo, fonte_card, fonte_desc, fonte_dica):
-    """Desenha a tela de seleção de minigame por cima do lobby."""
+                                fonte_titulo, fonte_card, fonte_desc, fonte_dica, scroll=0):
+    """Desenha a tela de seleção de minigame por cima do lobby (com scroll)."""
     # Escurecer o fundo
     overlay = pygame.Surface((LARGURA, ALTURA_JOGO), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 190))
@@ -634,11 +669,23 @@ def _desenhar_selecao_minigames(tela, painel, cards, sel_idx, mouse_pos, tempo,
     tit = fonte_titulo.render("ESCOLHA O MINIGAME", True, (200, 200, 255))
     tela.blit(tit, (painel.centerx - tit.get_width() // 2, painel.y + 28))
 
-    # Cards
-    for i, rect in enumerate(cards):
+    viewport = _sel_viewport(painel)
+    max_scroll = _sel_scroll_maximo(cards, viewport)
+
+    # Recorta o desenho dos cards à área visível (viewport)
+    clip_antigo = tela.get_clip()
+    tela.set_clip(viewport)
+
+    # Cards (deslocados pelo scroll)
+    for i, base in enumerate(cards):
+        rect = base.move(0, -scroll)
+        # Pular os que estão totalmente fora da viewport
+        if rect.bottom < viewport.top or rect.top > viewport.bottom:
+            continue
+
         mg = MINIGAMES[i]
         disponivel = mg['disponivel']
-        hover = rect.collidepoint(mouse_pos)
+        hover = rect.collidepoint(mouse_pos) and viewport.collidepoint(mouse_pos)
         selecionado = (i == sel_idx)
         realce = selecionado or hover
 
@@ -669,7 +716,7 @@ def _desenhar_selecao_minigames(tela, painel, cards, sel_idx, mouse_pos, tempo,
 
         # Ícone (quadrado temático)
         icon = pygame.Rect(0, 0, 44, 44)
-        icon.center = (rect.centerx, rect.y + 52)
+        icon.center = (rect.centerx, rect.y + 46)
         cor_icon = mg['cor_glow'] if disponivel else (90, 85, 110)
         pygame.draw.rect(tela, tuple(max(0, c - 60) for c in cor_icon),
                          (icon.x + 3, icon.y + 3, icon.width, icon.height), 0, 6)
@@ -680,17 +727,28 @@ def _desenhar_selecao_minigames(tela, painel, cards, sel_idx, mouse_pos, tempo,
         # Nome
         cor_nome = BRANCO if disponivel else (130, 125, 150)
         nome_s = fonte_card.render(mg['nome'], True, cor_nome)
-        tela.blit(nome_s, (rect.centerx - nome_s.get_width() // 2, rect.y + 84))
+        tela.blit(nome_s, (rect.centerx - nome_s.get_width() // 2, rect.y + 78))
 
         # Descrição
         cor_desc = (200, 220, 200) if disponivel else (110, 105, 130)
         desc_s = fonte_desc.render(mg['desc'], True, cor_desc)
-        tela.blit(desc_s, (rect.centerx - desc_s.get_width() // 2, rect.y + 112))
+        tela.blit(desc_s, (rect.centerx - desc_s.get_width() // 2, rect.y + 104))
+
+    tela.set_clip(clip_antigo)
+
+    # Barra de scroll (quando há conteúdo além da viewport)
+    if max_scroll > 0:
+        trilho = pygame.Rect(painel.right - 14, viewport.top, 6, viewport.height)
+        pygame.draw.rect(tela, (45, 42, 60), trilho, 0, 3)
+        frac_visivel = viewport.height / (viewport.height + max_scroll)
+        alca_h = max(24, int(viewport.height * frac_visivel))
+        alca_y = viewport.top + int((viewport.height - alca_h) * (scroll / max_scroll))
+        pygame.draw.rect(tela, (140, 130, 200), (trilho.x, alca_y, trilho.width, alca_h), 0, 3)
 
     # Dica de rodapé
-    dica = "Setas/Mouse: Escolher  |  ENTER ou Clique: Iniciar  |  ESC: Voltar"
+    dica = "Setas/Roda: Rolar  |  ENTER ou Clique: Iniciar  |  ESC: Voltar"
     dica_s = fonte_dica.render(dica, True, (150, 150, 180))
-    tela.blit(dica_s, (painel.centerx - dica_s.get_width() // 2, painel.bottom - 34))
+    tela.blit(dica_s, (painel.centerx - dica_s.get_width() // 2, painel.bottom - 30))
 
 
 # ============================================================
@@ -1032,8 +1090,25 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
     # Tela de seleção de minigame (aberta pelo portal PLAY)
     mostrando_selecao = False
     sel_idx = 0
+    sel_scroll = 0
     painel_sel = _calcular_painel_selecao()
     cards_sel = _calcular_cards_selecao(painel_sel)
+    sel_viewport_rect = _sel_viewport(painel_sel)
+    sel_scroll_max = _sel_scroll_maximo(cards_sel, sel_viewport_rect)
+
+    def _sel_garantir_visivel():
+        """Ajusta o scroll para o card selecionado ficar visível na viewport."""
+        nonlocal sel_scroll
+        if not cards_sel:
+            return
+        base = cards_sel[sel_idx]
+        topo = base.top - painel_sel.y - SEL_TOPO
+        fundo = topo + base.height
+        if topo < sel_scroll:
+            sel_scroll = topo
+        elif fundo > sel_scroll + sel_viewport_rect.height:
+            sel_scroll = fundo - sel_viewport_rect.height
+        sel_scroll = max(0, min(sel_scroll, sel_scroll_max))
 
     # Tela de personalização de cor (aberta pelo portal COR)
     mostrando_cor = False
@@ -1167,29 +1242,36 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
                 return ("cancel", None)
 
             if mostrando_selecao:
-                # --- Eventos da tela de seleção de minigame ---
+                # --- Eventos da tela de seleção de minigame (com scroll) ---
                 if ev.type == pygame.KEYDOWN:
                     if ev.key == pygame.K_ESCAPE:
                         mostrando_selecao = False
                     elif ev.key in (pygame.K_RIGHT, pygame.K_d):
                         sel_idx = (sel_idx + 1) % len(cards_sel)
+                        _sel_garantir_visivel()
                     elif ev.key in (pygame.K_LEFT, pygame.K_a):
                         sel_idx = (sel_idx - 1) % len(cards_sel)
+                        _sel_garantir_visivel()
                     elif ev.key in (pygame.K_DOWN, pygame.K_s):
-                        sel_idx = (sel_idx + 3) % len(cards_sel)
+                        sel_idx = (sel_idx + MINIGAME_COLS) % len(cards_sel)
+                        _sel_garantir_visivel()
                     elif ev.key in (pygame.K_UP, pygame.K_w):
-                        sel_idx = (sel_idx - 3) % len(cards_sel)
+                        sel_idx = (sel_idx - MINIGAME_COLS) % len(cards_sel)
+                        _sel_garantir_visivel()
                     elif ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
                         if MINIGAMES[sel_idx]['disponivel']:
                             return _iniciar_minigame(MINIGAMES[sel_idx])
+                elif ev.type == pygame.MOUSEWHEEL:
+                    sel_scroll = max(0, min(sel_scroll - ev.y * 45, sel_scroll_max))
                 elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                     click_pos = convert_mouse_position(ev.pos)
-                    for ci, crect in enumerate(cards_sel):
-                        if crect.collidepoint(click_pos):
-                            sel_idx = ci
-                            if MINIGAMES[ci]['disponivel']:
-                                return _iniciar_minigame(MINIGAMES[ci])
-                            break
+                    if sel_viewport_rect.collidepoint(click_pos):
+                        for ci, base in enumerate(cards_sel):
+                            if base.move(0, -sel_scroll).collidepoint(click_pos):
+                                sel_idx = ci
+                                if MINIGAMES[ci]['disponivel']:
+                                    return _iniciar_minigame(MINIGAMES[ci])
+                                break
                 continue
 
             if mostrando_cor:
@@ -1364,6 +1446,7 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
                             # Abre a tela de seleção de minigame (só o host)
                             mostrando_selecao = True
                             sel_idx = 0
+                            sel_scroll = 0
                             zona_atual = -1
                             zona_timer_start = 0
                         else:
@@ -1481,7 +1564,7 @@ def _lobby_loop(tela, relogio, gradiente, cliente, config, is_host, servidor=Non
         if mostrando_selecao:
             _desenhar_selecao_minigames(
                 tela, painel_sel, cards_sel, sel_idx, mouse_pos, tempo,
-                fonte_sel_titulo, fonte_sel_card, fonte_sel_desc, fonte_sel_dica)
+                fonte_sel_titulo, fonte_sel_card, fonte_sel_desc, fonte_sel_dica, sel_scroll)
         elif mostrando_cor:
             _desenhar_selecao_cor(
                 tela, painel_cor, swatches_cor, cor_sel_idx, cores_em_uso,
