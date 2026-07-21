@@ -100,7 +100,8 @@ BOT_DIST_RECUAR = 120
 BOT_DIST_AVANCAR = 420
 
 # Balas
-BALA_VIDA_MAX = 200  # frames antes de sumir
+BALA_VIDA_MAX = 200   # frames antes de sumir (segurança)
+BALA_ALCANCE = 620    # distância máxima percorrida antes de sumir
 
 # Minimap
 MINIMAP_W = 170
@@ -116,7 +117,7 @@ MINIMAP_Y = 12
 CLASSES = [
     {'id': 'player',    'nome': 'Dash',         'cor': AZUL,           'hp': 4, 'vel': 3.9, 'cd': 340, 'dano': 1, 'vbala': 13, 'raio': 4, 'spread': 1, 'special': 'dash',     'explode': 0, 'cor_bala': None},
     {'id': 'ciano',     'nome': 'Veloz',        'cor': CIANO,          'hp': 3, 'vel': 6.8, 'cd': 300, 'dano': 1, 'vbala': 16, 'raio': 3, 'spread': 1, 'special': 'velocidade', 'explode': 0, 'cor_bala': None},
-    {'id': 'metralha',  'nome': 'Metralhadora', 'cor': (190, 190, 195),'hp': 4, 'vel': 3.4, 'cd': 100, 'dano': 1, 'vbala': 15, 'raio': 3, 'spread': 1, 'special': None,       'explode': 0, 'cor_bala': None},
+    {'id': 'metralha',  'nome': 'Metralhadora', 'cor': (190, 190, 195),'hp': 4, 'vel': 3.4, 'cd': 200, 'dano': 1, 'vbala': 15, 'raio': 3, 'spread': 1, 'special': None,       'explode': 0, 'cor_bala': None},
     {'id': 'mago',      'nome': 'Mago',         'cor': (150, 80, 220), 'hp': 4, 'vel': 3.3, 'cd': 560, 'dano': 1, 'vbala': 10, 'raio': 8, 'spread': 3, 'special': 'shield',   'explode': 0, 'cor_bala': (255, 100, 0)},
     {'id': 'explosive', 'nome': 'Explosivo',    'cor': (255, 140, 40), 'hp': 4, 'vel': 3.4, 'cd': 430, 'dano': 1, 'vbala': 12, 'raio': 5, 'spread': 1, 'special': 'explosao', 'explode': 0, 'cor_bala': None},
     {'id': 'roxo',      'nome': 'Roxo',         'cor': ROXO,           'hp': 7, 'vel': 3.5, 'cd': 460, 'dano': 2, 'vbala': 12, 'raio': 5, 'spread': 1, 'special': None,       'explode': 0, 'cor_bala': None},
@@ -646,6 +647,8 @@ def _disparar_classe(jogador, alvo_x, alvo_y, tiros, particulas, flashes, granad
         tiro.dono = jogador
         tiro.explode = jogador.explode
         tiro.frames = 0
+        tiro.ox = ponta_x
+        tiro.oy = ponta_y
         tiros.append(tiro)
 
     for _ in range(4):
@@ -741,6 +744,8 @@ def _explosao_burst(j, tiros, particulas, flashes, tempo, criar_balas=True):
             tiro.dono = j
             tiro.explode = 0
             tiro.frames = 0
+            tiro.ox = cx + ndx * 22
+            tiro.oy = cy + ndy * 22
             tiros.append(tiro)
 
     try:
@@ -917,7 +922,7 @@ def _bot_ai(bot, jogadores, tiros, particulas, flashes, tempo, granadas=None):
             bot.bot_next_special = tempo + 300
 
     # --- Atirar (não desperdiça tiro muito longe; granada tem alcance próprio) ---
-    alcance = 520 if bot.classe_id == 'granada' else 430
+    alcance = 660 if bot.classe_id == 'granada' else 560
     if tempo >= bot.bot_next_shot and dist < alcance:
         _disparar_classe(bot, bot.mira_x, bot.mira_y, tiros, particulas, flashes, granadas)
         bot.bot_next_shot = tempo + bot.cd + random.randint(0, 100)
@@ -1032,6 +1037,50 @@ _DESC_HAB = {
     'fantasma': 'Invisivel', 'granada': 'Granadas',
 }
 
+# Cache de inimigos usados só para desenhar os ícones das classes (previews)
+_PREVIEW_ENEMIES = {}
+
+
+def _desenhar_icone_classe(tela, ox, oy, tam, classe_idx, tempo):
+    """Desenha o ícone de uma classe: visual do inimigo (metralha/mago/granada/
+    fantasma) ou o quadrado + marcador para as demais."""
+    classe = CLASSES[classe_idx]
+    cid = classe['id']
+    info = _ENEMY_VISUAL.get(cid)
+    if info:
+        e = _PREVIEW_ENEMIES.get(cid)
+        if e is None:
+            e = info[0](0, 0)
+            _PREVIEW_ENEMIES[cid] = e
+        e.x = ox
+        e.y = oy
+        e.tamanho = tam
+        for a, v in (('esta_recarregando', False), ('escudo_ativo', False),
+                     ('esta_invocando', False), ('esta_visivel', True),
+                     ('cajado_visivel', True)):
+            if hasattr(e, a):
+                setattr(e, a, v)
+        if hasattr(e, 'alpha_atual'):
+            e.alpha_atual = 255
+        if hasattr(e, 'tempo_criacao'):
+            e.tempo_criacao = tempo - 5000
+        if hasattr(e, 'tempo_ultimo_lancamento'):
+            e.tempo_ultimo_lancamento = tempo - 100000
+        try:
+            e.desenhar(tela, tempo)
+            equip = info[1]
+            if equip:
+                alvo = _AlvoMira(ox + tam + 26, oy + tam // 2)
+                getattr(e, equip)(tela, tempo, alvo)
+        except Exception:
+            pass
+    else:
+        cor = classe['cor']
+        pygame.draw.rect(tela, tuple(max(0, c - 60) for c in cor), (ox, oy, tam, tam), 0, 4)
+        pygame.draw.rect(tela, cor, (ox + 2, oy + 2, tam - 4, tam - 4), 0, 3)
+        pygame.draw.rect(tela, tuple(min(255, c + 80) for c in cor), (ox + 4, oy + 4, 7, 7), 0, 2)
+        _marcador_classe(tela, ox, oy, tam, cid, cor, tempo)
+
 
 def _cards_classe_rects():
     """Retorna os Rects dos cards de classe (grade 4x2) da tela de seleção."""
@@ -1081,14 +1130,11 @@ def _desenhar_class_select(tela, cards, sel_idx, mouse_pos, fonte_grande,
         borda = cor if realce else (70, 90, 95)
         pygame.draw.rect(tela, borda, rect, 3 if realce else 2, 12)
 
-        # Preview do quadradinho com a classe
+        # Preview do ícone da classe (visual do inimigo quando aplicável)
         tam = TAM_JOGADOR
         px = rect.centerx - tam // 2
         py = rect.y + 20
-        pygame.draw.rect(tela, tuple(max(0, c - 60) for c in cor), (px, py, tam, tam), 0, 5)
-        pygame.draw.rect(tela, cor, (px + 2, py + 2, tam - 4, tam - 4), 0, 3)
-        pygame.draw.rect(tela, tuple(min(255, c + 80) for c in cor), (px + 4, py + 4, 7, 7), 0, 2)
-        _marcador_classe(tela, px, py, tam, classe['id'], cor, tempo)
+        _desenhar_icone_classe(tela, px, py, tam, i, tempo)
 
         nome_s = fonte_media.render(classe['nome'], True, BRANCO if realce else (210, 220, 220))
         tela.blit(nome_s, (rect.centerx - nome_s.get_width() // 2, rect.y + 66))
@@ -1115,18 +1161,17 @@ def _desenhar_roleta(tela, jogadores, fonte_media, fonte_peq, tempo_no_estado):
         rx = x0 + i * (card_w + gap)
         travar_em = 900 + i * 320
         travado = tempo_no_estado >= travar_em
-        classe = CLASSES[j.classe_idx] if travado else CLASSES[(tempo_no_estado // 70 + i) % len(CLASSES)]
+        cidx = j.classe_idx if travado else (tempo_no_estado // 70 + i) % len(CLASSES)
+        classe = CLASSES[cidx]
         rect = pygame.Rect(rx, y, card_w, 90)
         pygame.draw.rect(tela, (18, 30, 34), rect, 0, 10)
         borda = classe['cor'] if travado else (70, 90, 95)
         pygame.draw.rect(tela, borda, rect, 3 if travado else 1, 10)
-        tam = 26
+        tam = 28
         px = rect.centerx - tam // 2
         py = rect.y + 12
         cor = classe['cor']
-        pygame.draw.rect(tela, tuple(max(0, c - 60) for c in cor), (px, py, tam, tam), 0, 4)
-        pygame.draw.rect(tela, cor, (px + 2, py + 2, tam - 4, tam - 4), 0, 3)
-        _marcador_classe(tela, px, py, tam, classe['id'], cor, pygame.time.get_ticks())
+        _desenhar_icone_classe(tela, px, py, tam, cidx, pygame.time.get_ticks())
         nome_j = fonte_peq.render(j.nome[:12], True, (200, 210, 210))
         tela.blit(nome_j, (rect.centerx - nome_j.get_width() // 2, rect.y + 44))
         nome_c = fonte_peq.render(classe['nome'], True, cor if travado else (150, 160, 160))
@@ -1521,7 +1566,10 @@ def executar_minigame_classes(tela, relogio, gradiente_jogo, fonte_titulo, fonte
             for tiro in tiros[:]:
                 tiro.atualizar()
                 tiro.frames = getattr(tiro, 'frames', 0) + 1
-                if not ARENA_RECT.collidepoint(tiro.x, tiro.y) or tiro.frames > BALA_VIDA_MAX:
+                percorrido = math.hypot(tiro.x - getattr(tiro, 'ox', tiro.x),
+                                        tiro.y - getattr(tiro, 'oy', tiro.y))
+                if (not ARENA_RECT.collidepoint(tiro.x, tiro.y)
+                        or tiro.frames > BALA_VIDA_MAX or percorrido > BALA_ALCANCE):
                     if getattr(tiro, 'explode', 0):
                         _explodir(tiro.x, tiro.y, tiro.explode, tiro.dano, tiro.dono,
                                   jogadores, particulas, flashes, tempo)
