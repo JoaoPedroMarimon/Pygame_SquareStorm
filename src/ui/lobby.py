@@ -164,6 +164,13 @@ MINIGAMES = [
         'disponivel': True,
         'desc': 'Classes 1v1',
     },
+    {
+        'nome': 'Duelo3D',
+        'cor_base': (40, 120, 160),
+        'cor_glow': (90, 210, 255),
+        'disponivel': True,
+        'desc': '1v1 que vira 3D',
+    },
 ]
 
 # Cosméticos divididos em duas categorias combináveis: CABEÇA e CORPO.
