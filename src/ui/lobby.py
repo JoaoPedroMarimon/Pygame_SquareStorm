@@ -165,11 +165,11 @@ MINIGAMES = [
         'desc': 'Classes 1v1',
     },
     {
-        'nome': 'Duelo3D',
+        'nome': 'Arena3D',
         'cor_base': (40, 120, 160),
         'cor_glow': (90, 210, 255),
         'disponivel': True,
-        'desc': '1v1 que vira 3D',
+        'desc': 'FPS 3D - todos vs todos',
     },
 ]
 

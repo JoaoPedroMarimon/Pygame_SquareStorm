@@ -277,7 +277,7 @@ def main_game(game_surface=None):
                                                 tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
                                                 cliente, config['player_name'], customizacao
                                             )
-                                        elif modo == 'Duelo3D':
+                                        elif modo in ('Arena3D', 'Duelo3D'):
                                             resultado = executar_minigame_duel3d(
                                                 tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
                                                 cliente, config['player_name'], customizacao
@@ -356,7 +356,7 @@ def main_game(game_surface=None):
                                             tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
                                             cliente, config['player_name'], customizacao
                                         )
-                                    elif modo == 'Duelo3D':
+                                    elif modo in ('Arena3D', 'Duelo3D'):
                                         resultado = executar_minigame_duel3d(
                                             tela, relogio, gradiente_jogo, fonte_titulo, fonte_normal,
                                             cliente, config['player_name'], customizacao
